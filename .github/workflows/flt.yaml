@@ -1,4 +1,4 @@
-name: Fuse Leveraged Token Formatter
+name: Fuse Leveraged Token
 on:
   pull_request:
     branches:
