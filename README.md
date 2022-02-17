@@ -29,3 +29,7 @@ If you are using Visual Studio Code, install the following extensions:
    for code formatter.
 2. [Solidity](https://marketplace.visualstudio.com/items?itemName=JuanBlanco.solidity)
    for code highlight and more.
+
+Then install the following packages:
+
+    npm install -g solhint prettier prettier-plugin-solidity
