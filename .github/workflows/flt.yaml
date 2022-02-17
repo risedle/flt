@@ -18,8 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: risedle/setup-dapptools@v3
+      - uses: risedle/setup-dapptools@v4
         with:
           solc: "solc_0_8_11"
       - run: dapp update
       - run: dapp build
+        env:
+          DAPP_SOLC_VERSION: 0.8.11
