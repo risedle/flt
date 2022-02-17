@@ -1,0 +1,9 @@
+sequenceDiagram
+    User->>FLT: Redeem leveraged tokens
+    FLT->>+Oracle: Get collateral price
+    Oracle-->>+FLT: Collateral price
+    FLT->>+DEX: Swap collateral to stable
+    DEX-->>+FLT: Stables
+    FLT->>Rari Fuse: Repay the debt using stables
+    Rari Fuse-->>FLT: Collateral
+    FLT-->>+User: Receive net collateral

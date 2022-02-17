@@ -1,0 +1,10 @@
+sequenceDiagram
+    User->>FLT: Mint with collateral
+    FLT->>+Oracle: Get collateral price
+    Oracle-->>+FLT: Collateral price
+    FLT->>+DEX: Flash swap collateral
+    DEX-->>+FLT: Collateral
+    FLT->>Rari Fuse: Deposit all collateral
+    Rari Fuse-->>FLT: Borrow stables
+    FLT->>+DEX: Repay the flashswap. double checked using oracle
+    FLT-->>+User: Receive leveraged tokens
