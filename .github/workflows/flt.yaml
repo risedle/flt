@@ -1,0 +1,15 @@
+name: Fuse Leveraged Token
+on:
+  pull_request:
+    branches:
+      - main
+jobs:
+  format-checker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: "17.3.0"
+      - run: npm i -g prettier
+      - run: prettier --check .
