@@ -29,3 +29,4 @@ jobs:
         env:
           DAPP_SOLC_VERSION: 0.8.11
           ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+          DAPP_REMAPPINGS: ""
