@@ -40,4 +40,8 @@ contract FuseLeveragedToken is ERC20 {
 
         return 0;
     }
+
+    function mint(uint256 _sharesAmount, address _recipient) external view returns (uint256 _collateral) {
+        return 0;
+    }
 }
