@@ -2,10 +2,8 @@
 pragma solidity 0.8.11;
 pragma experimental ABIEncoderV2;
 
-address constant USDC_ADDRESS = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
-uint256 constant USDC_SLOT = 51;
-address constant GOHM_ADDRESS = 0x8D9bA570D6cb60C7e3e0F31343Efe75AB8E65FB1;
-uint256 constant GOHM_SLOT = 101;
+import {USDC_ADDRESS, USDC_SLOT} from "./Addresses.sol";
+import {GOHM_ADDRESS, GOHM_SLOT} from "./Addresses.sol";
 
 /// @notice Set Hevm interface, so we can use the cheat codes it in the test
 /// @dev https://github.com/dapphub/dapptools/tree/master/src/hevm#cheat-codes
