@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "lib/ds-test/src/test.sol";
 
-import { FuseLeveragedToken } from "./FuseLeveragedToken.sol";
+import { FuseLeveragedToken } from "../FuseLeveragedToken.sol";
 import { GOHM_ADDRESS } from "./HEVM.sol";
 
 /// @title Fuse Leveraged Token Test
