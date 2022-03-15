@@ -24,7 +24,11 @@ contract FuseLeveragedToken is ERC20 {
     /// @param _name The name of the Fuse Leveraged Token.
     /// @param _symbol The symbol of the Fuse Leveraged Token.
     /// @param _collateral The ERC20 compliant token the FLT accepts as collateral
-    constructor(string memory _name, string memory _symbol, address _collateral) ERC20(_name, _symbol) {
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        address _collateral
+    ) ERC20(_name, _symbol) {
         collateral = _collateral;
     }
 

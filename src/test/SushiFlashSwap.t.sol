@@ -18,6 +18,8 @@ contract SushiFlashSwap is DSTest {
     IUniswapV2Router02 private router;
     IUniswapV2Factory private factory;
     address private WETH;
+    address private gohmPairAddress;
+    address private usdcPairAddress;
 
     constructor() {
         // Sushiswap router
@@ -26,31 +28,33 @@ contract SushiFlashSwap is DSTest {
         factory = IUniswapV2Factory(router.factory());
         // WETH
         WETH = router.WETH();
+
+        // Get gOHM/WETH and USDC/WETH pair addresses
+        gohmPairAddress = factory.getPair(GOHM_ADDRESS, WETH);
+        usdcPairAddress = factory.getPair(USDC_ADDRESS, WETH);
     }
 
     function runFlashSwap() public {
-        // Get pair address
-        address pairAddress = factory.getPair(GOHM_ADDRESS, WETH);
-        // Get pair
-        IUniswapV2Pair pair = IUniswapV2Pair(pairAddress);
+        // Decide how much gOHM we want to borrow
+        uint256 gohmAmount = 1 ether; // 1 gOHM
 
-        // Get address for each token
-        address token0 = pair.token0();
-        address token1 = pair.token1();
+        // Calculate how much WETH we need to borrow from USDC/WETH pool
+        // to get x amount of gOHM
+        address[] memory path = new address[](2);
+        path[0] = WETH;
+        path[1] = GOHM_ADDRESS;
+        uint256 wethAmount = router.getAmountsIn(gohmAmount, path)[0];
+        emit log_named_uint("wethAmount", wethAmount);
 
-        // Perform flash swap
-        emit log_named_address("token0", token0);
-        emit log_named_address("token1", token1);
-
-        // Decide the amount
-        uint256 borrowAmount = 1 ether; // 1 gOHM
-        address borrowToken = GOHM_ADDRESS;
-        uint256 amount0Out = borrowToken == token0 ? borrowAmount : 0;
-        uint256 amount1Out = borrowToken == token1 ? borrowAmount : 0;
-        bytes memory data = abi.encode(borrowAmount);
+        // Borrow WETH from USDC/WETH pool
+        address token0 = IUniswapV2Pair(usdcPairAddress).token0();
+        address token1 = IUniswapV2Pair(usdcPairAddress).token1();
+        uint256 amount0Out = WETH == token0 ? wethAmount : 0;
+        uint256 amount1Out = WETH == token1 ? wethAmount : 0;
 
         // Perform the flashswap
-        IUniswapV2Pair(pairAddress).swap(amount0Out, amount1Out, address(this), data);
+        bytes memory data = abi.encode(gohmAmount);
+        IUniswapV2Pair(usdcPairAddress).swap(amount0Out, amount1Out, address(this), data);
     }
 
     error NotAuthorized(address caller);
@@ -60,48 +64,44 @@ contract SushiFlashSwap is DSTest {
         address _sender,
         uint256 _amount0,
         uint256 _amount1,
-        bytes calldata _data
+        bytes memory _data
     ) external {
         /**
          * Checks
          */
-        address token0 = IUniswapV2Pair(msg.sender).token0();
-        address token1 = IUniswapV2Pair(msg.sender).token1();
-        if (msg.sender != factory.getPair(token0, token1)) revert NotAuthorized(msg.sender);
+        if (msg.sender != usdcPairAddress) revert NotAuthorized(msg.sender);
         if (_sender != address(this)) revert NotAuthorized(_sender);
 
         /**
          * Effects
          */
-        uint256 borrowAmount = abi.decode(_data, (uint256));
-        uint256 fee = ((borrowAmount * 3) / 997) + 1;
-        uint256 repayAmount = borrowAmount + fee;
 
         /**
          * Interactions
          */
-        uint256 balance = IERC20(GOHM_ADDRESS).balanceOf(address(this));
-        emit log_named_uint("_amount0", _amount0);
-        emit log_named_uint("_amount1", _amount1);
-        emit log_named_uint("balance", balance);
-        emit log_named_uint("repayAmount", repayAmount);
 
-        // Swap USDC to gOHM
-        uint256 maxInputAmount = 5_000 * 1e6; // 5K USDC
-        IERC20(USDC_ADDRESS).safeApprove(address(router), maxInputAmount);
-        address[] memory path = new address[](3);
+        // Get weth amount and gOHM amount
+        uint256 wethAmount = _amount0 == 0 ? _amount1 : _amount0;
+        uint256 gohmAmount = abi.decode(_data, (uint256));
+
+        // Swap WETH to the gOHM
+        address token0 = IUniswapV2Pair(gohmPairAddress).token0();
+        address token1 = IUniswapV2Pair(gohmPairAddress).token1();
+        uint256 amount0Out = GOHM_ADDRESS == token0 ? gohmAmount : 0;
+        uint256 amount1Out = GOHM_ADDRESS == token1 ? gohmAmount : 0;
+        IERC20(WETH).safeTransfer(gohmPairAddress, wethAmount);
+        IUniswapV2Pair(gohmPairAddress).swap(amount0Out, amount1Out, address(this), bytes(""));
+
+        // Calculate how much USDC we need to repay to USDC/WETH pool given
+        // y amount of WETH
+        address[] memory path = new address[](2);
         path[0] = USDC_ADDRESS;
         path[1] = WETH;
-        path[2] = GOHM_ADDRESS;
-        router.swapTokensForExactTokens(repayAmount, maxInputAmount, path, address(this), block.timestamp);
+        uint256 usdcAmount = router.getAmountsIn(wethAmount, path)[0];
+        emit log_named_uint("usdcAmount", usdcAmount);
 
-        // uint256 gOHMBalance2 = IERC20(GOHM_ADDRESS).balanceOf(address(this));
-        // emit log_named_uint("gOHM balance2", gOHMBalance2);
-        // uint256 usdcBalance2 = IERC20(USDC_ADDRESS).balanceOf(address(this));
-        // emit log_named_uint("USDC balance2", usdcBalance2);
-
-        // Repay to pair address
-        // IERC20(GOHM_ADDRESS).safeTransfer(factory.getPair(token0, token1), repayAmount);
+        // Repay the USDC
+        IERC20(USDC_ADDRESS).safeTransfer(usdcPairAddress, usdcAmount);
     }
 }
 
@@ -117,6 +117,12 @@ contract SushiFlashSwapTest is DSTest {
         // Set USDC balance for the flashswap
         hevm.setUSDCBalance(address(flash), 10_000 * 1e6); // 10K USDC
         flash.runFlashSwap();
-        assert(false);
+        uint256 gohmBalance = IERC20(GOHM_ADDRESS).balanceOf(address(flash));
+        uint256 usdcBalance = IERC20(USDC_ADDRESS).balanceOf(address(flash));
+
+        emit log_named_uint("gohmBalance", gohmBalance);
+        emit log_named_uint("usdcBalance", usdcBalance);
+
+        // assertEq(gohmBalance, usdcBalance);
     }
 }
