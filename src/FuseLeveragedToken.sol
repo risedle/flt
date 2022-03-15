@@ -13,6 +13,11 @@ contract FuseLeveragedToken is ERC20 {
     /// @notice The ERC20 compliant token that used by FLT as collateral
     address public collateral;
 
+    /// ███ Errors █████████████████████████████████████████████████████████████
+
+    error DepositMaxedOut();
+    error RecipientZeroAddress();
+
     /// ███ Constructors ███████████████████████████████████████████████████████
 
     /// @notice Creates a new FLT that manages specific collateral and debt
@@ -31,6 +36,11 @@ contract FuseLeveragedToken is ERC20 {
     /// @return _shares The amount of leveraged tokens minted
     function deposit(uint256 _collateralAmount, address _recipient) external view returns (uint256 _shares) {
         // TODO(pyk): Check max mint amount
+
+        return 0;
+    }
+
+    function mint(uint256 _sharesAmount, address _recipient) external view returns (uint256 _collateral) {
         return 0;
     }
 }

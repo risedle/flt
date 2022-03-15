@@ -5,7 +5,8 @@ pragma experimental ABIEncoderV2;
 import "lib/ds-test/src/test.sol";
 import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-import { HEVM, USDC_ADDRESS, GOHM_ADDRESS } from "./HEVM.sol";
+import { HEVM } from "./HEVM.sol";
+import {USDC_ADDRESS, GOHM_ADDRESS} from "./Addresses.sol";
 
 contract HEVMTest is DSTest {
     HEVM internal hevm;
