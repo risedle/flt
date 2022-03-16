@@ -2,8 +2,8 @@
 pragma solidity 0.8.11;
 pragma experimental ABIEncoderV2;
 
-import {USDC_ADDRESS, USDC_SLOT} from "./Addresses.sol";
-import {GOHM_ADDRESS, GOHM_SLOT} from "./Addresses.sol";
+import { USDC_ADDRESS, USDC_SLOT } from "./Addresses.sol";
+import { GOHM_ADDRESS, GOHM_SLOT } from "./Addresses.sol";
 
 /// @notice Set Hevm interface, so we can use the cheat codes it in the test
 /// @dev https://github.com/dapphub/dapptools/tree/master/src/hevm#cheat-codes
@@ -17,6 +17,8 @@ interface IHEVM {
     ) external;
 
     function warp(uint256 x) external;
+
+    function roll(uint256 x) external;
 }
 
 contract HEVM {
@@ -28,6 +30,10 @@ contract HEVM {
 
     function addr(uint256 sk) external returns (address) {
         return hevm.addr(sk);
+    }
+
+    function roll(uint256 _blockNumber) external {
+        return hevm.roll(_blockNumber);
     }
 
     // Set the block.timestamp to x
