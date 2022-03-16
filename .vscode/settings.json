@@ -7,6 +7,6 @@
   "editor.formatOnSave": true,
   "editor.tabSize": 4,
   "[solidity]": {
-    "editor.defaultFormatter": "JuanBlanco.solidity"
+    // "editor.defaultFormatter": "JuanBlanco.solidity"
   }
 }
