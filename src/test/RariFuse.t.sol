@@ -10,24 +10,44 @@ import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.
 import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import { GOHM_ADDRESS } from "./Addresses.sol";
 
-address constant fgOHM = 0xd861026A12623aec769fA57D05201193D8844368;
+// ERC20 addresses on Arbitrum
+address constant gohm = 0x8D9bA570D6cb60C7e3e0F31343Efe75AB8E65FB1;
+address constant usdc = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
+address constant fgohm = 0xd861026A12623aec769fA57D05201193D8844368;
+address constant fusdc = 0x156157693BA371c5B126AAeF784D2853EbC8fEFa;
 
 contract RariFuseUser {
     using SafeERC20 for IERC20;
 
-    error AddSupplyFailed();
+    error SupplyFailed();
+    error BorrowFailed();
 
-    function addSupply(uint256 _amount) public {
+    /**
+     * @notice User supply underlying asset to specified fToken
+     * @param _underlying The ERC20 compliant token
+     * @param _ftoken The fERC20 compliant token
+     * @param _amount The amount of _underlying deposited to _ftoken
+     */
+    function supply(address _underlying, address _ftoken, uint256 _amount) public {
         // Approve
-        IERC20(GOHM_ADDRESS).safeApprove(fgOHM, _amount);
+        IERC20(_underlying).safeApprove(_ftoken, _amount);
 
-        // Mint fgOHM
-        uint256 result = IfERC20(fgOHM).mint(_amount);
-        if (result != 0) revert AddSupplyFailed();
+        // Mint fToken
+        if (IfERC20(_ftoken).mint(_amount) != 0) revert SupplyFailed();
 
         // Reset approval
-        IERC20(GOHM_ADDRESS).safeApprove(fgOHM, 0);
+        IERC20(_underlying).safeApprove(_ftoken, 0);
     }
+
+    /**
+     * @notice User borrow the underlying token of fToken
+     * @param _ftoken The fERC20 compliant token
+     * @param _amount The amount of _underlying borrowed from _ftoken
+     */
+    function borrow(address _ftoken, uint256 _amount) public {
+        if (IfERC20(_ftoken).borrow(_amount) != 0) revert BorrowFailed();
+    }
+
 }
 
 contract RariFuseTest is DSTest {
@@ -37,21 +57,41 @@ contract RariFuseTest is DSTest {
         hevm = new HEVM();
     }
 
-    function testFuseSupply() public {
+    function testFuse() public {
         // Create new Rari Fuse user
         RariFuseUser user = new RariFuseUser();
 
-        // Add gOHM balance
-        hevm.setGOHMBalance(address(user), 1 ether);
+        // Setup token balance
+        uint256 gohmAmount = 1 ether; // 1 gOHM
+        uint256 usdcAmount = 10_000 * 1e6; // 10K USDC
+        hevm.setGOHMBalance(address(user), gohmAmount);
+        hevm.setUSDCBalance(address(user), usdcAmount);
 
-        hevm.roll(block.number * 100); // A hack to make sure current block number > accrual block number
+        // A hack to make sure current block number > accrual block number
+        hevm.roll(block.number * 100);
 
-        // Add supply
-        user.addSupply(1 ether);
+        // Add USDC as supply and GOHM as collateral
+        user.supply(usdc, fusdc, usdcAmount);
+        user.supply(gohm, fgohm, gohmAmount);
 
-        // Make sure user have fgOHM balance
-        uint256 fgOHMBalance = IERC20(fgOHM).balanceOf(address(user));
+        // Make sure all token is transfered
+        uint256 usdcBalance = IERC20(usdc).balanceOf(address(user));
+        assertEq(usdcBalance, 0);
+        uint256 gohmBalance = IERC20(gohm).balanceOf(address(user));
+        assertEq(gohmBalance, 0);
 
-        assertGt(fgOHMBalance, 0);
+        // Make sure we have fToken
+        uint256 fgohmBalance = IERC20(fgohm).balanceOf(address(user));
+        assertGt(fgohmBalance, 0);
+        uint256 fusdcBalance = IERC20(fusdc).balanceOf(address(user));
+        assertGt(fusdcBalance, 0);
+
+        // Borrow USDC from the fUSDC
+        uint256 borrowAmount = 500 * 1e6; // 500 USDC
+        user.borrow(fusdc, borrowAmount);
+
+        // User should have the underlying token
+        usdcBalance = IERC20(usdc).balanceOf(address(user));
+        assertEq(usdcBalance, borrowAmount);
     }
 }
