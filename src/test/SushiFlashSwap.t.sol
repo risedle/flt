@@ -123,6 +123,7 @@ contract SushiFlashSwapTest is DSTest {
         emit log_named_uint("gohmBalance", gohmBalance);
         emit log_named_uint("usdcBalance", usdcBalance);
 
+        // Uncomment this to see the logs
         // assertEq(gohmBalance, usdcBalance);
     }
 }
