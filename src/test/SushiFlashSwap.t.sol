@@ -12,14 +12,37 @@ import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/util
 import { GOHM_ADDRESS, USDC_ADDRESS } from "./Addresses.sol";
 import { HEVM } from "./HEVM.sol";
 
+/**
+ * @title Sushi Flash Swap
+ * @author bayu (github.com/pyk)
+ * @notice This contract is used to test-out the triangular flashswap.
+ *         Triangular flashswap is flash swap to borrow A token and repay it
+ *         with B token using 2 pairs of liquidity: A/ETH and B/ETH.
+ *
+ *         Step by step of to borrow A and repay with B:
+ *         1. Given A/ETH and B/ETH liquidity pairs
+ *         2. Calculate how many `n` ETH needed to get `x` amount of A token.
+ *         3. Borrow `n` ETH from B/ETH liquidity pair.
+ *         4. Swap `n` ETH to `x` A token via A/ETH liquidity pair.
+ *         5. `x` amount of A token is acquired.
+ *         6. Calculate how many `y` B token needed to get `n` ETH.
+ *         7. Send `y` B token to B/ETH liquidity pair repay the flash loan.
+ *         8. DONE
+ */
 contract SushiFlashSwap is DSTest {
+    /// ███ Libraries ██████████████████████████████████████████████████████████
     using SafeERC20 for IERC20;
 
+
+    /// ███ Storages ███████████████████████████████████████████████████████████
     IUniswapV2Router02 private router;
     IUniswapV2Factory private factory;
     address private WETH;
     address private gohmPairAddress;
     address private usdcPairAddress;
+
+    /// ███ Errors █████████████████████████████████████████████████████████████
+    error NotAuthorized(address caller);
 
     constructor() {
         // Sushiswap router
@@ -57,15 +80,8 @@ contract SushiFlashSwap is DSTest {
         IUniswapV2Pair(usdcPairAddress).swap(amount0Out, amount1Out, address(this), data);
     }
 
-    error NotAuthorized(address caller);
-
     // @notice Function is called by the Uniswap V2 pair's `swap` function
-    function uniswapV2Call(
-        address _sender,
-        uint256 _amount0,
-        uint256 _amount1,
-        bytes memory _data
-    ) external {
+    function uniswapV2Call(address _sender, uint256 _amount0, uint256 _amount1, bytes memory _data) external {
         /**
          * Checks
          */
@@ -105,6 +121,11 @@ contract SushiFlashSwap is DSTest {
     }
 }
 
+/**
+ * @title Sushi Flash Swap Test
+ * @author bayu (github.com/pyk)
+ * @notice Smart contract for trying the Sushi flash-swap.
+ */
 contract SushiFlashSwapTest is DSTest {
     HEVM internal hevm;
 

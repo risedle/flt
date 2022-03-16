@@ -16,6 +16,11 @@ address constant usdc = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
 address constant fgohm = 0xd861026A12623aec769fA57D05201193D8844368;
 address constant fusdc = 0x156157693BA371c5B126AAeF784D2853EbC8fEFa;
 
+/**
+ * @title Rari Fuse User
+ * @author bayu (github.com/pyk)
+ * @notice RariFuseUser is a smart contract to simulate user interaction on Rari Fuse
+ */
 contract RariFuseUser {
     using SafeERC20 for IERC20;
 
@@ -50,6 +55,11 @@ contract RariFuseUser {
 
 }
 
+/**
+ * @title Rari Fuse Test
+ * @author bayu (github.com/pyk)
+ * @notice Smart contract for testing
+ */
 contract RariFuseTest is DSTest {
     HEVM internal hevm;
 
