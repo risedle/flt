@@ -1,4 +1,2 @@
-all    :; dapp build
-clean  :; dapp clean
-test   :; dapp test
-deploy :; dapp create Flt
+test      :; dapp test --rpc -v
+test-only :; dapp test --rpc -v -m $(filter)
