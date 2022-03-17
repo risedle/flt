@@ -6,7 +6,7 @@ import "lib/ds-test/src/test.sol";
 
 import { FuseLeveragedToken } from "../FuseLeveragedToken.sol";
 import { HEVM } from "./HEVM.sol";
-import {gohm} from "./Arbitrum.sol";
+import { gohm } from "./Arbitrum.sol";
 
 /**
  * @title Fuse Leveraged Token Access Control Test
