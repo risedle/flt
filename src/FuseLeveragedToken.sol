@@ -32,8 +32,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
     /// ███ Errors █████████████████████████████████████████████████████████████
 
-    error DepositAmountTooLarge(uint256 amount);
-    error MaxDepositAmountCannotBeZero();
+    error DepositAmountTooLarge(uint256 amount, uint256 maxAmount);
 
     error RecipientZeroAddress();
 
@@ -71,7 +70,12 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @return _shares The amount of minted FLT tokens
      */
     function deposit(uint256 _amount, address _recipient) external view returns (uint256 _shares) {
-        // TODO(pyk): Check max mint amount
+        /// ███ Checks
+        if (_amount > maxDeposit) revert DepositAmountTooLarge(_amount, maxDeposit);
+
+        /// ███ Effects
+
+        /// ███ Interactions
 
         return 0;
     }
