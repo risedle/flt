@@ -24,6 +24,11 @@ contract User {
     function deposit(uint256 _amount) external returns (uint256 _shares) {
         _shares = flt.deposit(_amount, address(this));
     }
+
+    /// @notice Simulate user's deposit with custom recipient
+    function deposit(uint256 _amount, address _recipient) external returns (uint256 _shares) {
+        _shares = flt.deposit(_amount, _recipient);
+    }
 }
 
 /**
@@ -66,7 +71,7 @@ contract FuseLeveragedTokenUserTest is DSTest {
         user.deposit(depositAmount); // This should be reverted
     }
 
-    /// @notice Make sure when deposit 0, it will early returns
+    /// @notice Make sure when deposit 0, it will returns early
     function testUserDepositZeroCollateral() public {
         // Create new FLT
         FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm);
@@ -77,4 +82,18 @@ contract FuseLeveragedTokenUserTest is DSTest {
         // User deposit zero collateral, it should return zero
         assertEq(user.deposit(0 ether), 0 ether);
     }
+
+    /// @notice Make sure user cannot use dead address as recipient
+    function testFailUserCannotUseDeadAddressAsRecipient() public {
+        // Create new FLT
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm);
+
+        // Create new User
+        User user = new User(flt);
+
+        // User deposit and set recipient as dead address; this should be reverted
+        user.deposit(1 ether, address(0));
+    }
+
+
 }
