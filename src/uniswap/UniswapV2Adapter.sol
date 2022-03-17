@@ -74,6 +74,7 @@ contract UniswapV2Adapter {
 
         // Step 4:
         // Swap WETH to the borrowToken
+        // Step 3 is in flash() function.
         address token0 = IUniswapV2Pair(borrowPair).token0();
         address token1 = IUniswapV2Pair(borrowPair).token1();
         uint256 amount0Out = borrowToken == token0 ? borrowAmount : 0;
