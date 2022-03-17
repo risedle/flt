@@ -32,4 +32,20 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
         // Non-owner trying to set the maxDeposit value
         flt.setMaxDeposit(1 ether); // This should be failed
     }
+
+    /// @notice Make sure owner can set the maxDeposit value
+    function testOwnerCanSetMaxDeposit() public {
+        // Create new FLT; by default the deployer is the owner
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm);
+
+        // Make sure the default value is set
+        assertEq(flt.maxDeposit(), type(uint256).max);
+
+        // Owner set the maxDeposit
+        uint256 newMaxDeposit = 1 ether;
+        flt.setMaxDeposit(newMaxDeposit);
+
+        // Make sure the value is updated
+        assertEq(flt.maxDeposit(), newMaxDeposit);
+    }
 }
