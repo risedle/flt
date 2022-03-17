@@ -19,8 +19,11 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /**
      * @notice The maximum amount of the collateral token that can be deposited
      *         into the FLT contract through deposit function.
+     *         - There is no limit by default (2**256-1).
+     *         - Owner can set maxDeposit to zero to disable the deposit if
+     *           something bad happen
      */
-    uint256 public maxDeposit;
+    uint256 public maxDeposit = type(uint256).max;
 
     /// ███ Events █████████████████████████████████████████████████████████████
 
@@ -30,7 +33,6 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// ███ Errors █████████████████████████████████████████████████████████████
 
     error DepositAmountTooLarge(uint256 amount);
-    error DepositAmountCannotBeZero();
     error MaxDepositAmountCannotBeZero();
 
     error RecipientZeroAddress();
@@ -44,6 +46,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @param _collateral The ERC20 compliant token the FLT accepts as collateral
      */
     constructor(string memory _name, string memory _symbol, address _collateral) ERC20(_name, _symbol) {
+        // Set the accepted collateral token
         collateral = _collateral;
     }
 
@@ -54,7 +57,6 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @param _newMaxDeposit New maximum deposit
      */
     function setMaxDeposit(uint256 _newMaxDeposit) external onlyOwner {
-        if (_newMaxDeposit == 0) revert MaxDepositAmountCannotBeZero();
         maxDeposit = _newMaxDeposit;
         emit MaxDepositUpdated(_newMaxDeposit);
     }
