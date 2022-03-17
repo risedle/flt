@@ -21,8 +21,8 @@ contract User {
     }
 
     /// @notice Simulate user's deposit
-    function deposit(uint256 _amount) public {
-        flt.deposit(_amount, address(this));
+    function deposit(uint256 _amount) external returns (uint256 _shares) {
+        _shares = flt.deposit(_amount, address(this));
     }
 }
 
@@ -64,5 +64,17 @@ contract FuseLeveragedTokenUserTest is DSTest {
 
         // User trying to deposit more than the max deposit
         user.deposit(depositAmount); // This should be reverted
+    }
+
+    /// @notice Make sure when deposit 0, it will early returns
+    function testUserDepositZeroCollateral() public {
+        // Create new FLT
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm);
+
+        // Create new User
+        User user = new User(flt);
+
+        // User deposit zero collateral, it should return zero
+        assertEq(user.deposit(0 ether), 0 ether);
     }
 }
