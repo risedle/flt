@@ -4,6 +4,8 @@ pragma experimental ABIEncoderV2;
 
 import { ERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import { Ownable } from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title Fuse Leveraged Token (FLT)
@@ -11,6 +13,9 @@ import { Ownable } from "lib/openzeppelin-contracts/contracts/access/Ownable.sol
  * @notice Leveraged Token powered by Rari Fuse
  */
 contract FuseLeveragedToken is ERC20, Ownable {
+    /// ███ Libraries ██████████████████████████████████████████████████████████
+    using SafeERC20 for IERC20;
+
     /// ███ Storages ███████████████████████████████████████████████████████████
 
     /// @notice The ERC20 compliant token that used by FLT as collateral
@@ -69,13 +74,20 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @param _recipient The address that will receive the minted FLT token
      * @return _shares The amount of minted FLT tokens
      */
-    function deposit(uint256 _amount, address _recipient) external view returns (uint256 _shares) {
+    function deposit(uint256 _amount, address _recipient) external returns (uint256 _shares) {
         /// ███ Checks
         if (_amount > maxDeposit) revert DepositAmountTooLarge(_amount, maxDeposit);
+        if (_amount == 0) return 0;
 
         /// ███ Effects
 
         /// ███ Interactions
+
+        // Transfer collateral token to the contract
+        IERC20(collateral).safeTransferFrom(msg.sender, address(this), _amount);
+
+        //
+
 
         return 0;
     }
