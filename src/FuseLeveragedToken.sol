@@ -38,8 +38,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// ███ Errors █████████████████████████████████████████████████████████████
 
     error DepositAmountTooLarge(uint256 amount, uint256 maxAmount);
-
-    error RecipientZeroAddress();
+    error RecipientDeadAddress();
 
     /// ███ Constructors ███████████████████████████████████████████████████████
 
@@ -65,6 +64,9 @@ contract FuseLeveragedToken is ERC20, Ownable {
         emit MaxDepositUpdated(_newMaxDeposit);
     }
 
+    /// ███ Internal functions █████████████████████████████████████████████████
+
+
     /// ███ User actions ███████████████████████████████████████████████████████
 
     /**
@@ -78,6 +80,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
         /// ███ Checks
         if (_amount > maxDeposit) revert DepositAmountTooLarge(_amount, maxDeposit);
         if (_amount == 0) return 0;
+        if (_recipient == address(0)) revert RecipientDeadAddress();
 
         /// ███ Effects
 
@@ -86,13 +89,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
         // Transfer collateral token to the contract
         IERC20(collateral).safeTransferFrom(msg.sender, address(this), _amount);
 
-        //
 
-
-        return 0;
-    }
-
-    function mint(uint256 _sharesAmount, address _recipient) external view returns (uint256 _collateral) {
         return 0;
     }
 }
