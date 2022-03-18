@@ -1,3 +1,4 @@
 /out
 .dapprc
 .DS_Store
+hevm.libs.*
