@@ -108,7 +108,26 @@ contract UniswapV2Adapter {
     /**
      * @notice Trigger the flash swap
      * @dev The msg.sender should implement IFlashSwapper
-     * @param _amount The flash swapped amount
+     *      Step by step of to flash swap `_borrowToken` and repay with
+     *      `_repayToken`:
+     *         1. Given `_borrowToken`/ETH and `_repayToken`/ETH liquidity pairs
+     *         2. Calculate how many `n` ETH needed to get `x` amount of
+     *            `_borrowToken`.
+     *         3. Borrow `n` ETH from `_repayToken`/ETH liquidity pair.
+     *         4. Swap `n` ETH to `x` `_borrowToken` via `_borrowToken`/ETH
+     *            liquidity pair.
+     *         5. `x` amount of `_borrowToken` is acquired.
+     *         6. Calculate how many `y` `_repayToken` needed to get `n` ETH.
+     *         7. Send `y` `_repayToken` to `_repayToken`/ETH liquidity pair
+     *            repay the flash loan.
+     *         8. DONE
+     *      NOTE:
+     *      Only use this function if `_borrowToken`/ETH and `_repayToken`/ETH
+     *      liquidity is higher than `_borrowToken`/`_repayToken`.
+     *
+     * @param _borrowToken The target token
+     * @param _amount The borrow amount
+     * @param _repayToken The
      */
     function flash(address _borrowToken, uint256 _amount, address _repayToken) public {
         /// ███ Checks
