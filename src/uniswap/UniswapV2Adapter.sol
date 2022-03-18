@@ -125,9 +125,9 @@ contract UniswapV2Adapter {
      *      Only use this function if `_borrowToken`/ETH and `_repayToken`/ETH
      *      liquidity is higher than `_borrowToken`/`_repayToken`.
      *
-     * @param _borrowToken The target token
+     * @param _borrowToken The flash swapped token
      * @param _amount The borrow amount
-     * @param _repayToken The
+     * @param _repayToken The token that used to repay the flash swap
      */
     function flash(address _borrowToken, uint256 _amount, address _repayToken) public {
         /// ███ Checks
