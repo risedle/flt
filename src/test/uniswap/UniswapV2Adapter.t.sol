@@ -34,9 +34,6 @@ contract UniswapV2AdapterTest is DSTest {
         // Create new Flasher
         Flasher flasher = new Flasher(address(adapter));
 
-        // Top up the flasher to repay the borrow
-        hevm.setUSDCBalance(address(flasher), 10_000 * 1e6); // 10K USDC
-
         // Trigger the flash swap; this should be failed
         flasher.trigger(gohm, 0, usdc);
     }
@@ -48,9 +45,6 @@ contract UniswapV2AdapterTest is DSTest {
 
         // Create new Flasher
         Flasher flasher = new Flasher(address(adapter));
-
-        // Top up the flasher to repay the borrow
-        hevm.setUSDCBalance(address(flasher), 10_000 * 1e6); // 10K USDC
 
         // Trigger the flash swap; this should be failed
         address randomToken = hevm.addr(1);
@@ -65,11 +59,28 @@ contract UniswapV2AdapterTest is DSTest {
         // Create new Flasher
         Flasher flasher = new Flasher(address(adapter));
 
-        // Top up the flasher to repay the borrow
-        hevm.setUSDCBalance(address(flasher), 10_000 * 1e6); // 10K USDC
-
         // Trigger the flash swap; this should be failed
         address randomToken = hevm.addr(1);
         flasher.trigger(gohm, 1 ether, randomToken);
+    }
+
+    /// @notice Make sure flasher have borrowed token
+    function testFlasherReceiveTheBorrowToken() public {
+        // Create new adapter
+        UniswapV2Adapter adapter = new UniswapV2Adapter(sushiRouter);
+
+        // Create new Flasher
+        Flasher flasher = new Flasher(address(adapter));
+
+        // Top up the flasher to repay the borrow
+        hevm.setUSDCBalance(address(flasher), 10_000 * 1e6); // 10K USDC
+
+        // Trigger the flash swap; borrow gOHM pay with USDC
+        uint256 borrowAmount = 1 ether; // 1 gOHM
+        flasher.trigger(gohm, borrowAmount, usdc);
+
+        // Check
+        uint256 borrowTokenBalance = IERC20(gohm).balanceOf(address(flasher));
+        assertEq(borrowTokenBalance, borrowAmount);
     }
 }
