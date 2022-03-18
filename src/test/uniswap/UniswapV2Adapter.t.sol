@@ -56,4 +56,20 @@ contract UniswapV2AdapterTest is DSTest {
         address randomToken = hevm.addr(1);
         flasher.trigger(randomToken, 1 ether, usdc);
     }
+
+    /// @notice Flasher cannot flash swap with invalid repay token
+    function testFailFlasherCannotFlashSwapWithInvalidRepayToken() public {
+        // Create new adapter
+        UniswapV2Adapter adapter = new UniswapV2Adapter(sushiRouter);
+
+        // Create new Flasher
+        Flasher flasher = new Flasher(address(adapter));
+
+        // Top up the flasher to repay the borrow
+        hevm.setUSDCBalance(address(flasher), 10_000 * 1e6); // 10K USDC
+
+        // Trigger the flash swap; this should be failed
+        address randomToken = hevm.addr(1);
+        flasher.trigger(gohm, 1 ether, randomToken);
+    }
 }
