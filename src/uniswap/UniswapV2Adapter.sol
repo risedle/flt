@@ -92,11 +92,11 @@ contract UniswapV2Adapter {
         address[] memory path = new address[](2);
         path[0] = repayToken;
         path[1] = weth;
-        uint256 repayAmount = router.getAmountsIn(wethAmount, path)[0];
+        uint256 repayAmount = IUniswapV2Router02(router).getAmountsIn(wethAmount, path)[0];
 
         // Step 7:
         // Call the flasher
-        IFlashSwapper(flasher).flashCallback(borrowToken, borrowAmount, repayToken, repayAmount);
+        IFlashSwapper(flasher).onFlashSwap(borrowToken, borrowAmount, repayToken, repayAmount);
 
         // Step 8:
         // Repay the flashswap
