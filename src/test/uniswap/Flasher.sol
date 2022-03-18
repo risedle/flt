@@ -27,6 +27,7 @@ contract Flasher {
 
     /// ███ Errors █████████████████████████████████████████████████████████████
 
+    /// @notice Error raised when onFlashSwap caller is not the UniswapAdapter
     error NotUniswapAdapter();
 
 
@@ -46,7 +47,14 @@ contract Flasher {
 
     /// @notice Executed by the adapter
     function onFlashSwap(address _borrowToken, uint256 _borrowAmount, address _repayToken, uint256 _repayAmount) external {
+        /// ███ Checks
+
+        // Check the caller; Make sure it's Uniswap Adapter
         if (msg.sender != uniswapAdapter) revert NotUniswapAdapter();
+
+        /// ███ Effects
+
+        /// ███ Interactions
 
         // Repay the token
         IERC20(_repayToken).safeTransfer(uniswapAdapter, _repayAmount);
