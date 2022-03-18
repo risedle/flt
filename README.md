@@ -17,6 +17,9 @@ Requires [dapptools](https://github.com/dapphub/dapptools#installation).
    ```
 3. Configure and run the test
 
+If you are using macOS M1, follow the [following instruction](https://mirror.xyz/pyk.eth/XWFgTnqGHlHgmVVE9RFiXoWYkSeP6Lvww54Z7VU0rDA)
+to install dapptools.
+
 ## Configure
 
 Copy `.dapprc.example` to `.dapprc` and edit the `ETH_RPC_URL`.
