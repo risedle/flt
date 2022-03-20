@@ -6,7 +6,7 @@ import "lib/ds-test/src/test.sol";
 
 import { FuseLeveragedToken } from "../FuseLeveragedToken.sol";
 import { HEVM } from "./HEVM.sol";
-import { gohm } from "./Arbitrum.sol";
+import { gohm, usdc } from "./Arbitrum.sol";
 
 /**
  * @title FLT User
@@ -44,7 +44,8 @@ contract FuseLeveragedTokenUserTest is DSTest {
     }
 
     function testPublicProperties() public {
-        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm);
+        address uniswapAdapter = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, uniswapAdapter, 333 * 1e6);
 
         // Test public properties
         assertEq(flt.name(), "gOHM 2x Long");
@@ -55,7 +56,8 @@ contract FuseLeveragedTokenUserTest is DSTest {
     /// @notice Make sure the maxDeposit is working as expected
     function testFailUserCannotDepositMoreThanMaxDeposit() public {
         // Create new FLT
-        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm);
+        address uniswapAdapter = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, uniswapAdapter, 333 * 1e6);
 
         // Set max deposit to 0.5 gOHM
         flt.setMaxDeposit(0.5 ether);
@@ -74,7 +76,8 @@ contract FuseLeveragedTokenUserTest is DSTest {
     /// @notice Make sure when deposit 0, it will returns early
     function testUserDepositZeroCollateral() public {
         // Create new FLT
-        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm);
+        address uniswapAdapter = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, uniswapAdapter, 333 * 1e6);
 
         // Create new User
         User user = new User(flt);
@@ -86,7 +89,8 @@ contract FuseLeveragedTokenUserTest is DSTest {
     /// @notice Make sure user cannot use dead address as recipient
     function testFailUserCannotUseDeadAddressAsRecipient() public {
         // Create new FLT
-        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm);
+        address uniswapAdapter = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, uniswapAdapter, 333 * 1e6);
 
         // Create new User
         User user = new User(flt);

@@ -6,7 +6,7 @@ import "lib/ds-test/src/test.sol";
 
 import { FuseLeveragedToken } from "../FuseLeveragedToken.sol";
 import { HEVM } from "./HEVM.sol";
-import { gohm } from "./Arbitrum.sol";
+import { gohm, usdc } from "./Arbitrum.sol";
 
 /**
  * @title Fuse Leveraged Token Access Control Test
@@ -23,7 +23,8 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
     /// @notice Make sure non-owner cannot set the maxDeposit value
     function testFailNonOwnerCannotSetMaxDeposit() public {
         // Create new FLT; by default the deployer is the owner
-        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm);
+        address uniswapAdapter = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, uniswapAdapter, 333 * 1e6);
 
         // Transfer the ownership
         address newOwner = hevm.addr(1);
@@ -36,7 +37,8 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
     /// @notice Make sure owner can set the maxDeposit value
     function testOwnerCanSetMaxDeposit() public {
         // Create new FLT; by default the deployer is the owner
-        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm);
+        address uniswapAdapter = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, uniswapAdapter, 333 * 1e6);
 
         // Make sure the default value is set
         assertEq(flt.maxDeposit(), type(uint256).max);
