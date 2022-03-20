@@ -8,22 +8,24 @@ import { IChainlinkL2Flag } from "../interfaces/IChainlinkL2Flag.sol";
 /**
  * @title gOHM/USDC Oracle
  * @author bayu (github.com/pyk)
- * @notice This oracle returns the latest price of gOHM in term of USDC
+ * @notice This oracle returns the latest price of gOHM in term of USDC (1e6 precision)
  */
-contract gOHMUSDCOracle {
+contract GOHMUSDCOracle {
     /// ███ Storages ███████████████████████████████████████████████████████████
 
-    // Chainlink feed addreses on arbitrum
+    /// @notice Chainlink feeds & L2 flag on arbitrum
     address public immutable ohmIndexFeed = 0x48C4721354A3B29D80EF03C65E6644A37338a0B1;
     address public immutable ohmFeed = 0x761aaeBf021F19F198D325D7979965D0c7C9e53b;
     address public immutable usdcFeed = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
     address public immutable flag = 0x3C14e07Edd0dC67442FA96f1Ec6999c57E810a83;
+
+    /// @notice Squencer offline flag
     address private offlineFlag = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-seq-offline")) - 1)));
 
 
     /// ███ Errors █████████████████████████████████████████████████████████████
 
-    /// @notice Error is raised when Chainlink sequencer goes offline
+    /// @notice Error is raised when Arbitrum sequencer goes offline
     error SequencerOffline();
 
 
