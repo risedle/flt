@@ -54,7 +54,7 @@ contract GOHMUSDCOracle {
 
         // Scaleup or scaledown the decimals
         if (feedDecimals != 9) {
-            price = (uint256(_price) * 1 gwei) / 10**feedDecimals;
+            price = (uint256(_price) * 1e9) / 10**feedDecimals;
         } else {
             price = uint256(_price);
         }
