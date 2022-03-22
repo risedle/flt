@@ -33,9 +33,11 @@ contract UniswapV2Adapter {
     /// ███ Errors █████████████████████████████████████████████████████████████
 
     error FlashSwapAmountCannotBeZero();
-    error FlashSwapBorrowTokenPairNotFound();
-    error FlashSwapRepayTokenPairNotFound();
+    error FlashSwapPairNotFound(address token0, address token1);
     error FlashSwapNotAuthorized();
+
+    /// @notice Error is raised when flash swap amount out is too low
+    error FlashSwapAmountOutTooLow(uint256 min, uint256 got);
 
 
     /// ███ Constuctors ████████████████████████████████████████████████████████
@@ -164,5 +166,38 @@ contract UniswapV2Adapter {
         // Perform the flashswap to Uniswap V2; Step 4 in uniswapV2Call
         bytes memory data = abi.encode(msg.sender, _borrowToken, _amount, _repayToken);
         IUniswapV2Pair(repayPair).swap(amount0Out, amount1Out, address(this), data);
+    }
+
+    /**
+     * @notice Flash swaps an exact amount of input tokens for as many output
+     *         tokens as possible via tokenIn/ETH and tokenOut/ETH pairs.
+     *         _tokens[0] is the tokenIn
+     *         _tokens[1] is the tokenOut
+     */
+    function flashSwapExactTokensForTokensViaETH(uint256 _amountIn, uint256 _amountOutMin, address[2] calldata _tokens) public {
+        /// ███ Checks
+
+        // Check amount
+        if (_amountIn == 0) revert FlashSwapAmountCannotBeZero();
+
+        // Check pairs
+        address tokenInPair = IUniswapV2Factory(IUniswapV2Router02(router).factory()).getPair(_tokens[0], weth);
+        address tokenOutPair = IUniswapV2Factory(IUniswapV2Router02(router).factory()).getPair(_tokens[1], weth);
+        if (tokenInPair == address(0)) revert FlashSwapPairNotFound(_tokens[0], weth);
+        if (tokenOutPair == address(0)) revert FlashSwapPairNotFound(_tokens[1], weth);
+
+        // Check the amount of tokenOut
+        address[] memory path = new address[](3);
+        path[0] = _tokens[0];
+        path[1] = weth;
+        path[2] = _tokens[1]; // Borrow token address (e.g. gOHM)
+        uint256 amountOut = IUniswapV2Router02(router).getAmountsOut(_amountIn, path);
+        if (amountOut < _amountOutMin) revert FlashSwapAmountOutTooLow(_amountOutMin, amountOut);
+
+        /// ███ Effects
+
+        /// ███ Interactions
+
+        // TODO(pyk): Continue here
     }
 }
