@@ -5,9 +5,11 @@ pragma experimental ABIEncoderV2;
 import { ERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import { Ownable } from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { IERC20Metadata } from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { IUniswapAdapter } from "./interfaces/IUniswapAdapter.sol";
+import { IOracle } from "./interfaces/IOracle.sol";
 
 /**
  * @title Fuse Leveraged Token (FLT)
@@ -29,6 +31,12 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// @notice The Uniswap Adapter
     address public uniswapAdapter;
 
+    /// @notice The price oracle
+    address public oracle;
+
+    /// @notice True if the total collateral and debt are bootstraped
+    bool private isBootstrapped;
+
     /**
      * @notice The maximum amount of the collateral token that can be deposited
      *         into the FLT contract through deposit function.
@@ -42,6 +50,9 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
     /// @notice Event emitted when maxDeposit is updated
     event MaxDepositUpdated(uint256 newMaxDeposit);
+
+    /// @notice Event emitted when the total collateral and debt are bootstraped
+    event Bootstrapped();
 
     /// ███ Errors █████████████████████████████████████████████████████████████
 
@@ -66,19 +77,13 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @param _symbol The symbol of the Fuse Leveraged Token (e.g. gOHMRISE)
      * @param _collateral The ERC20 compliant token the FLT accepts as collateral
      */
-    constructor(string memory _name, string memory _symbol, address _collateral, address _debt, address _uniswapAdapter, uint256 _nav) ERC20(_name, _symbol) {
-        // Set the accepted collateral token
+    constructor(string memory _name, string memory _symbol, address _collateral, address _debt, address _uniswapAdapter, adddress _oracle, uint256 _nav) ERC20(_name, _symbol) {
+        // Set the storages
         collateral = _collateral;
-
-        // Set the debt token
         debt = _debt;
-
-        // Set the Uniswap Adapter
         uniswapAdapter = _uniswapAdapter;
-
-        // Bootstrap the total collateral and total debt with specified
-        // net-asset value
-        bootstrap(_nav);
+        oracle = _oracle;
+        isBootstrapped = false;
     }
 
     /// ███ Owner actions ██████████████████████████████████████████████████████
@@ -92,23 +97,40 @@ contract FuseLeveragedToken is ERC20, Ownable {
         emit MaxDepositUpdated(_newMaxDeposit);
     }
 
+    /**
+     * @notice Bootstrap the initial total collateral and total debt of the FLT
+     * @dev The owner should have at least one collateral token when executing this function
+     */
+    function bootstrap() external onlyOwner {
+        // Get the collateral decimals
+        uint256 decimals = IERC20Metadata(collateral).decimals();
+
+        // Setup the params
+        uint256 cr = 0.05 * 10**decimals; // cr: Collateral reserve to cover flash swap fees
+        uint256 lc = 0.95 * 10**decimals; // lc: The amount of collateral need to be leveraged
+
+        // Get the latest collateral price to get borrow amount
+        uint256 price = IOracle(oracle).getPrice();
+        uint256 b = (price * lc) / 10**decimals; // b: Borrow amount
+
+        // Get the flash swap amount based on the max we can repay using borrowed
+        // amount from fuse
+        uint256 fa = IUniswapAdapter(uniswapAdapter).getFlashSwapAmount(b);
+
+        // Do the flash swap
+        // TODO(pyk): Pass _nav, b, cr, and lc to flash swap callback
+        IUniswapAdapter(uniswapAdapter).flash(collateral, fsAmount, debt);
+
+        // TODO(pyk): Initial NAV is set to 2x current price
+    }
+
     /// ███ Internal functions █████████████████████████████████████████████████
 
     /**
-     * @notice Bootstrap the initial total collateral and total debt of the FLT
-     * @dev The deployer should have at least one collateral token
-     * @param _nav The initial net-asset value of the FLT
+     * @notice This function is executed when flash swap on bootstrap function.
+     * @dev Interaction with Fuse pools and mint the token is happen here
      */
-    function bootstrap(uint256 _nav) internal {
-        // Collateral reserve to cover flash swap fees
-        uint256 cr = 0.05 ether;
-        // The amount of collateral need to be leveraged
-        uint256 lc = 0.95 ether;
-        // Target leverage ratio
-        // uint256 lr = 1 ether;
-
-        // TODO(pyk): Perlu oracle untuk tau berapa USDC yg perlu kita borrow
-        // TODO(pyk): Perlu tau swap amount yang perlu kita flash given jumlah USDC yg bisa kita pakai untuk repay
+    function onBootstrap() internal {
 
     }
 
