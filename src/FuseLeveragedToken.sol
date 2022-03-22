@@ -45,6 +45,15 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// @notice True if the total collateral and debt are bootstraped
     bool private isBootstrapped;
 
+    /// @notice The total collateral managed by this contract
+    uint256 public totalCollateral;
+
+    /// @notice The total debt managed by this contract
+    uint256 public totalDebt;
+
+    /// @notice The total shares / supply of the FLT token
+    uint256 public totalShares;
+
     /**
      * @notice The maximum amount of the collateral token that can be deposited
      *         into the FLT contract through deposit function.
@@ -93,7 +102,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @param _fCollateral The Rari Fuse token that used as collateral
      * @param _fDebt The Rari Fuse token that used as debt
      */
-    constructor(string memory _name, string memory _symbol, address _collateral, address _debt, address _uniswapAdapter, adddress _oracle, address _fCollateral, address _fDebt) ERC20(_name, _symbol) {
+    constructor(string memory _name, string memory _symbol, address _collateral, address _debt, address _uniswapAdapter, address _oracle, address _fCollateral, address _fDebt) ERC20(_name, _symbol) {
         // Set the storages
         collateral = _collateral;
         debt = _debt;
@@ -142,9 +151,9 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
     /// ███ Internal functions █████████████████████████████████████████████████
 
-    function onBootstrap(uint256 _amountOut, bytes calldata _data) internal {
+    function onBootstrap(uint256 _amountOut, bytes memory _data) internal {
         // Parse the data from bootstrap function
-        (uint256 rc, uint256 lc, uint256 price, uint256 b, uint256 nav) = abi.decode(data, (uint256, uint256, uint256, uint256, uint256));
+        (uint256 rc, uint256 lc, uint256 price, uint256 b, uint256 nav) = abi.decode(_data, (uint256, uint256, uint256, uint256, uint256));
 
         // Get the owed collateral
         uint256 owedCollateral = lc - _amountOut;
@@ -192,7 +201,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
         /// ███ Checks
 
         // Check the caller
-        if (msg.sender != uniswapV2Adapter) revert NotUniswapAdapter();
+        if (msg.sender != uniswapAdapter) revert NotUniswapAdapter();
 
         // Continue execution based on the type
         (FlashSwapType flashSwapType, bytes memory data) = abi.decode(_data, (FlashSwapType,bytes));
