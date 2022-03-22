@@ -175,6 +175,8 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
         // Mint the token
         _mint(owner(), totalShares);
+
+        emit Bootstrapped();
     }
 
     /// ███ External functions █████████████████████████████████████████████████
