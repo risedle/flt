@@ -52,8 +52,16 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
     }
 
     /// @notice Make sure non-owner cannot call the bootstrap function
-    function testNonOwnerCannotBootstrapTheFLT() public {
+    function testFailNonOwnerCannotBootstrapTheFLT() public {
         // Create new FLT; by default the deployer is the owner
+        address dummy = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, dummy, dummy, dummy, dummy);
 
+        // Transfer the ownership
+        address newOwner = hevm.addr(1);
+        flt.transferOwnership(newOwner);
+
+        // Non-owner try to bootstrap the FLT
+        flt.bootstrap(2 ether, 333 * 1e6);
     }
 }
