@@ -9,5 +9,5 @@ pragma experimental ABIEncoderV2;
  *         interface
  */
 interface IFlashSwapper {
-    function onFlashSwap(address _borrowToken, uint256 _borrowAmount, address _repayToken, uint256 _repayAmount) external;
+    function onFlashSwapExactTokensForTokensViaETH(uint256 _amountOut, bytes calldata _data) external;
 }
