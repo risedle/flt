@@ -10,6 +10,7 @@ import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/util
 
 import { IUniswapAdapter } from "./interfaces/IUniswapAdapter.sol";
 import { IOracle } from "./interfaces/IOracle.sol";
+import { IfERC20 } from "./interfaces/IfERC20.sol";
 
 /**
  * @title Fuse Leveraged Token (FLT)
@@ -18,6 +19,7 @@ import { IOracle } from "./interfaces/IOracle.sol";
  */
 contract FuseLeveragedToken is ERC20, Ownable {
     /// ███ Libraries ██████████████████████████████████████████████████████████
+
     using SafeERC20 for IERC20;
 
     /// ███ Storages ███████████████████████████████████████████████████████████
@@ -25,8 +27,14 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// @notice The ERC20 compliant token that used by FLT as collateral asset
     address public immutable collateral;
 
+    /// @notice The Rari Fuse collateral token
+    address public immutable fCollateral;
+
     /// @notice The ERC20 compliant token that used by FLT as debt asset
     address public immutable debt;
+
+    /// @notice The Rari Fuse debt token
+    address public immutable fDebt;
 
     /// @notice The Uniswap Adapter
     address public uniswapAdapter;
@@ -45,6 +53,9 @@ contract FuseLeveragedToken is ERC20, Ownable {
      *           something bad happen
      */
     uint256 public maxDeposit = type(uint256).max;
+
+    /// @notice Flashswap type
+    enum FlashSwapType {Bootstrap, Mint}
 
     /// ███ Events █████████████████████████████████████████████████████████████
 
@@ -76,14 +87,21 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @param _name The name of the Fuse Leveraged Token (e.g. gOHM 2x Long)
      * @param _symbol The symbol of the Fuse Leveraged Token (e.g. gOHMRISE)
      * @param _collateral The ERC20 compliant token the FLT accepts as collateral
+     * @param _debt The ERC20 comlienat token the FLT used to leverage
+     * @param _uniswapAdapter The Uniswap Adapter
+     * @param _oracle The collateral price oracle
+     * @param _fCollateral The Rari Fuse token that used as collateral
+     * @param _fDebt The Rari Fuse token that used as debt
      */
-    constructor(string memory _name, string memory _symbol, address _collateral, address _debt, address _uniswapAdapter, adddress _oracle, uint256 _nav) ERC20(_name, _symbol) {
+    constructor(string memory _name, string memory _symbol, address _collateral, address _debt, address _uniswapAdapter, adddress _oracle, address _fCollateral, address _fDebt) ERC20(_name, _symbol) {
         // Set the storages
         collateral = _collateral;
         debt = _debt;
         uniswapAdapter = _uniswapAdapter;
         oracle = _oracle;
         isBootstrapped = false;
+        fCollateral = _fCollateral;
+        fDebt = _fDebt;
     }
 
     /// ███ Owner actions ██████████████████████████████████████████████████████
@@ -98,97 +116,90 @@ contract FuseLeveragedToken is ERC20, Ownable {
     }
 
     /**
-     * @notice Bootstrap the initial total collateral and total debt of the FLT
-     * @dev The owner should have at least one collateral token when executing this function
+     * @notice Bootstrap the initial total collateral and total debt of the FLT.
+     * @param _collateralMax The max amount of collateral used
+     * @param _nav The initial net-asset value of the FLT
      */
-    function bootstrap() external onlyOwner {
+    function bootstrap(uint256 _collateralMax, uint256 _nav) external onlyOwner {
         // Get the collateral decimals
         uint256 decimals = IERC20Metadata(collateral).decimals();
 
-        // Setup the params
-        uint256 cr = 0.05 * 10**decimals; // cr: Collateral reserve to cover flash swap fees
-        uint256 lc = 0.95 * 10**decimals; // lc: The amount of collateral need to be leveraged
+        // Get the reserved collateral (5%) and leveraged collateral amount (95%)
+        uint256 rc = (0.05 ether * _collateralMax) / 1 ether;
+        uint256 lc = (0.95 ether * _collateralMax) / 1 ether;
 
         // Get the latest collateral price to get borrow amount
         uint256 price = IOracle(oracle).getPrice();
         uint256 b = (price * lc) / 10**decimals; // b: Borrow amount
 
-        // Get the flash swap amount based on the max we can repay using borrowed
-        // amount from fuse
-        uint256 fa = IUniswapAdapter(uniswapAdapter).getFlashSwapAmount(b);
+        // Transfer data to the onBootstrap function
+        bytes memory data = abi.encode(FlashSwapType.Bootstrap, abi.encode(rc, lc, price, b, _nav));
 
-        // Do the flash swap
-        // TODO(pyk): Pass _nav, b, cr, and lc to flash swap callback
-        IUniswapAdapter(uniswapAdapter).flash(collateral, fsAmount, debt);
-
-        // TODO(pyk): Initial NAV is set to 2x current price
+        // Do the flash swap and transfer data to onBootstrap function
+        uint256 amountOutMin = lc - ((0.02 ether * lc) / 1 ether); // 2% (swap fees + slippage tolerance)
+        IUniswapAdapter(uniswapAdapter).flashSwapExactTokensForTokensViaETH(b, amountOutMin, [debt, collateral], data);
     }
 
     /// ███ Internal functions █████████████████████████████████████████████████
 
-    /**
-     * @notice This function is executed when flash swap on bootstrap function.
-     * @dev Interaction with Fuse pools and mint the token is happen here
-     */
-    function onBootstrap() internal {
+    function onBootstrap(uint256 _amountOut, bytes calldata _data) internal {
+        // Parse the data from bootstrap function
+        (uint256 rc, uint256 lc, uint256 price, uint256 b, uint256 nav) = abi.decode(data, (uint256, uint256, uint256, uint256, uint256));
 
+        // Get the owed collateral
+        uint256 owedCollateral = lc - _amountOut;
+
+        /// ███ Effects
+        // Get the collateral decimals
+        uint256 decimals = IERC20Metadata(collateral).decimals();
+        totalCollateral = 2 * lc;
+        totalDebt = b;
+        totalShares = (totalCollateral * price * 10**decimals) / nav;
+
+
+        /// ███ Interactions
+
+        // Transfer collateral to the contract
+        IERC20(collateral).safeTransferFrom(msg.sender, address(this), lc + owedCollateral);
+
+        // Deposit all collateral to the Fuse
+        IERC20(fCollateral).safeApprove(fCollateral, totalShares);
+        IfERC20(fCollateral).mint(totalShares);
+        IERC20(fCollateral).safeApprove(fCollateral, 0);
+
+        // Borrow from the Fuse
+        IfERC20(fDebt).borrow(b);
+
+        // Repay the flash swap
+        IERC20(debt).safeTransfer(uniswapAdapter, b);
+
+        // Mint the token
+        _mint(owner(), totalShares);
     }
 
     /// ███ External functions █████████████████████████████████████████████████
 
-    /// @notice onFlashSwap is executed when flash swap on Uniswap Adapter is triggered
-    function onFlashSwap(address _borrowToken, uint256 _borrowAmount, address _repayToken, uint256 _repayAmount) external {
+    /**
+     * @notice This function is executed when the flashSwapExactTokensForTokensViaETH
+     *         is triggered.
+     * @dev Only uniswapAdapter can call this function
+     * @param _amountOut The amount of tokenOut received by this contract
+     * @param _data The calldata passed to this function
+     */
+    function onFlashSwapExactTokensForTokensViaETH(uint256 _amountOut, bytes calldata _data) external {
         /// ███ Checks
 
-        // Only specified Uniswap Adapter can call this function
-        if (msg.sender != uniswapAdapter) revert NotUniswapAdapter();
+        // Check the caller
+        if (msg.sender != uniswapV2Adapter) revert NotUniswapAdapter();
 
-        // Borrow token should be the collateral
-        if (_borrowToken != collateral) revert InvalidBorrowToken(collateral, _borrowToken);
-
-        // Repay token should be the debt
-        if (_repayToken != debt) revert InvalidRepayToken(debt, _repayToken);
-
-        // TODO(pyk): Check repay amount using oracle
-
-        /// ███ Effects
-
-        /// ███ Interactions
-
-        // TODO(pyk): Need to get total collateral to borrow and fuse
-        // TODO(pyk): Need to repay the amount
+        // Continue execution based on the type
+        (FlashSwapType flashSwapType, bytes memory data) = abi.decode(_data, (FlashSwapType,bytes));
+        if (flashSwapType == FlashSwapType.Bootstrap) {
+            onBootstrap(_amountOut, data);
+            return;
+        }
     }
 
     /// ███ User actions ███████████████████████████████████████████████████████
-
-    /**
-     * @notice Mints `_shares` amount of FLT token to `_recipient` by depositing
-     *         exactly `_amount` amount of collateral tokens.
-     * @param _amount The amount of collateral
-     * @param _recipient The address that will receive the minted FLT token
-     * @return _shares The amount of minted FLT tokens
-     */
-    function deposit(uint256 _amount, address _recipient) external returns (uint256 _shares) {
-        /// ███ Checks
-        if (_amount > maxDeposit) revert DepositAmountTooLarge(_amount, maxDeposit);
-        if (_amount == 0) return 0;
-        if (_recipient == address(0)) revert RecipientDeadAddress();
-
-        /// ███ Effects
-
-        /// ███ Interactions
-
-        // Transfer collateral token to the contract
-        IERC20(collateral).safeTransferFrom(msg.sender, address(this), _amount);
-
-        // Trigger the flash swap to get more collateral
-        uint256 fsAmount = _amount; // TODO(pyk): Use current leverage ratio to get flash swap amount
-        IUniswapAdapter(uniswapAdapter).flash(collateral, fsAmount, debt);
-
-        // TODO(pyk): continue here
-
-        return 0;
-    }
-
 
 }
