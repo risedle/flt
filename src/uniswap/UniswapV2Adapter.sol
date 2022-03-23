@@ -84,11 +84,17 @@ contract UniswapV2Adapter {
 
     }
 
+    /**
+     * @notice Gets the amount of tokenOut if swap is routed through WETH
+     * @param _tokens _tokens[0] is tokenIn, _tokens[1] is tokenOut
+     * @param _amountIn The amount of tokenIn
+     * @return _amountOut The amount of tokenOut
+     */
     function getAmountOutViaETH(address[2] memory _tokens, uint256 _amountIn) internal returns (uint256 _amountOut) {
         address[] memory tokenInToTokenOut = new address[](3);
         tokenInToTokenOut[0] = _tokens[0];
         tokenInToTokenOut[1] = weth;
-        tokenInToTokenOut[3] = _tokens[1];
+        tokenInToTokenOut[2] = _tokens[1];
         _amountOut = IUniswapV2Router02(router).getAmountsOut(_amountIn, tokenInToTokenOut)[2];
     }
 
@@ -140,7 +146,7 @@ contract UniswapV2Adapter {
 
         // Check the amount of tokenOut
         uint256 amountOut = getAmountOutViaETH(_tokens, _amountIn);
-        if (amountOut > _amountOutMin) revert FlashSwapAmountOutTooLow(_amountOutMin, amountOut);
+        if (amountOut < _amountOutMin) revert FlashSwapAmountOutTooLow(_amountOutMin, amountOut);
 
         /// ███ Effects
 
