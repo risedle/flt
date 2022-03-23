@@ -31,6 +31,9 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// @notice The Rari Fuse collateral token
     address public immutable fCollateral;
 
+    /// @notice The number of decimals; Should be the same as collateral
+    address public decimals;
+
     /// @notice The ERC20 compliant token that used by FLT as debt asset
     address public immutable debt;
 
@@ -46,41 +49,26 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// @notice True if the total collateral and debt are bootstraped
     bool public isBootstrapped;
 
-    /// @notice The total collateral managed by this contract
-    /// TODO(pyk): Use totalCollateral from Fuse coz it accrues interest
-    uint256 public totalCollateral;
-
-    /// @notice The total debt managed by this contract
-    /// TODO(pyk): Use totaldebt from Fuse coz it accrues interest
-    uint256 public totalDebt;
-
-    /// @notice The total shares / supply of the FLT token
-    uint256 public totalShares;
-
     /**
-     * @notice The maximum amount of the collateral token that can be deposited
-     *         into the FLT contract through deposit function.
+     * @notice The maximum amount of total supply that can be minted in one transaction.
      *         - There is no limit by default (2**256-1).
-     *         - Owner can set maxDeposit to zero to disable the deposit if
+     *         - Owner can set maxMint to zero to disable the deposit if
      *           something bad happen
      */
-    uint256 public maxDeposit = type(uint256).max;
+    uint256 public maxMint = type(uint256).max;
 
     /// @notice Flashswap type
     enum FlashSwapType {Bootstrap, Mint}
 
     /// ███ Events █████████████████████████████████████████████████████████████
 
-    /// @notice Event emitted when maxDeposit is updated
-    event MaxDepositUpdated(uint256 newMaxDeposit);
+    /// @notice Event emitted when maxMint is updated
+    event MaxMintUpdated(uint256 newMaxMint);
 
     /// @notice Event emitted when the total collateral and debt are bootstraped
     event Bootstrapped();
 
     /// ███ Errors █████████████████████████████████████████████████████████████
-
-    error DepositAmountTooLarge(uint256 amount, uint256 maxAmount);
-    error RecipientDeadAddress();
 
     /// @notice Error is raised if the caller of onFlashSwap is not specified
     ///         Uniswap Adapter contract
@@ -101,39 +89,43 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// @notice Error is raised if cannot enter markets
     error FuseFailedToEnterMarkets();
 
+    /// @notice Error is raised if mint amount is invalid
+    error MintAmountInvalid();
+
     /// ███ Constructors ███████████████████████████████████████████████████████
 
     /**
      * @notice Creates a new FLT that manages specified collateral and debt
      * @param _name The name of the Fuse Leveraged Token (e.g. gOHM 2x Long)
      * @param _symbol The symbol of the Fuse Leveraged Token (e.g. gOHMRISE)
-     * @param _collateral The ERC20 compliant token the FLT accepts as collateral
-     * @param _debt The ERC20 comlienat token the FLT used to leverage
      * @param _uniswapAdapter The Uniswap Adapter
      * @param _oracle The collateral price oracle
      * @param _fCollateral The Rari Fuse token that used as collateral
      * @param _fDebt The Rari Fuse token that used as debt
      */
-    constructor(string memory _name, string memory _symbol, address _collateral, address _debt, address _uniswapAdapter, address _oracle, address _fCollateral, address _fDebt) ERC20(_name, _symbol) {
+    constructor(string memory _name, string memory _symbol, address _uniswapAdapter, address _oracle, address _fCollateral, address _fDebt) ERC20(_name, _symbol) {
         // Set the storages
-        collateral = _collateral;
-        debt = _debt;
         uniswapAdapter = _uniswapAdapter;
         oracle = _oracle;
-        isBootstrapped = false;
         fCollateral = _fCollateral;
         fDebt = _fDebt;
+        collateral = IfERC20(_fCollateral).underlying();
+        debt = IfERC20(_fDebt).underlying();
+        isBootstrapped = false;
+
+        // Get the collateral decimals
+        decimals = IERC20Metadata(collateral).decimals();
     }
 
     /// ███ Owner actions ██████████████████████████████████████████████████████
 
     /**
-     * @notice Set the maxDeposit
-     * @param _newMaxDeposit New maximum deposit
+     * @notice Set the maxMint value
+     * @param _newMaxMint New maximum mint amount
      */
-    function setMaxDeposit(uint256 _newMaxDeposit) external onlyOwner {
-        maxDeposit = _newMaxDeposit;
-        emit MaxDepositUpdated(_newMaxDeposit);
+    function setMaxMint(uint256 _newMaxMint) external onlyOwner {
+        maxMint = _newMaxMint;
+        emit MaxMintUpdated(_newMaxMint);
     }
 
     /**
@@ -142,15 +134,12 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @param _nav The initial net-asset value of the FLT
      */
     function bootstrap(uint256 _collateralMax, uint256 _nav) external onlyOwner {
-        // Get the collateral decimals
-        uint256 decimals = IERC20Metadata(collateral).decimals();
-
         // Get the leveraged collateral amount (95%), 5% used for repay the flash swap fees
         uint256 lc = (0.95 ether * _collateralMax) / 1 ether;
 
         // Get the latest collateral price to get borrow amount
         uint256 price = IOracle(oracle).getPrice();
-        uint256 b = (price * lc) / 10**decimals; // b: Borrow amount
+        uint256 b = (price * lc) / (10**decimals); // b: Borrow amount
 
         // Transfer data to the onBootstrap function
         bytes memory data = abi.encode(FlashSwapType.Bootstrap, abi.encode(lc, price, b, _nav, msg.sender));
@@ -175,15 +164,12 @@ contract FuseLeveragedToken is ERC20, Ownable {
         uint256 targetCollateral = 2 * lc;
         uint256 owedCollateral = targetCollateral - _amountOut;
 
-        // Get the collateral decimals
-        uint256 decimals = IERC20Metadata(collateral).decimals();
-
         /// ███ Effects
 
         // TODO(pyk): I think we dont need these
         totalCollateral = targetCollateral;
         totalDebt = b;
-        totalShares = (totalCollateral * price * 10**decimals) / nav;
+        totalShares = (totalCollateral * price * (10**decimals)) / nav;
         isBootstrapped = true;
 
         /// ███ Interactions
@@ -216,6 +202,41 @@ contract FuseLeveragedToken is ERC20, Ownable {
         emit Bootstrapped();
     }
 
+    /**
+     * @notice Continue mint function after the flash swap callback
+     * @param _amountOut The amount of collateral received via Flash Swap
+     * @param _data Data passed from mint function
+     */
+    function onMint(uint256 _amountOut, bytes memory _data) internal {
+        // Parse the data from mint function
+        (uint256 shares, address minter, address recipient, uint256 collateralAmount, uint256 debtAmount) = abi.decode(_data, (uint256, address, address, uint256, uint256));
+
+        // Get the owed collateral by the user
+        uint256 owedCollateral = collateralAmount - _amountOut;
+
+        // Get fee
+        uint256 fee = (totalCollateral * mintFee) / 1e18;
+
+        // Transfer collateral to the contract
+        IERC20(collateral).safeTransferFrom(minter, address(this), owedCollateral + fee);
+
+        // Deposit all collateral to the Fuse
+        IERC20(collateral).safeApprove(fCollateral, collateralAmount);
+        if (IfERC20(fCollateral).mint(collateralAmount) != 0) revert FuseAddCollateralFailed();
+        IERC20(collateral).safeApprove(fCollateral, 0);
+
+        // Borrow from the Rari Fuse
+        if (IfERC20(fDebt).borrow(debtAmount) != 0) revert FuseBorrowFailed();
+
+        // Repay the flash swap
+        IERC20(debt).safeTransfer(uniswapAdapter, debtAmount);
+
+        // Mint the token
+        _mint(recipient, shares);
+
+        emit Minted(shares);
+    }
+
     /// ███ External functions █████████████████████████████████████████████████
 
     /**
@@ -237,8 +258,92 @@ contract FuseLeveragedToken is ERC20, Ownable {
             onBootstrap(_amountOut, data);
             return;
         }
+
+        if (flashSwapType == FlashSwapType.Mint) {
+            onMint(_amountOut, data);
+            return;
+        }
     }
+
+    /// ███ Read-only functions ████████████████████████████████████████████████
+
+    /**
+     * @notice Gets the total collateral per shares
+     * @return _cps Collateral per shares (in collateral decimals precision e.g. gOHM with 18 decimals is 1e18)
+     */
+    function collateralPerShares() public view returns (uint256 _cps) {
+        // Get total collateral managed by this contract in Rari Fuse
+        uint256 totalCollateral = IfERC20(fCollateral).balanceOfUnderlying(address(this));
+        // Calculare the collateral per shares
+        _cps = (totalCollateral * (10**decimals)) / totalSupply();
+    }
+
+    /**
+     * @notice Gets the collateral value per shares
+     * @return _cvs Collateral value per shares (in debt decimals precision e.g. USDC with 6 decimals is 6)
+     */
+    function collateralValuePerShares() public view returns (uint256 _cvs) {
+        // Get the current price
+        uint256 price = IOracle(oracle).getPrice();
+        // Calculate the total value of collateral per shares
+        _cvs = (collateralPerShares() * price) / (10**decimals);
+    }
+
+    /**
+     * @notice Gets the total debt per shares
+     * @return _dps Debt per shares (in debt decimals precision e.g. USDC with 6 decimals is 1e6)
+     */
+    function debtPerShares() public view returns (uint256 _dps) {
+        // Get total debt managed by this contract in Rari Fuse
+        uint256 totalDebt = IfERC20(fDebt).totalBorrowsCurrent();
+        // Calculate the debt per shares
+        _dps = (totalDebt * (10**decimals)) / totalSupply();
+    }
+
+    /**
+     * @notice Gets the net-asset value of the shares
+     * @return _nav The net-asset value of the shares in debt decimals precision (e.g. USDC is 1e6)
+     */
+    function nav() public view returns (uint256 _nav) {
+        _nav = collateralValuePerShares() - debtPerShares();
+    }
+
+    /**
+     * @notice Gets the leverage ratio
+     * @return _lr Leverage ratio in 1e18 precision
+     */
+    function leverageRatio() public view returns (uint256 _lr) {
+        _lr = (collateralPerShares() * 1e18) / nav();
+    }
+
 
     /// ███ User actions ███████████████████████████████████████████████████████
 
+    /**
+     * @notice Mints new FLT token
+     * @param _shares The new supply of FLT token to be minted
+     * @param _recipieint The recipient of newly minted token
+     */
+    function mint(uint256 _shares, address _recipient) external payable {
+        /// ███ Checks
+
+        // Check is bootstraped or not
+        if (!isBootstrapped) revert NotBootstraped();
+
+        // Check mint amount
+        if (_shares == 0) revert MintAmountInvalid();
+        if (_shares > maxMint) revert MintAmountInvalid();
+
+        /// ███ Effects
+
+        /// ███ Interaction
+
+        // Get the collateral & debt amount
+        uint256 collateralAmount = (_shares * collateralPerShares()) / (10**decimals);
+        uint256 debtAmount = (_shares * debtPerShares()) / (10**decimals);
+
+        // Perform the flash swap
+        bytes memory data = abi.encode(FlashSwapType.Mint, abi.encode(_shares, msg.sender, _recipient, collateralAmount, debtAmount));
+        IUniswapAdapter(uniswapAdapter).flashSwapExactTokensForTokensViaETH(debtAmount, 0, [debt, collateral], data);
+    }
 }
