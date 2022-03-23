@@ -15,4 +15,7 @@ interface IfERC20 {
     function accrualBlockNumber() external returns (uint256);
     function borrowBalanceCurrent(address account) external returns (uint256);
     function comptroller() external returns (address);
+    function underlying() external returns (address);
+    function balanceOfUnderlying(address account) external returns (uint256);
+    function totalBorrowsCurrent() external returns (uint256);
 }
