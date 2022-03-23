@@ -6,7 +6,7 @@ import "lib/ds-test/src/test.sol";
 
 import { FuseLeveragedToken } from "../FuseLeveragedToken.sol";
 import { HEVM } from "./HEVM.sol";
-import { gohm, usdc } from "./Arbitrum.sol";
+import { gohm, usdc, fgohm, fusdc } from "./Arbitrum.sol";
 
 /**
  * @title FLT User
@@ -45,7 +45,7 @@ contract FuseLeveragedTokenUserTest is DSTest {
 
     function testPublicProperties() public {
         address dummy = hevm.addr(100);
-        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, dummy, dummy, dummy, dummy);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
 
         // Test public properties
         assertEq(flt.name(), "gOHM 2x Long");
