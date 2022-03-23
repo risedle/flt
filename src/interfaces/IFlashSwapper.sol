@@ -9,5 +9,10 @@ pragma experimental ABIEncoderV2;
  *         interface
  */
 interface IFlashSwapper {
+    /**
+     * @notice Function that will be executed by Uniswap Adapter to finish the flash swap
+     * @param _amountOut The amount of of tokenOut transfered to the flashswap caller
+     * @param _data Data passed by the flashswap caller
+     */
     function onFlashSwapExactTokensForTokensViaETH(uint256 _amountOut, bytes calldata _data) external;
 }

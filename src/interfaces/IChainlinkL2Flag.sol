@@ -8,5 +8,5 @@ pragma experimental ABIEncoderV2;
  * @dev docs: https://docs.chain.link/docs/l2-sequencer-flag/
  */
 interface IChainlinkL2Flag {
-    function getFlag(address) external view returns (bool);
+    function getFlag(address flag) external view returns (bool);
 }

@@ -9,5 +9,5 @@ pragma experimental ABIEncoderV2;
  */
 interface IFuseComptroller {
     function getAccountLiquidity(address account) external returns (uint256 error, uint256 liquidity, uint256 shortfall);
-    function enterMarkets(address[] calldata fTokens) external returns (uint[] memory);
+    function enterMarkets(address[] calldata fTokens) external returns (uint256[] memory);
 }

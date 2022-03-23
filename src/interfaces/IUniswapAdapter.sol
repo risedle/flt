@@ -8,6 +8,5 @@ pragma experimental ABIEncoderV2;
  * @notice One interface to interact with Uniswap V2 and Uniswap V3
  */
 interface IUniswapAdapter {
-    function flash(address _borrowToken, uint256 _amount, address _repayToken) external;
     function flashSwapExactTokensForTokensViaETH(uint256 _amountIn, uint256 _amountOutMin, address[2] calldata _tokens, bytes calldata _data) external;
 }
