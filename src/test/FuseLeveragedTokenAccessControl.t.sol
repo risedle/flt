@@ -24,8 +24,8 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
         hevm = new HEVM();
     }
 
-    /// @notice Make sure non-owner cannot set the maxDeposit value
-    function testFailNonOwnerCannotSetMaxDeposit() public {
+    /// @notice Make sure non-owner cannot set the maxMint value
+    function testFailNonOwnerCannotSetMaxMint() public {
         // Create new FLT; by default the deployer is the owner
         address dummy = hevm.addr(100);
         FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
@@ -34,25 +34,25 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
         address newOwner = hevm.addr(1);
         flt.transferOwnership(newOwner);
 
-        // Non-owner trying to set the maxDeposit value
-        flt.setMaxDeposit(1 ether); // This should be failed
+        // Non-owner trying to set the maxMint value
+        flt.setMaxMint(1 ether); // This should be failed
     }
 
-    /// @notice Make sure owner can set the maxDeposit value
-    function testOwnerCanSetMaxDeposit() public {
+    /// @notice Make sure owner can set the maxMint value
+    function testOwnerCanSetMaxMint() public {
         // Create new FLT; by default the deployer is the owner
         address dummy = hevm.addr(100);
         FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
 
         // Make sure the default value is set
-        assertEq(flt.maxDeposit(), type(uint256).max);
+        assertEq(flt.maxMint(), type(uint256).max);
 
-        // Owner set the maxDeposit
-        uint256 newMaxDeposit = 1 ether;
-        flt.setMaxDeposit(newMaxDeposit);
+        // Owner set the MaxMint
+        uint256 newMaxMint = 1 ether;
+        flt.setMaxMint(newMaxMint);
 
         // Make sure the value is updated
-        assertEq(flt.maxDeposit(), newMaxDeposit);
+        assertEq(flt.maxMint(), newMaxMint);
     }
 
     /// @notice Make sure non-owner cannot call the bootstrap function
@@ -105,21 +105,21 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
 
         // Make sure the total collateral is correct
         uint256 totalCollateral = flt.totalCollateral();
-        assertEq(totalCollateral, 1.9 ether);
+        assertEq(totalCollateral, 1899999999999999999, "Check total collateral");
+
         uint256 balance = IERC20(fgohm).balanceOf(address(flt));
         assertGt(balance, 0);
 
         // Make sure the total debt is correct
         uint256 price = oracle.getPrice();
         uint256 debt = (0.95 ether * price) / 1 ether;
-        assertEq(flt.totalDebt(), debt);
-        assertEq(IfERC20(fusdc).borrowBalanceCurrent(address(flt)), debt);
+        assertEq(flt.totalDebt(), debt, "Check total debt");
 
         // Make sure the total shares is correct
-        assertEq(flt.totalShares(), (totalCollateral * price * 1 ether) / nav);
+        assertEq(flt.totalSupply(), (((totalCollateral * price) / 1 ether) - debt) * 1 ether / nav, "Check total shares");
 
         // Make sure the token is minted to this contract
-        assertEq(flt.balanceOf(address(this)), flt.totalShares());
+        assertEq(flt.balanceOf(address(this)), flt.totalSupply(), "Check minted balance");
     }
 
     /// @notice Make sure onFlashSwapExactTokensForTokensViaETH can only called by Uniswap Adapter
