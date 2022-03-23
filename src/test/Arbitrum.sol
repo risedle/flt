@@ -12,3 +12,6 @@ address constant fusdc = 0x156157693BA371c5B126AAeF784D2853EbC8fEFa;
 uint256 constant usdcSlot = 51;
 uint256 constant gohmSlot = 101;
 uint256 constant wethSlot = 51;
+
+// Sushiswap
+address constant sushiRouter = 0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506;
