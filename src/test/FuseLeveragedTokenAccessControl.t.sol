@@ -121,4 +121,19 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
         // Make sure the token is minted to this contract
         assertEq(flt.balanceOf(address(this)), flt.totalShares());
     }
+
+    /// @notice Make sure onFlashSwapExactTokensForTokensViaETH can only called by Uniswap Adapter
+    function testFailOnFlashSwapExactTokensForTokensViaETHCannotBeCalledByRandomCreatureInTheDarkForest() public {
+        // Create the Uniswap Adapter
+        UniswapV2Adapter adapter = new UniswapV2Adapter(sushiRouter);
+
+        // Create the collateral oracle
+        GOHMUSDCOracle oracle = new GOHMUSDCOracle();
+
+        // Create new FLT
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, address(adapter), address(oracle), fgohm, fusdc);
+
+        // Call the callback; this should be failed
+        flt.onFlashSwapExactTokensForTokensViaETH(1 ether, bytes(""));
+    }
 }
