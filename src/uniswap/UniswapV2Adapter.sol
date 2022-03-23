@@ -52,14 +52,15 @@ contract UniswapV2Adapter {
 
     /// ███ Internal functions █████████████████████████████████████████████████
 
+    /**
+     * @notice This function is executed when flashSwapExactTokensForTokensViaETH is triggered
+     */
     function onFlashSwapExactTokensForTokensViaETH(uint256 _wethAmount, uint256 _amountIn, uint256 _amountOut, address[2] memory _tokens, address _flasher, bytes memory _data) internal {
-        /// ███ Checks
+        /// ███ Interactions
 
-        // Check pairs
+        // Get token pairs
         address tokenInPair = IUniswapV2Factory(IUniswapV2Router02(router).factory()).getPair(_tokens[0], weth);
         address tokenOutPair = IUniswapV2Factory(IUniswapV2Router02(router).factory()).getPair(_tokens[1], weth);
-        if (tokenInPair == address(0)) revert FlashSwapPairNotFound(_tokens[0], weth);
-        if (tokenOutPair == address(0)) revert FlashSwapPairNotFound(_tokens[1], weth);
 
         // Step 4:
         // Swap WETH to tokenOut
@@ -81,7 +82,6 @@ contract UniswapV2Adapter {
         // Step 8:
         // Repay the flashswap
         IERC20(_tokens[0]).safeTransfer(tokenInPair, _amountIn);
-
     }
 
     /**
@@ -90,7 +90,7 @@ contract UniswapV2Adapter {
      * @param _amountIn The amount of tokenIn
      * @return _amountOut The amount of tokenOut
      */
-    function getAmountOutViaETH(address[2] memory _tokens, uint256 _amountIn) internal returns (uint256 _amountOut) {
+    function getAmountOutViaETH(address[2] memory _tokens, uint256 _amountIn) internal view returns (uint256 _amountOut) {
         address[] memory tokenInToTokenOut = new address[](3);
         tokenInToTokenOut[0] = _tokens[0];
         tokenInToTokenOut[1] = weth;
@@ -142,7 +142,9 @@ contract UniswapV2Adapter {
 
         // Check pairs
         address tokenInPair = IUniswapV2Factory(IUniswapV2Router02(router).factory()).getPair(_tokens[0], weth);
+        address tokenOutPair = IUniswapV2Factory(IUniswapV2Router02(router).factory()).getPair(_tokens[1], weth);
         if (tokenInPair == address(0)) revert FlashSwapPairNotFound(_tokens[0], weth);
+        if (tokenOutPair == address(0)) revert FlashSwapPairNotFound(_tokens[1], weth);
 
         // Check the amount of tokenOut
         uint256 amountOut = getAmountOutViaETH(_tokens, _amountIn);
