@@ -35,7 +35,7 @@ contract GOHMUSDCOracle {
      * @notice Gets the current index of OHM
      * @return index The current index of OHM (1e9 precision)
      */
-    function getOHMIndex() public view returns (uint256 index) {
+    function getOHMIndex() internal view returns (uint256 index) {
         (, int256 _index, , , ) = IChainlinkV3Aggregator(ohmIndexFeed).latestRoundData();
         index = uint256(_index);
     }
