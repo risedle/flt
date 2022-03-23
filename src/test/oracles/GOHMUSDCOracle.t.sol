@@ -12,6 +12,7 @@ import { GOHMUSDCOracle } from "../../oracles/GOHMUSDCOracle.sol";
  * @notice Unit test for GOHMUSDCOracle contract
  */
 contract GOHMUSDCOracleTest is DSTest {
+    /// @notice Make sure the oracle return the correct price
     function testGOHMUSDCPrice() public {
         // Create new gOHM/USDC oracle
         GOHMUSDCOracle oracle = new GOHMUSDCOracle();

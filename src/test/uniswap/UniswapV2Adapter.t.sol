@@ -8,11 +8,9 @@ import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/util
 
 import { UniswapV2Adapter } from "../../uniswap/UniswapV2Adapter.sol";
 import { Flasher } from "./Flasher.sol";
-import { gohm, usdc } from "../Arbitrum.sol";
+import { gohm, usdc, sushiRouter, weth } from "../Arbitrum.sol";
 import { HEVM } from "../HEVM.sol";
-
-// Sushi Router on Arbitrum Mainnet
-address constant sushiRouter = 0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506;
+import { IUniswapV2Router02 } from "../../interfaces/IUniswapV2Router02.sol";
 
 /**
  * @title Uniswap V2 Adapter Test
@@ -26,8 +24,8 @@ contract UniswapV2AdapterTest is DSTest {
         hevm = new HEVM();
     }
 
-    /// @notice Flasher cannot flash swap with zero amount
-    function testFailFlasherCannotFlashZeroAmountBorrowToken() public {
+    /// @notice Flasher cannot flashSwapExactTokensForTokensViaETH with zero amount
+    function testFailFlasherCannotFlashSwapExactTokensForTokensViaETHWithZeroAmountBorrowToken() public {
         // Create new adapter
         UniswapV2Adapter adapter = new UniswapV2Adapter(sushiRouter);
 
@@ -35,24 +33,11 @@ contract UniswapV2AdapterTest is DSTest {
         Flasher flasher = new Flasher(address(adapter));
 
         // Trigger the flash swap; this should be failed
-        flasher.trigger(gohm, 0, usdc);
+        flasher.flashSwapExactTokensForTokensViaETH(0, 0, [usdc, gohm], bytes(""));
     }
 
-    /// @notice Flasher cannot flash swap with invalid borrow token
-    function testFailFlasherCannotFlashSwapWithInvalidBorrowToken() public {
-        // Create new adapter
-        UniswapV2Adapter adapter = new UniswapV2Adapter(sushiRouter);
-
-        // Create new Flasher
-        Flasher flasher = new Flasher(address(adapter));
-
-        // Trigger the flash swap; this should be failed
-        address randomToken = hevm.addr(1);
-        flasher.trigger(randomToken, 1 ether, usdc);
-    }
-
-    /// @notice Flasher cannot flash swap with invalid repay token
-    function testFailFlasherCannotFlashSwapWithInvalidRepayToken() public {
+    /// @notice Flasher cannot flashSwapExactTokensForTokensViaETH with invalid tokenIn
+    function testFailFlasherCannotFlashSwapExactTokensForTokensViaETHWithInvalidTokenIn() public {
         // Create new adapter
         UniswapV2Adapter adapter = new UniswapV2Adapter(sushiRouter);
 
@@ -61,11 +46,24 @@ contract UniswapV2AdapterTest is DSTest {
 
         // Trigger the flash swap; this should be failed
         address randomToken = hevm.addr(1);
-        flasher.trigger(gohm, 1 ether, randomToken);
+        flasher.flashSwapExactTokensForTokensViaETH(1 ether, 0, [randomToken, gohm], bytes(""));
     }
 
-    /// @notice Make sure flasher have borrowed token
-    function testFlasherReceiveTheBorrowToken() public {
+    /// @notice Flasher cannot flashSwapExactTokensForTokensViaETH with invalid tokenOut
+    function testFailFlasherCannotFlashSwapExactTokensForTokensViaETHWithInvalidTokenOut() public {
+        // Create new adapter
+        UniswapV2Adapter adapter = new UniswapV2Adapter(sushiRouter);
+
+        // Create new Flasher
+        Flasher flasher = new Flasher(address(adapter));
+
+        // Trigger the flash swap; this should be failed
+        address randomToken = hevm.addr(1);
+        flasher.flashSwapExactTokensForTokensViaETH(1 ether, 0, [usdc, randomToken], bytes(""));
+    }
+
+    /// @notice When flasher flashSwapExactTokensForTokensViaETH, make sure it receive the tokenOut
+    function testFlasherCanFlashSwapExactTokensForTokensViaETHAndReceiveTokenOut() public {
         // Create new adapter
         UniswapV2Adapter adapter = new UniswapV2Adapter(sushiRouter);
 
@@ -76,11 +74,31 @@ contract UniswapV2AdapterTest is DSTest {
         hevm.setUSDCBalance(address(flasher), 10_000 * 1e6); // 10K USDC
 
         // Trigger the flash swap; borrow gOHM pay with USDC
-        uint256 borrowAmount = 1 ether; // 1 gOHM
-        flasher.trigger(gohm, borrowAmount, usdc);
+        uint256 amountIn = 5_000 * 1e6; // 5K USDC
+        flasher.flashSwapExactTokensForTokensViaETH(amountIn, 0, [usdc, gohm], bytes(""));
+
+        // Get the amount out
+        address[] memory tokenInToTokenOut = new address[](3);
+        tokenInToTokenOut[0] = usdc;
+        tokenInToTokenOut[1] = weth;
+        tokenInToTokenOut[2] = gohm;
+        uint256 amountOut = IUniswapV2Router02(sushiRouter).getAmountsOut(amountIn, tokenInToTokenOut)[2];
 
         // Check
-        uint256 borrowTokenBalance = IERC20(gohm).balanceOf(address(flasher));
-        assertEq(borrowTokenBalance, borrowAmount);
+        uint256 balance = IERC20(gohm).balanceOf(address(flasher));
+        // Tolerance +-2%
+        uint256 minBalance = amountOut - ((0.02 ether * balance) / 1 ether);
+        uint256 maxBalance = amountOut + ((0.02 ether * balance) / 1 ether);
+        assertGt(balance, minBalance);
+        assertLt(balance, maxBalance);
+    }
+
+    /// @notice Make sure the uniswapV2Callback cannot be called by random dude
+    function testFailUniswapV2CallCannotBeCalledByRandomDude() public {
+        // Create new adapter
+        UniswapV2Adapter adapter = new UniswapV2Adapter(sushiRouter);
+
+        // Random dude try to execute the UniswapV2Callback; should be failed
+        adapter.uniswapV2Call(address(this), 0, 0, bytes(""));
     }
 }

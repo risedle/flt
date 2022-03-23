@@ -24,6 +24,20 @@ contract Flasher {
     /// @notice Uniswap V2 Adapter
     address private uniswapAdapter;
 
+    /// @notice The tokenIn
+    address private tokenIn;
+
+    /// @notice The tokenOut
+    address private tokenOut;
+
+    /// @notice The amount of tokenIn
+    uint256 private amountIn;
+
+
+    /// ███ Events █████████████████████████████████████████████████████████████
+
+    event FlashSwap(uint256 amount, bytes data);
+
 
     /// ███ Errors █████████████████████████████████████████████████████████████
 
@@ -41,12 +55,15 @@ contract Flasher {
     /// ███ External functions █████████████████████████████████████████████████
 
     /// @notice Trigger the flash swap
-    function trigger(address _borrowToken, uint256 _amount, address _repayToken) external {
-        IUniswapAdapter(uniswapAdapter).flash(_borrowToken, _amount, _repayToken);
+    function flashSwapExactTokensForTokensViaETH(uint256 _amountIn, uint256 _amountOutMin, address[2] calldata _tokens, bytes calldata _data) external {
+        tokenIn = _tokens[0];
+        tokenOut = _tokens[1];
+        amountIn = _amountIn;
+        IUniswapAdapter(uniswapAdapter).flashSwapExactTokensForTokensViaETH(_amountIn, _amountOutMin, _tokens, _data);
     }
 
     /// @notice Executed by the adapter
-    function onFlashSwap(address _borrowToken, uint256 _borrowAmount, address _repayToken, uint256 _repayAmount) external {
+    function onFlashSwapExactTokensForTokensViaETH(uint256 _amountOut, bytes calldata _data) external {
         /// ███ Checks
 
         // Check the caller; Make sure it's Uniswap Adapter
@@ -56,7 +73,8 @@ contract Flasher {
 
         /// ███ Interactions
 
-        // Repay the token
-        IERC20(_repayToken).safeTransfer(uniswapAdapter, _repayAmount);
+        IERC20(tokenIn).safeTransfer(uniswapAdapter, amountIn);
+
+        emit FlashSwap(_amountOut, _data);
     }
 }
