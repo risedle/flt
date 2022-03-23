@@ -11,6 +11,7 @@ import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/util
 import { IUniswapAdapter } from "./interfaces/IUniswapAdapter.sol";
 import { IOracle } from "./interfaces/IOracle.sol";
 import { IfERC20 } from "./interfaces/IfERC20.sol";
+import { IFuseComptroller } from "./interfaces/IFuseComptroller.sol";
 
 /**
  * @title Fuse Leveraged Token (FLT)
@@ -43,12 +44,14 @@ contract FuseLeveragedToken is ERC20, Ownable {
     address public oracle;
 
     /// @notice True if the total collateral and debt are bootstraped
-    bool private isBootstrapped;
+    bool public isBootstrapped;
 
     /// @notice The total collateral managed by this contract
+    /// TODO(pyk): Use totalCollateral from Fuse coz it accrues interest
     uint256 public totalCollateral;
 
     /// @notice The total debt managed by this contract
+    /// TODO(pyk): Use totaldebt from Fuse coz it accrues interest
     uint256 public totalDebt;
 
     /// @notice The total shares / supply of the FLT token
@@ -88,6 +91,15 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
     /// @notice Error is raised if flash swap repay token is not debt
     error InvalidRepayToken(address expected, address got);
+
+    /// @notice Error is raised if cannot add collateral to the Rari Fuse
+    error FuseAddCollateralFailed();
+
+    /// @notice Error is raised if cannot borrow from the Rari Fuse
+    error FuseBorrowFailed();
+
+    /// @notice Error is raised if cannot enter markets
+    error FuseFailedToEnterMarkets();
 
     /// ███ Constructors ███████████████████████████████████████████████████████
 
@@ -133,8 +145,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
         // Get the collateral decimals
         uint256 decimals = IERC20Metadata(collateral).decimals();
 
-        // Get the reserved collateral (5%) and leveraged collateral amount (95%)
-        uint256 rc = (0.05 ether * _collateralMax) / 1 ether;
+        // Get the leveraged collateral amount (95%), 5% used for repay the flash swap fees
         uint256 lc = (0.95 ether * _collateralMax) / 1 ether;
 
         // Get the latest collateral price to get borrow amount
@@ -142,7 +153,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
         uint256 b = (price * lc) / 10**decimals; // b: Borrow amount
 
         // Transfer data to the onBootstrap function
-        bytes memory data = abi.encode(FlashSwapType.Bootstrap, abi.encode(rc, lc, price, b, _nav));
+        bytes memory data = abi.encode(FlashSwapType.Bootstrap, abi.encode(lc, price, b, _nav, msg.sender));
 
         // Do the flash swap and transfer data to onBootstrap function
         uint256 amountOutMin = lc - ((0.02 ether * lc) / 1 ether); // 2% (swap fees + slippage tolerance)
@@ -151,39 +162,56 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
     /// ███ Internal functions █████████████████████████████████████████████████
 
+    /**
+     * @notice Continue bootstrap function after the flash swap callback
+     * @param _amountOut The amount of collateral received via Flash Swap
+     * @param _data Data passed from bootstrap function
+     */
     function onBootstrap(uint256 _amountOut, bytes memory _data) internal {
         // Parse the data from bootstrap function
-        (uint256 rc, uint256 lc, uint256 price, uint256 b, uint256 nav) = abi.decode(_data, (uint256, uint256, uint256, uint256, uint256));
+        (uint256 lc, uint256 price, uint256 b, uint256 nav, address bootstraper) = abi.decode(_data, (uint256, uint256, uint256, uint256, address));
 
         // Get the owed collateral
-        uint256 owedCollateral = lc - _amountOut;
+        uint256 targetCollateral = 2 * lc;
+        uint256 owedCollateral = targetCollateral - _amountOut;
 
-        /// ███ Effects
         // Get the collateral decimals
         uint256 decimals = IERC20Metadata(collateral).decimals();
-        totalCollateral = 2 * lc;
+
+        /// ███ Effects
+
+        // TODO(pyk): I think we dont need these
+        totalCollateral = targetCollateral;
         totalDebt = b;
         totalShares = (totalCollateral * price * 10**decimals) / nav;
-
+        isBootstrapped = true;
 
         /// ███ Interactions
 
         // Transfer collateral to the contract
-        IERC20(collateral).safeTransferFrom(msg.sender, address(this), lc + owedCollateral);
+        IERC20(collateral).safeTransferFrom(bootstraper, address(this), owedCollateral);
+
+        // Enter Rari Fuse Markets
+        address[] memory markets = new address[](2);
+        markets[0] = fCollateral;
+        markets[1] = fDebt;
+        uint256[] memory marketStatus = IFuseComptroller(IfERC20(fCollateral).comptroller()).enterMarkets(markets);
+        if (marketStatus[0] != 0 && marketStatus[1] != 0) revert FuseFailedToEnterMarkets();
 
         // Deposit all collateral to the Fuse
-        IERC20(fCollateral).safeApprove(fCollateral, totalShares);
-        IfERC20(fCollateral).mint(totalShares);
-        IERC20(fCollateral).safeApprove(fCollateral, 0);
+        IERC20(collateral).safeApprove(fCollateral, totalCollateral);
+        if (IfERC20(fCollateral).mint(totalCollateral) != 0) revert FuseAddCollateralFailed();
+        IERC20(collateral).safeApprove(fCollateral, 0);
 
         // Borrow from the Fuse
-        IfERC20(fDebt).borrow(b);
+        uint256 result = IfERC20(fDebt).borrow(b);
+        if (result != 0) revert FuseBorrowFailed();
 
         // Repay the flash swap
         IERC20(debt).safeTransfer(uniswapAdapter, b);
 
         // Mint the token
-        _mint(owner(), totalShares);
+        _mint(bootstraper, totalShares);
 
         emit Bootstrapped();
     }
