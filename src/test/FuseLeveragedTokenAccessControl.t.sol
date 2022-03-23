@@ -28,7 +28,7 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
     function testFailNonOwnerCannotSetMaxDeposit() public {
         // Create new FLT; by default the deployer is the owner
         address dummy = hevm.addr(100);
-        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, dummy, dummy, dummy, dummy);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
 
         // Transfer the ownership
         address newOwner = hevm.addr(1);
@@ -42,7 +42,7 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
     function testOwnerCanSetMaxDeposit() public {
         // Create new FLT; by default the deployer is the owner
         address dummy = hevm.addr(100);
-        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, dummy, dummy, dummy, dummy);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
 
         // Make sure the default value is set
         assertEq(flt.maxDeposit(), type(uint256).max);
@@ -59,7 +59,7 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
     function testFailNonOwnerCannotBootstrapTheFLT() public {
         // Create new FLT; by default the deployer is the owner
         address dummy = hevm.addr(100);
-        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, dummy, dummy, dummy, dummy);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
 
         // Transfer the ownership
         address newOwner = hevm.addr(1);
@@ -87,7 +87,7 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
         GOHMUSDCOracle oracle = new GOHMUSDCOracle();
 
         // Create new FLT
-        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, address(adapter), address(oracle), fgohm, fusdc);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", address(adapter), address(oracle), fgohm, fusdc);
 
         // Top up gOHM balance to this contract
         uint256 collateralAmount = 1 ether;
@@ -131,7 +131,7 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
         GOHMUSDCOracle oracle = new GOHMUSDCOracle();
 
         // Create new FLT
-        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, address(adapter), address(oracle), fgohm, fusdc);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", address(adapter), address(oracle), fgohm, fusdc);
 
         // Call the callback; this should be failed
         flt.onFlashSwapExactTokensForTokensViaETH(1 ether, bytes(""));
