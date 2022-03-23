@@ -2,8 +2,8 @@
 pragma solidity 0.8.11;
 pragma experimental ABIEncoderV2;
 
-import { USDC_ADDRESS, USDC_SLOT } from "./Addresses.sol";
-import { GOHM_ADDRESS, GOHM_SLOT } from "./Addresses.sol";
+import { usdc, usdcSlot } from "./Arbitrum.sol";
+import { gohm, gohmSlot } from "./Arbitrum.sol";
 
 /// @notice Set Hevm interface, so we can use the cheat codes it in the test
 /// @dev https://github.com/dapphub/dapptools/tree/master/src/hevm#cheat-codes
@@ -42,10 +42,10 @@ contract HEVM {
     }
 
     function setUSDCBalance(address account, uint256 amount) public {
-        hevm.store(USDC_ADDRESS, keccak256(abi.encode(account, USDC_SLOT)), bytes32(amount));
+        hevm.store(usdc, keccak256(abi.encode(account, usdcSlot)), bytes32(amount));
     }
 
     function setGOHMBalance(address account, uint256 amount) public {
-        hevm.store(GOHM_ADDRESS, keccak256(abi.encode(account, GOHM_SLOT)), bytes32(amount));
+        hevm.store(gohm, keccak256(abi.encode(account, gohmSlot)), bytes32(amount));
     }
 }

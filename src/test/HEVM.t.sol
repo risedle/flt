@@ -6,7 +6,7 @@ import "lib/ds-test/src/test.sol";
 import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 import { HEVM } from "./HEVM.sol";
-import {USDC_ADDRESS, GOHM_ADDRESS} from "./Addresses.sol";
+import { usdc, gohm } from "./Arbitrum.sol";
 
 contract HEVMTest is DSTest {
     HEVM internal hevm;
@@ -16,7 +16,7 @@ contract HEVMTest is DSTest {
     }
 
     function testSetUSDCBalance() public {
-        IERC20 token = IERC20(USDC_ADDRESS);
+        IERC20 token = IERC20(usdc);
         address account = hevm.addr(1);
         uint256 amount = 100 * 1e6; // 100 USDC
 
@@ -31,7 +31,7 @@ contract HEVMTest is DSTest {
     }
 
     function testSetGOHMBalance() public {
-        IERC20 token = IERC20(GOHM_ADDRESS);
+        IERC20 token = IERC20(gohm);
         address account = hevm.addr(1);
         uint256 amount = 100 ether; // 100 gOHM
 
