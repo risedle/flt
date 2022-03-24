@@ -3,10 +3,14 @@ pragma solidity 0.8.11;
 pragma experimental ABIEncoderV2;
 
 import "lib/ds-test/src/test.sol";
+import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 import { FuseLeveragedToken } from "../FuseLeveragedToken.sol";
 import { HEVM } from "./HEVM.sol";
-import { gohm, usdc, fgohm, fusdc } from "./Arbitrum.sol";
+import { gohm, usdc, fgohm, fusdc, sushiRouter } from "./Arbitrum.sol";
+import { UniswapV2Adapter } from "../uniswap/UniswapV2Adapter.sol";
+import { GOHMUSDCOracle } from "../oracles/GOHMUSDCOracle.sol";
+import { IfERC20 } from "../interfaces/IfERC20.sol";
 
 /**
  * @title FLT User
@@ -87,6 +91,51 @@ contract FuseLeveragedTokenUserTest is DSTest {
 
         // FlT is not bootstrapped but the user trying to mint
         user.mint(1 ether); // This should be reverted
+    }
+
+    /// @notice Utility function to deploy and bootstrap FLT
+    function bootstrap() internal returns (FuseLeveragedToken) {
+        // A hack to make sure current block number > accrual block number on Rari Fuse
+        hevm.roll(block.number * 100);
+
+        // Add supply to the Rari Fuse
+        uint256 supplyAmount = 100_000 * 1e6; // 100K USDC
+        hevm.setUSDCBalance(address(this), supplyAmount);
+        IERC20(usdc).approve(fusdc, supplyAmount);
+        IfERC20(fusdc).mint(supplyAmount);
+
+        // Create the Uniswap Adapter
+        UniswapV2Adapter adapter = new UniswapV2Adapter(sushiRouter);
+
+        // Create the collateral oracle
+        GOHMUSDCOracle oracle = new GOHMUSDCOracle();
+
+        // Create new FLT
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", address(adapter), address(oracle), fgohm, fusdc);
+
+        // Top up gOHM balance to this contract
+        uint256 collateralAmount = 1 ether;
+        hevm.setGOHMBalance(address(this), collateralAmount);
+
+        // Approve the contract to spend gOHM
+        IERC20(gohm).approve(address(flt), collateralAmount);
+
+        // Bootstrap the FLT
+        uint256 nav = 333 * 1e6; // 333 USDC
+        flt.bootstrap(collateralAmount, nav);
+        return flt;
+    }
+
+    /// @notice Make sure user cannot mint zero supply
+    function testFailUserCannotMintZeroTokens() public {
+        // Create new FLT
+        FuseLeveragedToken flt = bootstrap();
+
+        // Create new User
+        User user = new User(flt);
+
+        // FlT is not bootstrapped but the user trying to mint
+        user.mint(0); // This should be reverted
     }
 
     // /// @notice Make sure when deposit 0, it will returns early
