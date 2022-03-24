@@ -176,7 +176,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
         bytes memory data = abi.encode(FlashSwapType.Bootstrap, abi.encode(msg.sender, collateralAmount, b, shares));
 
         // Do the flash swap and transfer data to onBootstrap function
-        uint256 amountOutMin = lc - ((0.02 ether * lc) / 1 ether); // 2% (swap fees + slippage tolerance)
+        uint256 amountOutMin = lc - ((0.05 ether * lc) / 1 ether); // 5% (swap fees + slippage tolerance)
         IUniswapAdapter(uniswapAdapter).flashSwapExactTokensForTokensViaETH(b, amountOutMin, [debt, collateral], data);
     }
 
