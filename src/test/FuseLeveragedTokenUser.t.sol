@@ -131,18 +131,6 @@ contract FuseLeveragedTokenUserTest is DSTest {
         return flt;
     }
 
-    /// @notice Make sure user cannot mint zero supply
-    function testFailUserCannotMintZeroTokens() public {
-        // Create new FLT
-        FuseLeveragedToken flt = bootstrap();
-
-        // Create new User
-        User user = new User(flt);
-
-        // FlT is not bootstrapped but the user trying to mint
-        user.mint(0); // This should be reverted
-    }
-
     /// @notice Make sure user cannot mint more than maxMint
     function testFailUserCannotMintMoreThanMaxMint() public {
         // Create new FLT
