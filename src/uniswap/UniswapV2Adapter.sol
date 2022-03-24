@@ -91,11 +91,25 @@ contract UniswapV2Adapter {
      * @return _amountOut The amount of tokenOut
      */
     function getAmountOutViaETH(address[2] memory _tokens, uint256 _amountIn) public view returns (uint256 _amountOut) {
-        address[] memory tokenInToTokenOut = new address[](3);
-        tokenInToTokenOut[0] = _tokens[0];
-        tokenInToTokenOut[1] = weth;
-        tokenInToTokenOut[2] = _tokens[1];
-        _amountOut = IUniswapV2Router02(router).getAmountsOut(_amountIn, tokenInToTokenOut)[2];
+        address[] memory path = new address[](3);
+        path[0] = _tokens[0];
+        path[1] = weth;
+        path[2] = _tokens[1];
+        _amountOut = IUniswapV2Router02(router).getAmountsOut(_amountIn, path)[2];
+    }
+
+    /**
+     * @notice Gets the amount of tokenIn if swap is routed through WETH
+     * @param _tokens _tokens[0] is tokenIn, _tokens[1] is tokenOut
+     * @param _amountOut The amount of tokenOut
+     * @return _amountIn The amount of tokenIn
+     */
+    function getAmountInViaETH(address[2] memory _tokens, uint256 _amountOut) public view returns (uint256 _amountIn) {
+        address[] memory path = new address[](3);
+        path[0] = _tokens[0];
+        path[1] = weth;
+        path[2] = _tokens[1];
+        _amountIn = IUniswapV2Router02(router).getAmountsIn(_amountOut, path)[0];
     }
 
 
@@ -170,6 +184,34 @@ contract UniswapV2Adapter {
         // Perform the flashswap to Uniswap V2; Step 4 in onFlashSwapExactTokensForTokensViaETH
         bytes memory data = abi.encode(FlashSwapType.FlashSwapExactTokensForTokensViaETH, abi.encode(_amountIn, amountOut, _tokens[0], _tokens[1], msg.sender, _data));
         IUniswapV2Pair(tokenInPair).swap(amount0Out, amount1Out, address(this), data);
+    }
 
+    /**
+     * @notice Sswaps an exact amount of output tokens for as few input
+     *         tokens as possible via tokenIn/WETH and tokenOut/WETH pairs.
+     * @param _amountOut The amount of tokenOut
+     * @param _amountInMax The maximum amount of tokenIn
+     * @param _tokens _tokens[0] is tokenIn, _tokens[1] is tokenOut
+     * @return _amountIn The amount of tokenIn used to get _amountOut
+     */
+    function swapTokensForExactTokensViaETH(uint256 _amountOut, uint256 _amountInMax, address[2] calldata _tokens) external returns (uint256 _amountIn) {
+        // Tranfer the tokenIn
+        IERC20(_tokens[0]).safeTransferFrom(msg.sender, address(this), _amountInMax);
+
+        // Swap the token
+        address[] memory path = new address[](3);
+        path[0] = _tokens[0];
+        path[1] = weth;
+        path[2] = _tokens[1];
+
+        IERC20(_tokens[0]).approve(router, _amountInMax);
+        _amountIn = IUniswapV2Router02(router).swapTokensForExactTokens(_amountOut, _amountInMax, path, msg.sender, block.timestamp)[0];
+        IERC20(_tokens[0]).approve(router, 0);
+
+        // Transfer the leftover
+        uint256 leftover = _amountInMax - _amountIn;
+        if (leftover > 0) {
+            IERC20(_tokens[0]).safeTransfer(msg.sender, leftover);
+        }
     }
 }
