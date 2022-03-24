@@ -378,6 +378,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
     function previewMint(uint256 _shares) external returns (uint256 _collateral) {
         // Early return
         if (_shares == 0) return 0;
+        if (!isBootstrapped) return 0;
 
         // Add fees
         uint256 fee = ((fees * _shares) / 1e18);
@@ -392,6 +393,31 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
         // Get the owed collateral
         _collateral = collateralAmount - flashSwappedAmount;
+    }
+
+    /**
+     * @notice Preview redeem
+     * @param _shares The amount of token to be redeemed
+     * @return _collateral The amount of collateral that user will received
+     */
+    function previewRedeem(uint256 _shares) external returns (uint256 _collateral) {
+        // Early return
+        if (_shares == 0) return 0;
+        if (!isBootstrapped) return 0;
+
+        // Add fees
+        uint256 fee = ((fees * _shares) / 1e18);
+        uint256 newShares = _shares - fee;
+
+        // Get the collateral & debt amount
+        uint256 collateralAmount = (newShares * collateralPerShares()) / (10**cdecimals);
+        uint256 debtAmount = (newShares * debtPerShares()) / (10**cdecimals);
+
+        // Get the collateral amount using the borrowed asset
+        uint256 collateralSold = IUniswapAdapter(uniswapAdapter).getAmountInViaETH([collateral, debt], debtAmount);
+
+        // Get the owed collateral
+        _collateral = collateralAmount - collateralSold;
     }
 
 
@@ -443,11 +469,8 @@ contract FuseLeveragedToken is ERC20, Ownable {
      */
     function redeem(uint256 _shares) external returns (uint256 _collateral) {
         /// ███ Checks
-
-        // Check boostrap status
-        if (!isBootstrapped) revert NotBootstrapped();
-
         if (_shares == 0) return 0;
+        if (!isBootstrapped) revert NotBootstrapped();
 
         /// ███ Interactions
 
