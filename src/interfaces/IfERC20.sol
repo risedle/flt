@@ -10,6 +10,7 @@ pragma experimental ABIEncoderV2;
 interface IfERC20 {
     function mint(uint256 mintAmount) external returns (uint256);
     function redeem(uint256 redeemTokens) external returns (uint256);
+    function redeemUnderlying(uint redeemAmount) external returns (uint256);
     function borrow(uint256 borrowAmount) external returns (uint256);
     function repayBorrow(uint256 repayAmount) external returns (uint256);
     function accrualBlockNumber() external returns (uint256);
