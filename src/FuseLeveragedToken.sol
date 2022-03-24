@@ -302,6 +302,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @return _tc Total collateral in cdecimals precision (e.g. gOHM is 1e18)
      */
     function totalCollateral() public returns (uint256 _tc) {
+        if (!isBootstrapped) return 0;
         _tc = IfERC20(fCollateral).balanceOfUnderlying(address(this));
     }
 
@@ -310,6 +311,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @return _td Total debt in debt decimals precision (e.g. USDC is 1e6)
      */
     function totalDebt() public returns (uint256 _td) {
+        if (!isBootstrapped) return 0;
         _td = IfERC20(fDebt).totalBorrowsCurrent();
     }
 
@@ -318,7 +320,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @return _cps Collateral per shares (in collateral decimals precision e.g. gOHM with 18 decimals is 1e18)
      */
     function collateralPerShares() public returns (uint256 _cps) {
-        // Calculare the collateral per shares
+        if (!isBootstrapped) return 0;
         _cps = (totalCollateral() * (10**cdecimals)) / totalSupply();
     }
 
@@ -327,6 +329,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @return _cvs Collateral value per shares (in debt decimals precision e.g. USDC with 6 decimals is 6)
      */
     function collateralValuePerShares() public returns (uint256 _cvs) {
+        if (!isBootstrapped) return 0;
         // Get the current price
         uint256 price = IOracle(oracle).getPrice();
         // Calculate the total value of collateral per shares
@@ -338,7 +341,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @return _dps Debt per shares (in debt decimals precision e.g. USDC with 6 decimals is 1e6)
      */
     function debtPerShares() public returns (uint256 _dps) {
-        // Calculate the debt per shares
+        if (!isBootstrapped) return 0;
         _dps = (totalDebt() * (10**cdecimals)) / totalSupply();
     }
 
@@ -347,6 +350,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @return _nav The net-asset value of the shares in debt decimals precision (e.g. USDC is 1e6)
      */
     function nav() public returns (uint256 _nav) {
+        if (!isBootstrapped) return 0;
         _nav = collateralValuePerShares() - debtPerShares();
     }
 
@@ -355,6 +359,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @return _lr Leverage ratio in 1e18 precision
      */
     function leverageRatio() public returns (uint256 _lr) {
+        if (!isBootstrapped) return 0;
         _lr = (collateralValuePerShares() * 1e18) / nav();
     }
 
