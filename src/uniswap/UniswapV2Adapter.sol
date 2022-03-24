@@ -90,7 +90,7 @@ contract UniswapV2Adapter {
      * @param _amountIn The amount of tokenIn
      * @return _amountOut The amount of tokenOut
      */
-    function getAmountOutViaETH(address[2] memory _tokens, uint256 _amountIn) internal view returns (uint256 _amountOut) {
+    function getAmountOutViaETH(address[2] memory _tokens, uint256 _amountIn) public view returns (uint256 _amountOut) {
         address[] memory tokenInToTokenOut = new address[](3);
         tokenInToTokenOut[0] = _tokens[0];
         tokenInToTokenOut[1] = weth;
