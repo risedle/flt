@@ -43,14 +43,37 @@ contract FuseLeveragedTokenUserTest is DSTest {
         hevm = new HEVM();
     }
 
-    function testPublicProperties() public {
+    /// @notice Make sure the default storage is correctly set
+    function testDefaultStorage() public {
         address dummy = hevm.addr(100);
         FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
 
-        // Test public properties
         assertEq(flt.name(), "gOHM 2x Long");
         assertEq(flt.symbol(), "gOHMRISE");
+        assertEq(flt.decimals(), 18);
         assertEq(flt.collateral(), gohm);
+        assertEq(flt.debt(), usdc);
+        assertEq(flt.fCollateral(), fgohm);
+        assertEq(flt.fDebt(), fusdc);
+        assertEq(flt.uniswapAdapter(), dummy);
+        assertEq(flt.oracle(), dummy);
+        assertTrue(!flt.isBootstrapped());
+        assertEq(flt.maxMint(), type(uint256).max);
+        assertEq(flt.fees(), 0.001 ether);
+    }
+
+    /// @notice Make sure the read-only function is correctly set
+    function testDefaultReadOnly() public {
+        address dummy = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
+
+        assertEq(flt.totalCollateral(), 0);
+        assertEq(flt.totalDebt(), 0);
+        assertEq(flt.collateralPerShares(), 0);
+        assertEq(flt.collateralValuePerShares(), 0);
+        assertEq(flt.debtPerShares(), 0);
+        assertEq(flt.nav(), 0);
+        assertEq(flt.leverageRatio(), 0);
     }
 
     // /// @notice Make sure the maxDeposit is working as expected
