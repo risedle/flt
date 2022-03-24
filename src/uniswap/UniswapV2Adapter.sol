@@ -187,7 +187,7 @@ contract UniswapV2Adapter {
     }
 
     /**
-     * @notice Sswaps an exact amount of output tokens for as few input
+     * @notice Swaps an exact amount of output tokens for as few input
      *         tokens as possible via tokenIn/WETH and tokenOut/WETH pairs.
      * @param _amountOut The amount of tokenOut
      * @param _amountInMax The maximum amount of tokenIn
