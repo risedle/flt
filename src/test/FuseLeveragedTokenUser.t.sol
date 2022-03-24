@@ -20,10 +20,10 @@ contract User {
         flt = _flt;
     }
 
-    // /// @notice Simulate user's deposit
-    // function deposit(uint256 _amount) external returns (uint256 _shares) {
-    //     _shares = flt.deposit(_amount, address(this));
-    // }
+    /// @notice Simulate user's mint
+    function mint(uint256 _shares) external {
+        flt.mint(_shares, address(this));
+    }
 
     // /// @notice Simulate user's deposit with custom recipient
     // function deposit(uint256 _amount, address _recipient) external returns (uint256 _shares) {
@@ -76,25 +76,18 @@ contract FuseLeveragedTokenUserTest is DSTest {
         assertEq(flt.leverageRatio(), 0);
     }
 
-    // /// @notice Make sure the maxDeposit is working as expected
-    // function testFailUserCannotDepositMoreThanMaxDeposit() public {
-    //     // Create new FLT
-    //     address dummy = hevm.addr(100);
-    //     FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, dummy, dummy, dummy);
+    /// @notice Make sure user cannot mint when FLT is not bootstrapped
+    function testFailUserCannotMintIfFLTIsNotBoostrapped() public {
+        // Create new FLT
+        address dummy = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
 
-    //     // Set max deposit to 0.5 gOHM
-    //     flt.setMaxDeposit(0.5 ether);
+        // Create new User
+        User user = new User(flt);
 
-    //     // Create new User
-    //     User user = new User(flt);
-
-    //     // Top up user balance
-    //     uint256 depositAmount = 1 ether; // 1 gOHM
-    //     hevm.setGOHMBalance(address(this), depositAmount);
-
-    //     // User trying to deposit more than the max deposit
-    //     user.deposit(depositAmount); // This should be reverted
-    // }
+        // FlT is not bootstrapped but the user trying to mint
+        user.mint(1 ether); // This should be reverted
+    }
 
     // /// @notice Make sure when deposit 0, it will returns early
     // function testUserDepositZeroCollateral() public {
