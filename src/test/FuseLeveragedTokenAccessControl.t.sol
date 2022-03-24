@@ -153,6 +153,41 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
         assertEq(flt.balanceOf(address(this)), flt.totalSupply(), "Check minted balance");
     }
 
+    /// @notice Make sure owner cannot bootstrap the FLT twice
+    function testFailOwnerCannotBootstrapTheFLTTwice() public {
+        // A hack to make sure current block number > accrual block number on Rari Fuse
+        hevm.roll(block.number * 100);
+
+        // Add supply to the Rari Fuse
+        uint256 supplyAmount = 100_000 * 1e6; // 100K USDC
+        hevm.setUSDCBalance(address(this), supplyAmount);
+        IERC20(usdc).approve(fusdc, supplyAmount);
+        IfERC20(fusdc).mint(supplyAmount);
+
+        // Create the Uniswap Adapter
+        UniswapV2Adapter adapter = new UniswapV2Adapter(sushiRouter);
+
+        // Create the collateral oracle
+        GOHMUSDCOracle oracle = new GOHMUSDCOracle();
+
+        // Create new FLT
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", address(adapter), address(oracle), fgohm, fusdc);
+
+        // Top up gOHM balance to this contract
+        uint256 collateralAmount = 1 ether;
+        hevm.setGOHMBalance(address(this), collateralAmount);
+
+        // Approve the contract to spend gOHM
+        IERC20(gohm).approve(address(flt), collateralAmount);
+
+        // Bootstrap the FLT
+        uint256 nav = 333 * 1e6; // 333 USDC
+        flt.bootstrap(collateralAmount, nav);
+
+        // Bootstrap again; this should be failed
+        flt.bootstrap(collateralAmount, nav);
+    }
+
     /// @notice Make sure onFlashSwapExactTokensForTokensViaETH can only called by Uniswap Adapter
     function testFailOnFlashSwapExactTokensForTokensViaETHCannotBeCalledByRandomCreatureInTheDarkForest() public {
         // Create the Uniswap Adapter
