@@ -31,10 +31,13 @@ contract User {
         IERC20(gohm).approve(address(flt), 0);
     }
 
-    // /// @notice Simulate user's deposit with custom recipient
-    // function deposit(uint256 _amount, address _recipient) external returns (uint256 _shares) {
-    //     _shares = flt.deposit(_amount, _recipient);
-    // }
+    /// @notice Simulate user's mint with custom recipient
+    function mint(uint256 _shares, address _recipient) external returns (uint256 _collateral) {
+        IERC20(gohm).approve(address(flt), type(uint256).max);
+        _collateral = flt.mint(_shares, _recipient);
+        IERC20(gohm).approve(address(flt), 0);
+    }
+
 }
 
 /**
@@ -202,11 +205,34 @@ contract FuseLeveragedTokenUserTest is DSTest {
         assertGt(flt.totalDebt(), td, "check total debt");
     }
 
+    /// @notice Make sure previewMint is return the same thing in one block
     function testPreviewMint() public {
         // Create new FLT
         FuseLeveragedToken flt = bootstrap();
 
         assertEq(flt.previewMint(1 ether), flt.previewMint(1 ether));
+    }
+
+    /// @notice Make sure user can mint with custom recipient
+    function testUserCanMintToCustomRecipient() public {
+        // Create new FLT
+        FuseLeveragedToken flt = bootstrap();
+
+        // Create new user
+        User user = new User(flt);
+
+        // Top up user balance
+        hevm.setGOHMBalance(address(user), 1 ether); // 1 gOHM
+
+        // Get preview mint amount
+        uint256 shares = 1 ether;
+
+        // User mint
+        address recipient = hevm.addr(1);
+        user.mint(shares, recipient);
+
+        // Make sure user token is transfered to the user
+        assertEq(IERC20(flt).balanceOf(recipient), shares, "check user balance");
     }
 
 }
