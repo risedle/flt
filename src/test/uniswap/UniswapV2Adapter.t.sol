@@ -101,4 +101,27 @@ contract UniswapV2AdapterTest is DSTest {
         // Random dude try to execute the UniswapV2Callback; should be failed
         adapter.uniswapV2Call(address(this), 0, 0, bytes(""));
     }
+
+    /// @notice Make sure the swapTokensForExactTokensViaETH is working
+    function testSwapTokensForExactTokensViaETH() public {
+        // Create new adapter
+        UniswapV2Adapter adapter = new UniswapV2Adapter(sushiRouter);
+
+        // Topup balance
+        hevm.setGOHMBalance(address(this), 1 ether);
+
+        // Swap gOHM to USDC
+        uint256 amountOut = 500 * 1e6; // 500 USDC
+        uint256 amountInMax = adapter.getAmountInViaETH([gohm, usdc], amountOut);
+        IERC20(gohm).approve(address(adapter), amountInMax);
+        uint256 amountIn = adapter.swapTokensForExactTokensViaETH(amountOut, amountInMax, [gohm, usdc]);
+        IERC20(gohm).approve(address(adapter), 0);
+
+        // Check the amountIn
+        assertLe(amountIn, amountInMax);
+
+        // Check the user balance
+        assertEq(IERC20(gohm).balanceOf(address(this)), 1 ether - amountIn);
+        assertEq(IERC20(usdc).balanceOf(address(this)), amountOut);
+    }
 }
