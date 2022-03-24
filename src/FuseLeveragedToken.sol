@@ -234,16 +234,13 @@ contract FuseLeveragedToken is ERC20, Ownable {
      */
     function onMint(uint256 _amountOut, bytes memory _data) internal {
         // Parse the data from mint function
-        (uint256 shares, address minter, address recipient, uint256 collateralAmount, uint256 debtAmount) = abi.decode(_data, (uint256, address, address, uint256, uint256));
+        (address minter, address recipient, uint256 shares, uint256 fee, uint256 collateralAmount, uint256 debtAmount) = abi.decode(_data, (address, address, uint256, uint256, uint256, uint256));
 
         // Get the owed collateral by the user
         uint256 owedCollateral = collateralAmount - _amountOut;
 
-        // Get fee
-        uint256 fee = (collateralAmount * fees) / 1e18;
-
         // Transfer collateral to the contract
-        IERC20(collateral).safeTransferFrom(minter, address(this), owedCollateral + fee);
+        IERC20(collateral).safeTransferFrom(minter, address(this), owedCollateral);
 
         // Deposit all collateral to the Fuse
         IERC20(collateral).safeApprove(fCollateral, collateralAmount);
@@ -258,6 +255,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
         // Mint the token
         _mint(recipient, shares);
+        _mint(address(this), fee);
 
         emit Minted(shares);
     }
@@ -363,15 +361,40 @@ contract FuseLeveragedToken is ERC20, Ownable {
         _lr = (collateralValuePerShares() * 1e18) / nav();
     }
 
+    /**
+     * @notice Preview mint
+     * @param _shares The amount of token to be minted
+     * @return _collateral The amount of collateral that will be used to mint the token
+     */
+    function previewMint(uint256 _shares) external returns (uint256 _collateral) {
+        // Early return
+        if (_shares == 0) return 0;
+
+        // Add fees
+        uint256 fee = ((fees * _shares) / 1e18);
+        uint256 newShares = _shares + fee;
+
+        // Get the collateral & debt amount
+        uint256 collateralAmount = (newShares * collateralPerShares()) / (10**cdecimals);
+        uint256 debtAmount = (newShares * debtPerShares()) / (10**cdecimals);
+
+        // Get the collateral amount using the borrowed asset
+        uint256 flashSwappedAmount = IUniswapAdapter(uniswapAdapter).getAmountOutViaETH([debt, collateral], debtAmount);
+
+        // Get the owed collateral
+        _collateral = collateralAmount - flashSwappedAmount;
+    }
+
 
     /// ███ User actions ███████████████████████████████████████████████████████
 
     /**
-     * @notice Mints new FLT token
+     * @notice Mints new FLT token using collateral token (e.g. gOHM)
      * @param _shares The new supply of FLT token to be minted
      * @param _recipient The recipient of newly minted token
+     * @return _collateral The amount of collateral used to mint the token
      */
-    function mint(uint256 _shares, address _recipient) external payable {
+    function mint(uint256 _shares, address _recipient) external returns (uint256 _collateral) {
         /// ███ Checks
 
         // Check boostrap status
@@ -385,12 +408,22 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
         /// ███ Interaction
 
+        // Add fees
+        uint256 fee = ((fees * _shares) / 1e18);
+        uint256 newShares = _shares + fee;
+
         // Get the collateral & debt amount
-        uint256 collateralAmount = (_shares * collateralPerShares()) / (10**cdecimals);
-        uint256 debtAmount = (_shares * debtPerShares()) / (10**cdecimals);
+        uint256 collateralAmount = (newShares * collateralPerShares()) / (10**cdecimals);
+        uint256 debtAmount = (newShares * debtPerShares()) / (10**cdecimals);
+
+        // Get the collateral amount using the borrowed asset
+        uint256 flashSwappedAmount = IUniswapAdapter(uniswapAdapter).getAmountOutViaETH([debt, collateral], debtAmount);
+
+        // Get the owed collateral
+        _collateral = collateralAmount - flashSwappedAmount;
 
         // Perform the flash swap
-        bytes memory data = abi.encode(FlashSwapType.Mint, abi.encode(_shares, msg.sender, _recipient, collateralAmount, debtAmount));
+        bytes memory data = abi.encode(FlashSwapType.Mint, abi.encode(msg.sender, _recipient, _shares, fee, collateralAmount, debtAmount));
         IUniswapAdapter(uniswapAdapter).flashSwapExactTokensForTokensViaETH(debtAmount, 0, [debt, collateral], data);
     }
 }
