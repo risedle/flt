@@ -223,4 +223,12 @@ contract FuseLeveragedTokenUserTest is DSTest {
         assertEq(IERC20(flt).balanceOf(recipient), shares, "check user balance");
     }
 
+    /// @notice Make sure previewRedeem is return the same thing in one block
+    function testPreviewRedeem() public {
+        // Create new FLT
+        FuseLeveragedToken flt = bootstrap();
+
+        assertEq(flt.previewRedeem(1 ether), flt.previewRedeem(1 ether));
+    }
+
 }
