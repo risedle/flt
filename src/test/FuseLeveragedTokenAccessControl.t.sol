@@ -55,6 +55,37 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
         assertEq(flt.maxMint(), newMaxMint);
     }
 
+    /// @notice Make sure non-owner cannot set fees value
+    function testFailNonOwnerCannotSetFees() public {
+        // Create new FLT; by default the deployer is the owner
+        address dummy = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
+
+        // Transfer the ownership
+        address newOwner = hevm.addr(1);
+        flt.transferOwnership(newOwner);
+
+        // Non-owner trying to set the fees value
+        flt.setFees(0.01 ether); // This should be failed
+    }
+
+    /// @notice Make sure owner can set the fees value
+    function testOwnerCanSetFees() public {
+        // Create new FLT; by default the deployer is the owner
+        address dummy = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
+
+        // Make sure the default value is set
+        assertEq(flt.fees(), 0.001 ether); // 0.1%
+
+        // Owner set the Fees
+        uint256 newFees = 0.002 ether;
+        flt.setFees(newFees);
+
+        // Make sure the value is updated
+        assertEq(flt.fees(), newFees);
+    }
+
     /// @notice Make sure non-owner cannot call the bootstrap function
     function testFailNonOwnerCannotBootstrapTheFLT() public {
         // Create new FLT; by default the deployer is the owner
