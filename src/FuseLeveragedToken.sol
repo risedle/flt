@@ -90,13 +90,19 @@ contract FuseLeveragedToken is ERC20, Ownable {
     error InvalidRepayToken(address expected, address got);
 
     /// @notice Error is raised if cannot add collateral to the Rari Fuse
-    error FuseAddCollateralFailed();
+    error FuseAddCollateralFailed(uint256 code);
+
+    /// @notice Error is raised if cannot redeem collateral from Rari Fuse
+    error FuseRedeemCollateralFailed(uint256 code);
 
     /// @notice Error is raised if cannot borrow from the Rari Fuse
-    error FuseBorrowFailed();
+    error FuseBorrowFailed(uint256 code);
 
     /// @notice Error is raised if cannot enter markets
-    error FuseFailedToEnterMarkets();
+    error FuseFailedToEnterMarkets(uint256 collateralCode, uint256 debtCode);
+
+    /// @notice Error is raised if cannot repay the debt to Rari Fuse
+    error FuseRepayDebtFailed(uint256 code);
 
     /// @notice Error is raised if mint amount is invalid
     error MintAmountInvalid();
@@ -207,16 +213,17 @@ contract FuseLeveragedToken is ERC20, Ownable {
         markets[0] = fCollateral;
         markets[1] = fDebt;
         uint256[] memory marketStatus = IFuseComptroller(IfERC20(fCollateral).comptroller()).enterMarkets(markets);
-        if (marketStatus[0] != 0 && marketStatus[1] != 0) revert FuseFailedToEnterMarkets();
+        if (marketStatus[0] != 0 && marketStatus[1] != 0) revert FuseFailedToEnterMarkets(marketStatus[0], marketStatus[1]);
 
         // Deposit all collateral to the Fuse
         IERC20(collateral).safeApprove(fCollateral, collateralAmount);
-        if (IfERC20(fCollateral).mint(collateralAmount) != 0) revert FuseAddCollateralFailed();
+        uint256 supplyResponse = IfERC20(fCollateral).mint(collateralAmount);
+        if (supplyResponse != 0) revert FuseAddCollateralFailed(supplyResponse);
         IERC20(collateral).safeApprove(fCollateral, 0);
 
         // Borrow from the Fuse
-        uint256 result = IfERC20(fDebt).borrow(borrowAmount);
-        if (result != 0) revert FuseBorrowFailed();
+        uint256 borrowResponse = IfERC20(fDebt).borrow(borrowAmount);
+        if (borrowResponse != 0) revert FuseBorrowFailed(borrowResponse);
 
         // Repay the flash swap
         IERC20(debt).safeTransfer(uniswapAdapter, borrowAmount);
@@ -244,11 +251,13 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
         // Deposit all collateral to the Fuse
         IERC20(collateral).safeApprove(fCollateral, collateralAmount);
-        if (IfERC20(fCollateral).mint(collateralAmount) != 0) revert FuseAddCollateralFailed();
+        uint256 supplyResponse = IfERC20(fCollateral).mint(collateralAmount);
+        if (supplyResponse != 0) revert FuseAddCollateralFailed(supplyResponse);
         IERC20(collateral).safeApprove(fCollateral, 0);
 
         // Borrow from the Rari Fuse
-        if (IfERC20(fDebt).borrow(debtAmount) != 0) revert FuseBorrowFailed();
+        uint256 borrowResponse = IfERC20(fDebt).borrow(debtAmount);
+        if (borrowResponse != 0) revert FuseBorrowFailed(borrowResponse);
 
         // Repay the flash swap
         IERC20(debt).safeTransfer(uniswapAdapter, debtAmount);
@@ -401,12 +410,12 @@ contract FuseLeveragedToken is ERC20, Ownable {
         if (!isBootstrapped) revert NotBootstrapped();
 
         // Check mint amount
-        if (_shares == 0) revert MintAmountInvalid();
+        if (_shares == 0) return 0;
         if (_shares > maxMint) revert MintAmountInvalid();
 
         /// ███ Effects
 
-        /// ███ Interaction
+        /// ███ Interactions
 
         // Add fees
         uint256 fee = ((fees * _shares) / 1e18);
@@ -425,5 +434,48 @@ contract FuseLeveragedToken is ERC20, Ownable {
         // Perform the flash swap
         bytes memory data = abi.encode(FlashSwapType.Mint, abi.encode(msg.sender, _recipient, _shares, fee, collateralAmount, debtAmount));
         IUniswapAdapter(uniswapAdapter).flashSwapExactTokensForTokensViaETH(debtAmount, 0, [debt, collateral], data);
+    }
+
+    /**
+     * @notice Redeems token to underlying collateral (e.g. gOHM)
+     * @param _shares The amount of FLT token to be burned
+     * @return _collateral The amount of collateral redeemed
+     */
+    function redeem(uint256 _shares) external returns (uint256 _collateral) {
+        /// ███ Checks
+
+        // Check boostrap status
+        if (!isBootstrapped) revert NotBootstrapped();
+
+        if (_shares == 0) return 0;
+
+        /// ███ Interactions
+
+        // Add fees
+        uint256 fee = ((fees * _shares) / 1e18);
+        uint256 newShares = _shares - fee;
+
+        // Get the backing per shares
+        uint256 collateralAmount = (newShares * collateralPerShares()) / (10**cdecimals);
+        uint256 debtAmount = (newShares * debtPerShares()) / (10**cdecimals);
+
+        // Redeem collateral from Fuse
+        uint256 redeemResponse = IfERC20(fCollateral).redeemUnderlying(collateralAmount);
+        if (redeemResponse != 0) revert FuseRedeemCollateralFailed(redeemResponse);
+
+        // Swap the collateral to repay the debt
+        uint256 amountInMax = IUniswapAdapter(uniswapAdapter).getAmountInViaETH([collateral, debt], debtAmount);
+        uint256 collateralSold = IUniswapAdapter(uniswapAdapter).swapTokensForExactTokensViaETH(debtAmount, amountInMax, [collateral, debt]);
+
+        // Repay the debt
+        uint256 repayResponse = IfERC20(fDebt).repayBorrow(debtAmount);
+        if (repayResponse != 0) revert FuseRepayDebtFailed(repayResponse);
+
+        // Tansfer fee and burn the token
+        _transfer(msg.sender, address(this), fee);
+        _burn(msg.sender, newShares);
+
+        // Transfer the leftover collateral back to the user
+        IERC20(collateral).safeTransfer(msg.sender, collateralAmount - collateralSold);
     }
 }
