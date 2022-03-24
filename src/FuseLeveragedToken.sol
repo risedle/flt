@@ -54,8 +54,8 @@ contract FuseLeveragedToken is ERC20, Ownable {
      */
     uint256 public maxMint = type(uint256).max;
 
-    /// @notice Fees in 1e18 precision
-    uint256 public fees = 0.1 ether;
+    /// @notice Fees in 1e18 precision (e.g. 0.1% is 0.001 * 1e8)
+    uint256 public fees = 0.001 ether;
 
     /// @notice The collateral decimals
     uint8 private cdecimals;
@@ -73,6 +73,9 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
     /// @notice Event emitted when maxMint is updated
     event MaxMintUpdated(uint256 newMaxMint);
+
+    /// @notice Event emitted when fees is updated
+    event FeesUpdated(uint256 newFees);
 
     /// ███ Errors █████████████████████████████████████████████████████████████
 
@@ -141,6 +144,15 @@ contract FuseLeveragedToken is ERC20, Ownable {
     }
 
     /**
+     * @notice Set the fees value
+     * @param _newFees New fees in 1e18 precision (e.g. 0.1% is 0.001 * 1e8)
+     */
+    function setFees(uint256 _newFees) external onlyOwner {
+        fees = _newFees;
+        emit FeesUpdated(_newFees);
+    }
+
+    /**
      * @notice Bootstrap the initial total collateral and total debt of the FLT.
      * @param _collateralMax The max amount of collateral used (e.g. 2 gOHM is 2*1e18)
      * @param _nav The initial net-asset value of the FLT (in debt precision e.g. 600 USDC is 600*1e6)
@@ -176,7 +188,6 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @param _data Data passed from bootstrap function
      */
     function onBootstrap(uint256 _amountOut, bytes memory _data) internal {
-
         /// ███ Effects
         isBootstrapped = true;
 
