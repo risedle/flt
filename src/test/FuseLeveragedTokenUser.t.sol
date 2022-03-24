@@ -138,6 +138,21 @@ contract FuseLeveragedTokenUserTest is DSTest {
         user.mint(0); // This should be reverted
     }
 
+    /// @notice Make sure user cannot mint more than maxMint
+    function testFailUserCannotMintMoreThanMaxMint() public {
+        // Create new FLT
+        FuseLeveragedToken flt = bootstrap();
+
+        // Set the max mint
+        flt.setMaxMint(2 ether);
+
+        // Create new User
+        User user = new User(flt);
+
+        // User trying to mint more than max mint
+        user.mint(5 ether); // This should be reverted
+    }
+
     // /// @notice Make sure when deposit 0, it will returns early
     // function testUserDepositZeroCollateral() public {
     //     // Create new FLT
