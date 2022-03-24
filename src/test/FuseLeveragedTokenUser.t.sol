@@ -25,8 +25,10 @@ contract User {
     }
 
     /// @notice Simulate user's mint
-    function mint(uint256 _shares) external {
-        flt.mint(_shares, address(this));
+    function mint(uint256 _shares) external returns (uint256 _collateral) {
+        IERC20(gohm).approve(address(flt), type(uint256).max);
+        _collateral = flt.mint(_shares, address(this));
+        IERC20(gohm).approve(address(flt), 0);
     }
 
     // /// @notice Simulate user's deposit with custom recipient
@@ -153,31 +155,58 @@ contract FuseLeveragedTokenUserTest is DSTest {
         user.mint(5 ether); // This should be reverted
     }
 
-    // /// @notice Make sure when deposit 0, it will returns early
-    // function testUserDepositZeroCollateral() public {
-    //     // Create new FLT
-    //     address dummy = hevm.addr(100);
-    //     FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, dummy, dummy, dummy);
+    /// @notice Make sure mint is correct
+    function testUserCanMint() public {
+        // Create new FLT
+        FuseLeveragedToken flt = bootstrap();
 
-    //     // Create new User
-    //     User user = new User(flt);
+        // Previous collateral & debt per shares
+        uint256 prevCPS = flt.collateralPerShares();
+        uint256 prevDPS = flt.debtPerShares();
+        uint256 nav = flt.nav();
+        uint256 tc = flt.totalCollateral();
+        uint256 td = flt.totalDebt();
 
-    //     // User deposit zero collateral, it should return zero
-    //     assertEq(user.deposit(0 ether), 0 ether);
-    // }
+        // Create new user
+        User user = new User(flt);
 
-    // /// @notice Make sure user cannot use dead address as recipient
-    // function testFailUserCannotUseDeadAddressAsRecipient() public {
-    //     // Create new FLT
-    //     address dummy = hevm.addr(100);
-    //     FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", gohm, usdc, dummy, dummy, dummy);
+        // Top up user balance
+        hevm.setGOHMBalance(address(user), 1 ether); // 1 gOHM
 
-    //     // Create new User
-    //     User user = new User(flt);
+        // Get preview mint amount
+        uint256 shares = 1 ether;
+        uint256 previewMintAmount = flt.previewMint(shares);
 
-    //     // User deposit and set recipient as dead address; this should be reverted
-    //     user.deposit(1 ether, address(0));
-    // }
+        // User mint
+        uint256 collateralAmount = user.mint(shares);
 
+        // Check preview mint
+        assertEq(previewMintAmount, collateralAmount, "check preview");
+
+        // Make sure user token is transfered to the user
+        assertEq(IERC20(flt).balanceOf(address(user)), shares, "check user balance");
+
+        // Make sure fee is deducted
+        assertEq(IERC20(flt).balanceOf(address(flt)), 0.001 ether, "check collected fees");
+
+        // Make sure FLT debit the correct collateral amount
+        assertEq(IERC20(gohm).balanceOf(address(user)), 1 ether - collateralAmount, "check debited collateral");
+
+        // Make sure total collateral and total debt are not changed
+        assertEq(flt.collateralPerShares(), prevCPS, "check cps");
+        assertEq(flt.debtPerShares(), prevDPS, "check dps");
+
+        // Make sure NAV not changed
+        assertEq(flt.nav(), nav, "check nav");
+        assertGt(flt.totalCollateral(), tc, "check total collateral");
+        assertGt(flt.totalDebt(), td, "check total debt");
+    }
+
+    function testPreviewMint() public {
+        // Create new FLT
+        FuseLeveragedToken flt = bootstrap();
+
+        assertEq(flt.previewMint(1 ether), flt.previewMint(1 ether));
+    }
 
 }
