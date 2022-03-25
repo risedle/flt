@@ -43,6 +43,9 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// @notice The price oracle
     address public oracle;
 
+    /// @notice The fee recipient
+    address public feeRecipient;
+
     /// @notice True if the total collateral and debt are bootstraped
     bool public isBootstrapped;
 
@@ -69,8 +72,11 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// @notice Event emitted when the total collateral and debt are bootstraped
     event Bootstrapped();
 
-    /// @notice Event emitten when new supply is minted
+    /// @notice Event emitted when new supply is minted
     event Minted(uint256 amount);
+
+    /// @notice Event emitted when existing supply is burned
+    event Redeemed(uint256 amount);
 
     /// @notice Event emitted when maxMint is updated
     event MaxMintUpdated(uint256 newMaxMint);
@@ -83,6 +89,9 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
     /// @notice Event emitted when oracle is updated
     event OracleUpdated(address newOracle);
+
+    /// @notice Event emitted when feeRecipient is updated
+    event FeeRecipientUpdated(address newRecipient);
 
 
     /// ███ Errors █████████████████████████████████████████████████████████████
@@ -121,6 +130,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// @notice Error is raised if mint,redeem and rebalance is executed before the FLT is bootstrapped
     error NotBootstrapped();
 
+
     /// ███ Constructors ███████████████████████████████████████████████████████
 
     /**
@@ -141,6 +151,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
         collateral = IfERC20(_fCollateral).underlying();
         debt = IfERC20(_fDebt).underlying();
         isBootstrapped = false;
+        feeRecipient = msg.sender;
 
         // Get the collateral decimals
         cdecimals = IERC20Metadata(collateral).decimals();
@@ -182,6 +193,15 @@ contract FuseLeveragedToken is ERC20, Ownable {
     function setOracle(address _newOracle) external onlyOwner {
         oracle = _newOracle;
         emit OracleUpdated(_newOracle);
+    }
+
+    /**
+     * @notice Set the fee recipient
+     * @param _newRecipient New fee recipient
+     */
+    function setFeeRecipient(address _newRecipient) external onlyOwner {
+        feeRecipient = _newRecipient;
+        emit FeeRecipientUpdated(_newRecipient);
     }
 
     /**
@@ -531,5 +551,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
         // Transfer the leftover collateral back to the user
         _collateral = collateralAmount - collateralSold;
         IERC20(collateral).safeTransfer(msg.sender, _collateral);
+
+        emit Redeemed(_shares);
     }
 }
