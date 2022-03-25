@@ -204,7 +204,7 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
     }
 
     /// @notice Make sure non-owner cannot set uniswapAdapter
-    function testFilterNonOwnerCannotSetUniswapAdapter() public {
+    function testFailNonOwnerCannotSetUniswapAdapter() public {
         // Create new FLT; by default the deployer is the owner
         address dummy = hevm.addr(100);
         FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
@@ -227,5 +227,31 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
         flt.setUniswapAdapter(newAdapter);
 
         assertEq(flt.uniswapAdapter(), newAdapter);
+    }
+
+    /// @notice Make sure non-owner cannot set oracle
+    function testFailNonOwnerCannotSetOracle() public {
+        // Create new FLT; by default the deployer is the owner
+        address dummy = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
+
+        // Transfer the ownership
+        address newOwner = hevm.addr(1);
+        flt.transferOwnership(newOwner);
+
+        // Non-owner trying to set the uniswapAdapter
+        flt.setOracle(hevm.addr(2)); // This should be reverted
+    }
+
+    /// @notice Make sure owner can set the oracle
+    function testOwnerCanSetOracle() public {
+        // Create new FLT; by default the deployer is the owner
+        address dummy = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
+
+        address newOracle = hevm.addr(1);
+        flt.setOracle(newOracle);
+
+        assertEq(flt.oracle(), newOracle);
     }
 }
