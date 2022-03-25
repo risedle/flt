@@ -81,6 +81,9 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// @notice Event emitted when uniswapAdapter is updated
     event UniswapAdapterUpdated(address newAdapter);
 
+    /// @notice Event emitted when oracle is updated
+    event OracleUpdated(address newOracle);
+
 
     /// ███ Errors █████████████████████████████████████████████████████████████
 
@@ -170,6 +173,15 @@ contract FuseLeveragedToken is ERC20, Ownable {
     function setUniswapAdapter(address _newAdapter) external onlyOwner {
         uniswapAdapter = _newAdapter;
         emit UniswapAdapterUpdated(_newAdapter);
+    }
+
+    /**
+     * @notice Set the oracle
+     * @param _newOracle New contract that implements IOracle interface
+     */
+    function setOracle(address _newOracle) external onlyOwner {
+        oracle = _newOracle;
+        emit OracleUpdated(_newOracle);
     }
 
     /**
