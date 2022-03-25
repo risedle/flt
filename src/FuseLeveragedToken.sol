@@ -469,8 +469,8 @@ contract FuseLeveragedToken is ERC20, Ownable {
      */
     function redeem(uint256 _shares) external returns (uint256 _collateral) {
         /// ███ Checks
-        if (_shares == 0) return 0;
         if (!isBootstrapped) revert NotBootstrapped();
+        if (_shares == 0) return 0;
 
         /// ███ Interactions
 
@@ -488,17 +488,22 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
         // Swap the collateral to repay the debt
         uint256 amountInMax = IUniswapAdapter(uniswapAdapter).getAmountInViaETH([collateral, debt], debtAmount);
+        IERC20(collateral).safeApprove(uniswapAdapter, amountInMax);
         uint256 collateralSold = IUniswapAdapter(uniswapAdapter).swapTokensForExactTokensViaETH(debtAmount, amountInMax, [collateral, debt]);
+        IERC20(collateral).safeApprove(uniswapAdapter, 0);
 
         // Repay the debt
+        IERC20(debt).safeApprove(fDebt, debtAmount);
         uint256 repayResponse = IfERC20(fDebt).repayBorrow(debtAmount);
         if (repayResponse != 0) revert FuseRepayDebtFailed(repayResponse);
+        IERC20(debt).safeApprove(fDebt, 0);
 
         // Tansfer fee and burn the token
         _transfer(msg.sender, address(this), fee);
         _burn(msg.sender, newShares);
 
         // Transfer the leftover collateral back to the user
-        IERC20(collateral).safeTransfer(msg.sender, collateralAmount - collateralSold);
+        _collateral = collateralAmount - collateralSold;
+        IERC20(collateral).safeTransfer(msg.sender, _collateral);
     }
 }
