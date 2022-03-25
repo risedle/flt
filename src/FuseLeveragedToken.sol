@@ -63,6 +63,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// @notice Flashswap type
     enum FlashSwapType {Bootstrap, Mint}
 
+
     /// ███ Events █████████████████████████████████████████████████████████████
 
     /// @notice Event emitted when the total collateral and debt are bootstraped
@@ -76,6 +77,10 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
     /// @notice Event emitted when fees is updated
     event FeesUpdated(uint256 newFees);
+
+    /// @notice Event emitted when uniswapAdapter is updated
+    event UniswapAdapterUpdated(address newAdapter);
+
 
     /// ███ Errors █████████████████████████████████████████████████████████████
 
@@ -156,6 +161,15 @@ contract FuseLeveragedToken is ERC20, Ownable {
     function setFees(uint256 _newFees) external onlyOwner {
         fees = _newFees;
         emit FeesUpdated(_newFees);
+    }
+
+    /**
+     * @notice Set the uniswapAdapter
+     * @param _newAdapter New contract that implements IUniswapAdapter interface
+     */
+    function setUniswapAdapter(address _newAdapter) external onlyOwner {
+        uniswapAdapter = _newAdapter;
+        emit UniswapAdapterUpdated(_newAdapter);
     }
 
     /**
