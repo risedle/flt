@@ -254,4 +254,30 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
 
         assertEq(flt.oracle(), newOracle);
     }
+
+    /// @notice Make sure non-owner cannot set fee recipient
+    function testFailNonOwnerCannotSetFeeRecipient() public {
+        // Create new FLT; by default the deployer is the owner
+        address dummy = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
+
+        // Transfer the ownership
+        address newOwner = hevm.addr(1);
+        flt.transferOwnership(newOwner);
+
+        // Non-owner trying to set the fee recipient
+        flt.setFeeRecipient(hevm.addr(2)); // This should be reverted
+    }
+
+    /// @notice Make sure owner can set the feeRecipient
+    function testOwnerCanSetFeeRecipient() public {
+        // Create new FLT; by default the deployer is the owner
+        address dummy = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
+
+        address newRecipient = hevm.addr(1);
+        flt.setFeeRecipient(newRecipient);
+
+        assertEq(flt.feeRecipient(), newRecipient);
+    }
 }
