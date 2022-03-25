@@ -202,4 +202,30 @@ contract FuseLeveragedTokenAccessControlTest is DSTest {
         // Call the callback; this should be failed
         flt.onFlashSwapExactTokensForTokensViaETH(1 ether, bytes(""));
     }
+
+    /// @notice Make sure non-owner cannot set uniswapAdapter
+    function testFilterNonOwnerCannotSetUniswapAdapter() public {
+        // Create new FLT; by default the deployer is the owner
+        address dummy = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
+
+        // Transfer the ownership
+        address newOwner = hevm.addr(1);
+        flt.transferOwnership(newOwner);
+
+        // Non-owner trying to set the uniswapAdapter
+        flt.setUniswapAdapter(hevm.addr(2)); // This should be reverted
+    }
+
+    /// @notice Make sure owner can set the uniswapAdapter
+    function testOwnerCanSetUniswapAdapter() public {
+        // Create new FLT; by default the deployer is the owner
+        address dummy = hevm.addr(100);
+        FuseLeveragedToken flt = new FuseLeveragedToken("gOHM 2x Long", "gOHMRISE", dummy, dummy, fgohm, fusdc);
+
+        address newAdapter = hevm.addr(1);
+        flt.setUniswapAdapter(newAdapter);
+
+        assertEq(flt.uniswapAdapter(), newAdapter);
+    }
 }
