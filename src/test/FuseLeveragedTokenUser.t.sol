@@ -38,6 +38,13 @@ contract User {
         IERC20(gohm).approve(address(flt), 0);
     }
 
+    /// @notice Simulate user's redeem
+    function redeem(uint256 _shares) external returns (uint256 _collateral) {
+        IERC20(flt).approve(address(flt), type(uint256).max);
+        _collateral = flt.redeem(_shares);
+        IERC20(flt).approve(address(flt), 0);
+    }
+
 }
 
 /**
@@ -229,6 +236,56 @@ contract FuseLeveragedTokenUserTest is DSTest {
         FuseLeveragedToken flt = bootstrap();
 
         assertEq(flt.previewRedeem(1 ether), flt.previewRedeem(1 ether));
+    }
+
+    /// @notice Make sure user can redeem the token
+    function testUserCanRedeem() public {
+        // Create new FLT
+        FuseLeveragedToken flt = bootstrap();
+
+        // Create new user
+        User user = new User(flt);
+
+        // Top up user balance
+        hevm.setGOHMBalance(address(user), 1 ether); // 1 gOHM
+
+        // User mint
+        uint256 shares = 1 ether;
+        uint256 mintCollateral = user.mint(shares);
+
+        // Previous collateral & debt per shares
+        uint256 prevCPS = flt.collateralPerShares();
+        uint256 prevDPS = flt.debtPerShares();
+        uint256 nav = flt.nav();
+        uint256 tc = flt.totalCollateral();
+        uint256 td = flt.totalDebt();
+
+        // Get preview mint amount
+        uint256 previewRedeemAmount = flt.previewRedeem(shares);
+
+        // Redeem the collateral
+        uint256 collateralAmount = user.redeem(shares);
+
+        // Check preview mint
+        assertEq(previewRedeemAmount, collateralAmount, "check preview");
+
+        // Make sure the token is burned
+        assertEq(IERC20(flt).balanceOf(address(user)), 0, "check user balance");
+
+        // Make sure fee is deducted (mint & redeem fees)
+        assertEq(IERC20(flt).balanceOf(address(flt)), 0.002 ether, "check collected fees");
+
+        // Make sure user receive the collateral
+        assertEq(IERC20(gohm).balanceOf(address(user)), 1 ether - mintCollateral + collateralAmount, "check received collateral");
+
+        // Make sure total collateral and total debt are not changed
+        assertEq(flt.collateralPerShares(), prevCPS, "check cps");
+        assertEq(flt.debtPerShares(), prevDPS, "check dps");
+
+        // Make sure NAV not changed
+        assertEq(flt.nav(), nav, "check nav");
+        assertLt(flt.totalCollateral(), tc, "check total collateral");
+        assertLt(flt.totalDebt(), td, "check total debt");
     }
 
 }
