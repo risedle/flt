@@ -288,4 +288,30 @@ contract FuseLeveragedTokenUserTest is DSTest {
         assertLt(flt.totalDebt(), td, "check total debt");
     }
 
+    /// @notice Make sure collect send to fee recipient
+    function testCollectFees() public {
+        // Create new FLT
+        FuseLeveragedToken flt = bootstrap();
+
+        // Create new user
+        User user = new User(flt);
+
+        // Top up user balance
+        hevm.setGOHMBalance(address(user), 1 ether); // 1 gOHM
+
+        // User mint
+        uint256 shares = 1 ether;
+        user.mint(shares);
+
+        // Check prev balance
+        uint256 prevBalance = flt.balanceOf(address(this));
+
+        // Collect fees
+        flt.collect();
+
+        // Make sure fees is tranfered to the fee recipient
+        assertEq(flt.balanceOf(address(this)), prevBalance + 0.001 ether);
+        assertEq(flt.balanceOf(address(flt)), 0);
+    }
+
 }

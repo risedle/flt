@@ -554,4 +554,9 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
         emit Redeemed(_shares);
     }
+
+    /// @notice Collect fees
+    function collect() external {
+        IERC20(address(this)).safeTransfer(feeRecipient, balanceOf(address(this)));
+    }
 }
