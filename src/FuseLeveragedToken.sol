@@ -93,6 +93,9 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// @notice Event emitted when feeRecipient is updated
     event FeeRecipientUpdated(address newRecipient);
 
+    /// @notice Event emitted when fee is collected
+    event FeeCollected(uint256 amount);
+
 
     /// ███ Errors █████████████████████████████████████████████████████████████
 
@@ -557,6 +560,8 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
     /// @notice Collect fees
     function collect() external {
-        IERC20(address(this)).safeTransfer(feeRecipient, balanceOf(address(this)));
+        uint256 amount = balanceOf(address(this));
+        IERC20(address(this)).safeTransfer(feeRecipient, amount);
+        emit FeeCollected(amount);
     }
 }
