@@ -6,7 +6,7 @@ import "lib/ds-test/src/test.sol";
 import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 import { HEVM } from "./HEVM.sol";
-import { usdc, gohm } from "chain/Tokens.sol";
+import { usdc, gohm, wbtc, weth } from "chain/Tokens.sol";
 
 contract HEVMTest is DSTest {
     HEVM internal hevm;
@@ -37,6 +37,36 @@ contract HEVMTest is DSTest {
 
         // Set the balance
         hevm.setGOHMBalance(account, amount);
+
+        // Check the balance
+        uint256 balance = token.balanceOf(account);
+
+        // Make sure it's updated
+        assertEq(balance, amount);
+    }
+
+    function testSetWBTCBalance() public {
+        IERC20 token = IERC20(wbtc);
+        address account = hevm.addr(1);
+        uint256 amount = 100 * 1e8; // 100 WBTC
+
+        // Set the balance
+        hevm.setWBTCBalance(account, amount);
+
+        // Check the balance
+        uint256 balance = token.balanceOf(account);
+
+        // Make sure it's updated
+        assertEq(balance, amount);
+    }
+
+    function testSetWETHBalance() public {
+        IERC20 token = IERC20(weth);
+        address account = hevm.addr(1);
+        uint256 amount = 100 ether; // 100 WETH
+
+        // Set the balance
+        hevm.setWETHBalance(account, amount);
 
         // Check the balance
         uint256 balance = token.balanceOf(account);

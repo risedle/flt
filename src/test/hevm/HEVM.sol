@@ -4,6 +4,8 @@ pragma experimental ABIEncoderV2;
 
 import { usdc, usdcSlot } from "chain/Tokens.sol";
 import { gohm, gohmSlot } from "chain/Tokens.sol";
+import { wbtc, wbtcSlot } from "chain/Tokens.sol";
+import { weth, wethSlot } from "chain/Tokens.sol";
 
 /// @notice Set Hevm interface, so we can use the cheat codes it in the test
 /// @dev https://github.com/dapphub/dapptools/tree/master/src/hevm#cheat-codes
@@ -47,5 +49,13 @@ contract HEVM {
 
     function setGOHMBalance(address account, uint256 amount) public {
         hevm.store(gohm, keccak256(abi.encode(account, gohmSlot)), bytes32(amount));
+    }
+
+    function setWBTCBalance(address account, uint256 amount) public {
+        hevm.store(wbtc, keccak256(abi.encode(account, wbtcSlot)), bytes32(amount));
+    }
+
+    function setWETHBalance(address account, uint256 amount) public {
+        hevm.store(weth, keccak256(abi.encode(account, wethSlot)), bytes32(amount));
     }
 }
