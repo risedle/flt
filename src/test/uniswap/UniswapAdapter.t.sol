@@ -133,4 +133,22 @@ contract UniswapAdapterTest is DSTest {
         }
     }
 
+    /// @notice Make sure the uniswapV2Callback cannot be called by random dude
+    function testFailedUniswapV2CallbackCannotBeCalledByRandomDude() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Random dude try to execute the UniswapV2Callback; should be failed
+        adapter.uniswapV2Call(address(this), 0, 0, bytes(""));
+    }
+
+    /// @notice Make sure the uniswapV3SwapCallback cannot be called by random dude
+    function testFailedUniswapV3SwapCallbackCannotBeCalledByRandomDude() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Random dude try to execute the UniswapV2Callback; should be failed
+        adapter.uniswapV3SwapCallback(0, 0, bytes(""));
+    }
+
 }
