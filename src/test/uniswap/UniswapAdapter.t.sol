@@ -16,8 +16,7 @@ import { IUniswapV3Pool } from "../../interfaces/IUniswapV3Pool.sol";
 
 /**
  * @title Uniswap Adapter Test
- * @author bayu (github.com/pyk)
- * @notice Unit testing for Uniswap Adapter
+ * @author bayu <bayu@risedle.com> <https://github.com/pyk>
  */
 contract UniswapAdapterTest is DSTest {
 
@@ -29,7 +28,7 @@ contract UniswapAdapterTest is DSTest {
     }
 
     /// @notice Make sure only owner can set token metadata
-    function testFailNonOwnerCannotSetTokenMetadata() public {
+    function testFailedNonOwnerCannotSetTokenMetadata() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
