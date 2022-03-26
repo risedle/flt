@@ -23,3 +23,4 @@ address constant uniswapV2Router      = 0x1b02dA8Cb0d097eB8D57A175b88c7D8b479975
 address constant uniswapV3Router      = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
 address constant uniswapV3WBTCETHPool = 0x149e36E72726e0BceA5c59d40df2c43F60f5A22D;
 address constant sushiRouter          = 0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506;
+address constant sushiWBTCETHPair     = 0x515e252b2b5c22b4b2b6Df66c2eBeeA871AA4d69;
