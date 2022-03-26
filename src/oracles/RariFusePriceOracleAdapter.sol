@@ -22,7 +22,7 @@ contract RariFusePriceOracleAdapter is Ownable {
     }
 
     /// @notice Map token to Rari Fuse Price oracle contract
-    mapping(address => OracleMetadata) public metadata;
+    mapping(address => OracleMetadata) public oracles;
 
 
     /// ███ Events █████████████████████████████████████████████████████████████
@@ -46,8 +46,8 @@ contract RariFusePriceOracleAdapter is Ownable {
      */
     function setOracle(address _token, address _rariFusePriceOracle) external onlyOwner {
         /// ███ Effects
-        metadata[_token] = OracleMetadata({oracle: IRariFusePriceOracle(_rariFusePriceOracle), decimals: IERC20Metadata(_token).decimals()});
-        emit OracleUpdated(_token, metadata[_token]);
+        oracles[_token] = OracleMetadata({oracle: IRariFusePriceOracle(_rariFusePriceOracle), decimals: IERC20Metadata(_token).decimals()});
+        emit OracleUpdated(_token, oracles[_token]);
     }
 
 
@@ -64,19 +64,19 @@ contract RariFusePriceOracleAdapter is Ownable {
      */
     function price(address _base, address _quote) external view returns (uint256 _price) {
         /// ███ Checks
-        if (metadata[_base].decimals == 0) revert OracleNotExists(_base);
-        if (metadata[_quote].decimals == 0) revert OracleNotExists(_quote);
+        if (oracles[_base].decimals == 0) revert OracleNotExists(_base);
+        if (oracles[_quote].decimals == 0) revert OracleNotExists(_quote);
 
         /// ███ Interaction
-        uint256 basePriceInETH = metadata[_base].oracle.price(_base);
-        uint256 quotePriceInETH = metadata[_quote].oracle.price(_quote);
+        uint256 basePriceInETH = oracles[_base].oracle.price(_base);
+        uint256 quotePriceInETH = oracles[_quote].oracle.price(_quote);
 
         // Convert basePrice to quote price
         uint256 priceInETH = (basePriceInETH * 1e18) / quotePriceInETH;
 
         // Convert 1e18 precision to _quote precision
         // For example USDC will have 6 decimals. So we convert 1e18 precision to 1e6 precision
-        _price = (priceInETH * (10**metadata[_quote].decimals)) / 1e18;
+        _price = (priceInETH * (10**oracles[_quote].decimals)) / 1e18;
     }
 
 }
