@@ -58,6 +58,9 @@ contract UniswapAdapter is Ownable {
     /// @notice Flash swap types
     enum FlashSwapType { FlashSwapETHForExactTokens }
 
+    /// @notice Whitelisted pair/pool that can call the callback
+    mapping(address => bool) private isValidCallbackCaller;
+
 
     /// ███ Events █████████████████████████████████████████████████████████████
 
@@ -80,10 +83,10 @@ contract UniswapAdapter is Ownable {
     error InvalidMetadata(address token);
 
     /// @notice Error is raised when the callback is called by unkown pair/pool
-    error FlashSwapNotAuthorized();
+    error CallerNotAuthorized();
 
-    /// @notice Error is raised when the flasher failed to repay
-    error FlashSwapRepayFailed();
+    /// @notice Error is raised when the caller not repay the token
+    error CallerNotRepay();
 
     /// @notice Error is raised when this contract receive invalid amount when flashswap
     error FlashSwapReceivedAmountInvalid(uint256 expected, uint256 got);
@@ -112,6 +115,7 @@ contract UniswapAdapter is Ownable {
         /// ███ Effects
 
         // Set metadata
+        isValidCallbackCaller[_pairOrPool] = true;
         tokens[_token] = TokenMetadata({ version: _version, pool: IUniswapV3Pool(_pairOrPool), pair: IUniswapV2Pair(_pairOrPool), router: _router });
 
         emit TokenMetadataUpdated(_token, _version, _pairOrPool);
@@ -137,7 +141,7 @@ contract UniswapAdapter is Ownable {
         uint256 balance = weth.balanceOf(address(this));
 
         // Check the balance
-        if (balance < prevBalance + _params.wethAmount) revert FlashSwapRepayFailed();
+        if (balance < prevBalance + _params.wethAmount) revert CallerNotRepay();
 
         // Transfer the WETH to the Uniswap V2 pair
         weth.safeTransfer(address(_params.metadata.pair), _params.wethAmount);
@@ -153,8 +157,8 @@ contract UniswapAdapter is Ownable {
         /// ███ Checks
 
         // Check caller
-        if (tokens[msg.sender].version == 0) revert FlashSwapNotAuthorized();
-        if (_sender != address(this)) revert FlashSwapNotAuthorized();
+        if (!isValidCallbackCaller[msg.sender]) revert CallerNotAuthorized();
+        if (_sender != address(this)) revert CallerNotAuthorized();
 
         // Get the data
         (FlashSwapType flashSwapType, bytes memory data) = abi.decode(_data, (FlashSwapType, bytes));
