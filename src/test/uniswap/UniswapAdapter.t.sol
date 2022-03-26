@@ -28,7 +28,7 @@ contract UniswapAdapterTest is DSTest {
     }
 
     /// @notice Make sure only owner can set token metadata
-    function testFailedNonOwnerCannotSetTokenMetadata() public {
+    function testFailNonOwnerCannotSetTokenMetadata() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
@@ -74,7 +74,7 @@ contract UniswapAdapterTest is DSTest {
     }
 
     /// @notice Make sure flashSwapETHForExactTokens is failed when token is not repay
-    function testFailedUniswapV2FlashSwapETHForExactTokensRevertedIfCallerNotRepay() public {
+    function testFailUniswapV2FlashSwapETHForExactTokensRevertedIfCallerNotRepay() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
@@ -133,7 +133,7 @@ contract UniswapAdapterTest is DSTest {
     }
 
     /// @notice Make sure the uniswapV2Callback cannot be called by random dude
-    function testFailedUniswapV2CallbackCannotBeCalledByRandomDude() public {
+    function testFailUniswapV2CallbackCannotBeCalledByRandomDude() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
@@ -142,7 +142,7 @@ contract UniswapAdapterTest is DSTest {
     }
 
     /// @notice Make sure the uniswapV3SwapCallback cannot be called by random dude
-    function testFailedUniswapV3SwapCallbackCannotBeCalledByRandomDude() public {
+    function testFailUniswapV3SwapCallbackCannotBeCalledByRandomDude() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
