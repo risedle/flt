@@ -124,16 +124,10 @@ contract UniswapAdapter is Ownable {
 
     /// ███ Internal functions █████████████████████████████████████████████████
 
-    /// @notice Executed when flashSwapETHForExactTokens Uniswap V2 is triggered
-    function onUniV2FlashSwapETHForExactTokens(FlashSwapETHForExactTokensParams memory _params, bytes memory _data) internal {
+    /// @notice Executed when flashSwapETHForExactTokens is triggered
+    function onFlashSwapETHForExactTokens(FlashSwapETHForExactTokensParams memory _params, bytes memory _data) internal {
         // Transfer the tokenOut to caller
         _params.tokenOut.safeTransfer(address(_params.caller), _params.amountOut);
-
-        // Calculate the WETH amount
-        address[] memory path = new address[](2);
-        path[0] = address(weth);
-        path[1] = address(_params.tokenOut);
-        _params.wethAmount = IUniswapV2Router02(_params.metadata.router).getAmountsIn(_params.amountOut, path)[0];
 
         // Execute the callback
         uint256 prevBalance = weth.balanceOf(address(this));
@@ -143,8 +137,12 @@ contract UniswapAdapter is Ownable {
         // Check the balance
         if (balance < prevBalance + _params.wethAmount) revert CallerNotRepay();
 
-        // Transfer the WETH to the Uniswap V2 pair
-        weth.safeTransfer(address(_params.metadata.pair), _params.wethAmount);
+        // Transfer the WETH to the Uniswap V2 pair or pool
+        if (_params.metadata.version == 2) {
+            weth.safeTransfer(address(_params.metadata.pair), _params.wethAmount);
+        } else {
+            weth.safeTransfer(address(_params.metadata.pool), _params.wethAmount);
+        }
 
         emit FlashSwapped(_params);
     }
@@ -160,6 +158,8 @@ contract UniswapAdapter is Ownable {
         if (!isValidCallbackCaller[msg.sender]) revert CallerNotAuthorized();
         if (_sender != address(this)) revert CallerNotAuthorized();
 
+        /// ███ Interactions
+
         // Get the data
         (FlashSwapType flashSwapType, bytes memory data) = abi.decode(_data, (FlashSwapType, bytes));
 
@@ -169,10 +169,55 @@ contract UniswapAdapter is Ownable {
             // Check the amount out
             uint256 amountOut = _amount0 == 0 ? _amount1 : _amount0;
             if (params.amountOut != amountOut) revert FlashSwapReceivedAmountInvalid(params.amountOut, amountOut);
-            onUniV2FlashSwapETHForExactTokens(params, callData);
+
+            // Calculate the WETH amount
+            address[] memory path = new address[](2);
+            path[0] = address(weth);
+            path[1] = address(params.tokenOut);
+            params.wethAmount = IUniswapV2Router02(params.metadata.router).getAmountsIn(params.amountOut, path)[0];
+
+            onFlashSwapETHForExactTokens(params, callData);
             return;
         }
     }
+
+    /**
+     * @notice Function is called by the Uniswap V3 pool when the swap function is executed
+     * @param _amount0Delta The amount of token0 that was sent (negative) or must
+     *                      be received (positive) by the pool by the end of the swap.
+     *                      If positive, the callback must send that amount of token0 to the pool.
+     * @param _amount1Delta The amount of token1 that was sent (negative) or must
+     *                      be received (positive) by the pool by the end of the swap.
+     *                      If positive, the callback must send that amount of token1 to the pool.
+     * @param _data Callback data
+     */
+    function uniswapV3SwapCallback(int256 _amount0Delta, int256 _amount1Delta, bytes memory _data) external {
+        /// ███ Checks
+
+        // Check caller
+        if (!isValidCallbackCaller[msg.sender]) revert CallerNotAuthorized();
+
+        /// ███ Interactions
+
+        // Get the data
+        (FlashSwapType flashSwapType, bytes memory data) = abi.decode(_data, (FlashSwapType, bytes));
+
+        // Continue execute the function based on the flash swap type
+        if (flashSwapType == FlashSwapType.FlashSwapETHForExactTokens) {
+            (FlashSwapETHForExactTokensParams memory params, bytes memory callData) = abi.decode(data, (FlashSwapETHForExactTokensParams,bytes));
+
+            // if amount negative then it must be the amountOut, otherwise it's weth amount
+            uint256 amountOut = _amount0Delta < 0 ?  uint256(-1 * _amount0Delta) : uint256(-1 * _amount1Delta);
+            params.wethAmount = _amount0Delta > 0 ? uint256(_amount0Delta) : uint256(_amount1Delta);
+
+            // Check the amount out
+            if (params.amountOut != amountOut) revert FlashSwapReceivedAmountInvalid(params.amountOut, amountOut);
+
+            onFlashSwapETHForExactTokens(params, callData);
+            return;
+        }
+    }
+
 
 
     /// ███ Adapters ███████████████████████████████████████████████████████████
@@ -193,6 +238,16 @@ contract UniswapAdapter is Ownable {
 
         /// ███ Interactions
 
+        // Initialize the params
+        FlashSwapETHForExactTokensParams memory params = FlashSwapETHForExactTokensParams({
+            tokenOut: IERC20(_tokenOut),
+            amountOut: _amountOut,
+            caller: IUniswapAdapterCaller(msg.sender),
+            metadata: metadata,
+            wethAmount: 0 // Initialize as zero; It will be updated in the callback
+        });
+        bytes memory data = abi.encode(FlashSwapType.FlashSwapETHForExactTokens, abi.encode(params, _data));
+
         // Flash swap Uniswap V2; The pair address will call uniswapV2Callback function
         if (metadata.version == 2) {
             // Get amountOut for token and weth
@@ -200,14 +255,6 @@ contract UniswapAdapter is Ownable {
             uint256 amount1Out = _tokenOut == metadata.pair.token1() ? _amountOut : 0;
 
             // Do the flash swap
-            FlashSwapETHForExactTokensParams memory params = FlashSwapETHForExactTokensParams({
-                tokenOut: IERC20(_tokenOut),
-                amountOut: _amountOut,
-                caller: IUniswapAdapterCaller(msg.sender),
-                metadata: metadata,
-                wethAmount: 0 // Initialize as zero; It will be updated in the callback
-            });
-            bytes memory data = abi.encode(FlashSwapType.FlashSwapETHForExactTokens, abi.encode(params, _data));
             metadata.pair.swap(amount0Out, amount1Out, address(this), data);
             return;
         }
@@ -221,7 +268,6 @@ contract UniswapAdapter is Ownable {
             uint160 sqrtPriceLimitX96 = (zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341);
 
             // Perform swap
-            bytes memory data = abi.encode(FlashSwapType.FlashSwapETHForExactTokens, abi.encode("test"));
             metadata.pool.swap(address(this), zeroForOne, amountSpecified, sqrtPriceLimitX96, data);
             return;
         }
