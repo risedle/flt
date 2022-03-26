@@ -12,6 +12,10 @@ address constant wbtc = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
 address constant fgohm = 0xd861026A12623aec769fA57D05201193D8844368;
 address constant fusdc = 0x156157693BA371c5B126AAeF784D2853EbC8fEFa;
 
+// Rari Fuse Price Oracles
+address constant rariFuseGOHMPriceOracle = 0x5dA877E48662d14379C6F425f1de8E69Ad01C527;
+address constant rariFuseUSDCPriceOracle = 0x5dA877E48662d14379C6F425f1de8E69Ad01C527;
+
 // ERC20 slots on Arbitrum to manipulate the token balance
 uint256 constant usdcSlot = 51;
 uint256 constant gohmSlot = 101;

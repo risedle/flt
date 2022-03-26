@@ -14,6 +14,10 @@ address constant fgohm = 0x720424E9cB93F46585C902512cC4DA2E8A06c86C;
 address constant fusdc = 0xDE35E22Ac73d088BB9e7Cf29F306C008B3Dc8a21;
 address constant feth  = 0x340d64fBf1EE1ffb3Fe022746fB97a598F3d92A9;
 
+// Rari Fuse Price Oracles
+address constant rariFuseGOHMPriceOracle = 0x2111294D1A3889bC9d78bbEdC3Dbf5b6FA661612;
+address constant rariFuseUSDCPriceOracle = 0x058c345D3240001088b6280e008F9e78b3B2112d;
+
 // ERC20 slots on Arbitrum to manipulate the token balance
 uint256 constant wethSlot = 3;
 uint256 constant usdcSlot = 9;
