@@ -8,6 +8,7 @@ import { HEVM } from "../hevm/HEVM.sol";
 import { RariFusePriceOracleAdapter } from "../../oracles/RariFusePriceOracleAdapter.sol";
 import { gohm, rariFuseGOHMPriceOracle } from "chain/Tokens.sol";
 import { usdc, rariFuseUSDCPriceOracle } from "chain/Tokens.sol";
+import { IRariFusePriceOracle } from "../../interfaces/IRariFusePriceOracle.sol";
 
 /**
  * @title Rari Fuse Price Oracle Adapter Test
@@ -31,5 +32,19 @@ contract RariFusePriceOracleAdapterTest is DSTest {
 
         // Set oracle for token
         oracle.setOracle(gohm, rariFuseGOHMPriceOracle);
+    }
+
+    /// @notice Make sure owner can set the oracle
+    function testOwnerCanSetOracle() public {
+        // Create new oracle
+        RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
+
+        // Set oracle for token
+        oracle.setOracle(gohm, rariFuseGOHMPriceOracle);
+
+        // Check the metadata
+        (IRariFusePriceOracle priceOracle, uint8 decimals) = oracle.oracles(gohm);
+        assertEq(address(priceOracle), rariFuseGOHMPriceOracle);
+        assertEq(decimals, 18);
     }
 }
