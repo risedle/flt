@@ -9,6 +9,8 @@ import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/util
 import { weth, wbtc, uniswapV3WBTCETHPool, uniswapV3Router } from "chain/Tokens.sol";
 import { UniswapAdapter } from "../../uniswap/UniswapAdapter.sol";
 import { HEVM } from "../hevm/HEVM.sol";
+import { IUniswapV2Pair } from "../../interfaces/IUniswapV2Pair.sol";
+import { IUniswapV3Pool } from "../../interfaces/IUniswapV3Pool.sol";
 
 /**
  * @title Uniswap Adapter Test
@@ -22,6 +24,7 @@ contract UniswapAdapterTest is DSTest {
         hevm = new HEVM();
     }
 
+    /// @notice Make sure only owner can set token metadata
     function testFailNonOwnerCannotSetTokenMetadata() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
@@ -33,4 +36,23 @@ contract UniswapAdapterTest is DSTest {
         // Non-owner trying to set the token metadata; This should be reverted
         adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
     }
+
+    /// @notice Make sure owner can set token metadata
+    function testOwnerCanSetMetadata() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata
+        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+
+        // Check the value
+        (uint8 version, IUniswapV2Pair pair, IUniswapV3Pool pool, address router) = adapter.tokens(wbtc);
+        assertEq(version, 3);
+        // Pair and pool is set to the same address
+        assertEq(address(pair), uniswapV3WBTCETHPool);
+        assertEq(address(pool), uniswapV3WBTCETHPool);
+        // Router
+        assertEq(router, uniswapV3Router);
+    }
+
 }
