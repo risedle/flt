@@ -87,6 +87,32 @@ contract UniswapAdapterTest is DSTest {
         adapter.flashSwapETHForExactTokens(wbtc, 1e8, data);
     }
 
+    /// @notice Make sure flashSwapETHForExactTokens is working on Uniswap V3
+    function testUniswapV3FlashSwapETHForExactTokens() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+
+        // Execute the flashswap
+        bytes memory data = abi.encode(TestType.CallerRepay, 2022);
+        adapter.flashSwapETHForExactTokens(wbtc, 1e8, data);
+    }
+
+    /// @notice Make sure flashSwapETHForExactTokens is failed when token is not repay
+    function testFailUniswapV3FlashSwapETHForExactTokensRevertedIfCallerNotRepay() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+
+        // Execute the flashswap without repay; this should be reverted
+        bytes memory data = abi.encode(TestType.CallerNotRepay, 2022);
+        adapter.flashSwapETHForExactTokens(wbtc, 1e8, data);
+    }
+
     /// @notice Check the callback
     function onFlashSwapETHForExactTokens(uint256 _wethAmount, uint256 _amountOut, bytes memory _data) external {
         assertGt(_wethAmount, 0, "check _wethAmount");
@@ -106,4 +132,5 @@ contract UniswapAdapterTest is DSTest {
             return;
         }
     }
+
 }
