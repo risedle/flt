@@ -9,6 +9,7 @@ import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/util
 import { IUniswapV2Router02 } from "../interfaces/IUniswapV2Router02.sol";
 import { IUniswapV2Pair } from "../interfaces/IUniswapV2Pair.sol";
 import { IUniswapV3Pool } from "../interfaces/IUniswapV3Pool.sol";
+import { IUniswapV3SwapRouter } from "../interfaces/IUniswapV3SwapRouter.sol";
 import { IUniswapAdapterCaller } from "../interfaces/IUniswapAdapterCaller.sol";
 
 /**
@@ -280,6 +281,54 @@ contract UniswapAdapter is Ownable {
             // Perform swap
             metadata.pool.swap(address(this), zeroForOne, amountSpecified, sqrtPriceLimitX96, data);
             return;
+        }
+    }
+
+    /**
+     * @notice Swaps an exact amount of input tokens for as many WETH tokens as possible.
+     * @param _tokenIn tokenIn address
+     * @param _amountIn The amount of tokenIn
+     * @param _amountOutMin The minimum amount of WETH to be received
+     * @return _amountOut The WETH amount received
+     */
+    function swapExactTokensForWETH(address _tokenIn, uint256 _amountIn, uint256 _amountOutMin) external returns (uint256 _amountOut) {
+        /// ███ Checks
+
+        // Check the metadata
+        TokenMetadata memory metadata = tokens[_tokenIn];
+        if (metadata.version == 0) revert InvalidMetadata(_tokenIn);
+
+        /// ███ Interactions
+        IERC20(_tokenIn).safeTransferFrom(msg.sender, address(this), _amountIn);
+
+        if (metadata.version == 2) {
+            // Do the swap
+            address[] memory path = new address[](2);
+            path[0] = _tokenIn;
+            path[1] = address(weth);
+            IERC20(_tokenIn).safeApprove(metadata.router, _amountIn);
+            _amountOut = IUniswapV2Router02(metadata.router).swapExactTokensForTokens(_amountIn, _amountOutMin, path, msg.sender, block.timestamp)[1];
+            IERC20(_tokenIn).safeApprove(metadata.router, 0);
+            return _amountOut;
+        }
+
+        if (metadata.version == 3) {
+            // Do the swap
+            IUniswapV3SwapRouter.ExactInputSingleParams memory params = IUniswapV3SwapRouter.ExactInputSingleParams({
+                tokenIn: _tokenIn,
+                tokenOut: address(weth),
+                fee: metadata.pool.fee(),
+                recipient: msg.sender,
+                deadline: block.timestamp,
+                amountIn: _amountIn,
+                amountOutMinimum: _amountOutMin,
+                sqrtPriceLimitX96: 0
+            });
+
+            IERC20(_tokenIn).safeApprove(metadata.router, _amountIn);
+            _amountOut = IUniswapV3SwapRouter(metadata.router).exactInputSingle(params);
+            IERC20(_tokenIn).safeApprove(metadata.router, 0);
+            return _amountOut;
         }
     }
 }
