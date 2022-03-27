@@ -219,6 +219,16 @@ contract UniswapAdapter is Ownable {
     }
 
 
+    /// ███ Read-only functions ████████████████████████████████████████████████
+
+    /**
+     * @notice Returns true if token is configured
+     * @param _token The token address
+     */
+    function isConfigured(address _token) external view returns (bool) {
+        if (tokens[_token].version == 2 || tokens[_token].version == 3) return true;
+        return false;
+    }
 
     /// ███ Adapters ███████████████████████████████████████████████████████████
 
