@@ -109,4 +109,17 @@ contract RariFusePriceOracleAdapterTest is DSTest {
         assertLt(price, 5 ether);
     }
 
+    /// @notice Make sure isConfigured returns correct value
+    function testIsConfigured() public {
+        // Create new oracle
+        RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
+
+        // Set oracle for tokens
+        oracle.setOracle(gohm, rariFuseGOHMPriceOracle);
+
+        // Check configured value
+        assertTrue(oracle.isConfigured(gohm), "gohm");
+        assertTrue(!oracle.isConfigured(usdc), "usdc");
+    }
+
 }
