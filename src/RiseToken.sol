@@ -9,10 +9,10 @@ import { IERC20Metadata } from "lib/openzeppelin-contracts/contracts/token/ERC20
 import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { IUniswapAdapter } from "./interfaces/IUniswapAdapter.sol";
-import { IOracle } from "./interfaces/IOracle.sol";
 import { IfERC20 } from "./interfaces/IfERC20.sol";
 import { IFuseComptroller } from "./interfaces/IFuseComptroller.sol";
 import { IRiseTokenFactory } from "./interfaces/IRiseTokenFactory.sol";
+import { IRariFusePriceOracleAdapter } from "./interfaces/IRariFusePriceOracleAdapter.sol";
 
 /**
  * @title RISE Token (2x Long Token)
@@ -28,6 +28,12 @@ contract RiseToken is ERC20, Ownable {
 
     /// @notice The Rise Token Factory
     IRiseTokenFactory public immutable factory;
+
+    /// @notice Uniswap Adapter
+    IUniswapAdapter public uniswapAdapter;
+
+    /// @notice Rari Fuse Price Oracle Adapter
+    IRariFusePriceOracleAdapter public oracleAdapter;
 
     /// @notice The ERC20 compliant token that used by FLT as collateral asset
     IERC20 public immutable collateral;
@@ -151,6 +157,8 @@ contract RiseToken is ERC20, Ownable {
     constructor(string memory _name, string memory _symbol, address _factory, address _fCollateral, address _fDebt) ERC20(_name, _symbol) {
         // Set the storages
         factory = IRiseTokenFactory(_factory);
+        uniswapAdapter = IUniswapAdapter(factory.uniswapAdapter());
+        oracleAdapter = IRariFusePriceOracleAdapter(factory.oracleAdapter());
         fCollateral = IfERC20(_fCollateral);
         fDebt = IfERC20(_fDebt);
         collateral = IERC20(fCollateral.underlying());
