@@ -58,6 +58,27 @@ contract UniswapAdapterTest is DSTest {
         assertEq(router, uniswapV3Router);
     }
 
+    /// @notice Make sure isConfigured returns correct value
+    function testIsConfigured() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata
+        address token1 = hevm.addr(1);
+        address token2 = hevm.addr(2);
+        address token3 = hevm.addr(3);
+        address pairOrPool = hevm.addr(4);
+        address router = hevm.addr(5);
+
+        adapter.setMetadata(token1, 3, pairOrPool, router);
+        adapter.setMetadata(token2, 2, pairOrPool, router);
+
+        // Check configured value
+        assertTrue(adapter.isConfigured(token1), "token1");
+        assertTrue(adapter.isConfigured(token2), "token2");
+        assertTrue(!adapter.isConfigured(token3), "token3");
+    }
+
     enum TestType { CallerRepay, CallerNotRepay }
 
     /// @notice Make sure flashSwapETHForExactTokens is working on Uniswap V2
