@@ -10,4 +10,5 @@ interface IRiseTokenFactory {
     function uniswapAdapter() external returns (address);
     function oracleAdapter() external returns (address);
     function feeRecipient() external returns (address);
+    function owner() external returns (address);
 }
