@@ -51,6 +51,18 @@ contract RariFusePriceOracleAdapter is Ownable {
     }
 
 
+    /// ███ Read-only functions ████████████████████████████████████████████████
+
+    /**
+     * @notice Returns true if oracle for the `_token` is configured
+     * @param _token The token address
+     */
+    function isConfigured(address _token) external view returns (bool) {
+        if (oracles[_token].decimals == 0) return false;
+        return true;
+    }
+
+
     /// ███ Adapters ███████████████████████████████████████████████████████████
 
     /**
