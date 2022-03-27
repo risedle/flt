@@ -28,7 +28,7 @@ uint256 constant wbtcSlot = 0;
 
 // Uniswap Routers, Pools and Pairs
 address constant uniswapV2Router      = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
-address constant uniswapV3Router      = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
+address constant uniswapV3Router      = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
 address constant uniswapV3WBTCETHPool = 0xCBCdF9626bC03E24f779434178A73a0B4bad62eD;
 address constant uniswapV3USDCETHPool = 0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8;
 address constant sushiRouter          = 0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F;
