@@ -12,39 +12,34 @@ import { IUniswapAdapter } from "./interfaces/IUniswapAdapter.sol";
 import { IOracle } from "./interfaces/IOracle.sol";
 import { IfERC20 } from "./interfaces/IfERC20.sol";
 import { IFuseComptroller } from "./interfaces/IFuseComptroller.sol";
+import { IRiseTokenFactory } from "./interfaces/IRiseTokenFactory.sol";
 
 /**
- * @title Fuse Leveraged Token (FLT)
- * @author bayu (github.com/pyk)
- * @notice Leveraged Token powered by Rari Fuse.
+ * @title RISE Token (2x Long Token)
+ * @author bayu <bayu@risedle.com> <https://github.com/pyk>
+ * @notice 2x Long Token powered by Rari Fuse
  */
-contract FuseLeveragedToken is ERC20, Ownable {
+contract RiseToken is ERC20, Ownable {
     /// ███ Libraries ██████████████████████████████████████████████████████████
 
     using SafeERC20 for IERC20;
 
     /// ███ Storages ███████████████████████████████████████████████████████████
 
-    /// @notice The ERC20 compliant token that used by FLT as collateral asset
-    address public immutable collateral;
+    /// @notice The Rise Token Factory
+    IRiseTokenFactory public immutable factory;
 
-    /// @notice The Rari Fuse collateral token
-    address public immutable fCollateral;
+    /// @notice The ERC20 compliant token that used by FLT as collateral asset
+    IERC20 public immutable collateral;
 
     /// @notice The ERC20 compliant token that used by FLT as debt asset
-    address public immutable debt;
+    IERC20 public immutable debt;
+
+    /// @notice The Rari Fuse collateral token
+    IfERC20 public immutable fCollateral;
 
     /// @notice The Rari Fuse debt token
-    address public immutable fDebt;
-
-    /// @notice The Uniswap Adapter
-    address public uniswapAdapter;
-
-    /// @notice The price oracle
-    address public oracle;
-
-    /// @notice The fee recipient
-    address public feeRecipient;
+    IfERC20 public immutable fDebt;
 
     /// @notice True if the total collateral and debt are bootstraped
     bool public isBootstrapped;
@@ -59,6 +54,18 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
     /// @notice Fees in 1e18 precision (e.g. 0.1% is 0.001 * 1e8)
     uint256 public fees = 0.001 ether;
+
+    /// @notice Minimum leverage ratio in 1e18 precision
+    uint256 public minLeverageRatio = 1.7 ether;
+
+    /// @notice Maximum leverage ratio in 1e18 precision
+    uint256 public maxLeverageRatio = 2.3 ether;
+
+    /// @notice Rebalancing step in 1e18 precision
+    uint256 public step = 0.2 ether;
+
+    /// @notice Max rebalancing value in debt decimals precision
+    uint256 public maxRebalanceValue;
 
     /// @notice The collateral decimals
     uint8 private cdecimals;
@@ -137,28 +144,28 @@ contract FuseLeveragedToken is ERC20, Ownable {
     /// ███ Constructors ███████████████████████████████████████████████████████
 
     /**
-     * @notice Creates a new FLT that manages specified collateral and debt
-     * @param _name The name of the Fuse Leveraged Token (e.g. gOHM 2x Long)
-     * @param _symbol The symbol of the Fuse Leveraged Token (e.g. gOHMRISE)
-     * @param _uniswapAdapter The Uniswap Adapter
-     * @param _oracle The collateral price oracle
+     * @notice Creates a new Rise Token that manages specified collateral and debt
+     * @param _name The name of the Rise token (e.g. gOHM 2x Long)
+     * @param _symbol The symbol of the Rise token (e.g. gOHMRISE)
+     * @param _factory The Rise Token factory
      * @param _fCollateral The Rari Fuse token that used as collateral
      * @param _fDebt The Rari Fuse token that used as debt
      */
-    constructor(string memory _name, string memory _symbol, address _uniswapAdapter, address _oracle, address _fCollateral, address _fDebt) ERC20(_name, _symbol) {
+    constructor(string memory _name, string memory _symbol, address _factory, address _fCollateral, address _fDebt) ERC20(_name, _symbol) {
         // Set the storages
-        uniswapAdapter = _uniswapAdapter;
-        oracle = _oracle;
-        fCollateral = _fCollateral;
-        fDebt = _fDebt;
-        collateral = IfERC20(_fCollateral).underlying();
-        debt = IfERC20(_fDebt).underlying();
-        isBootstrapped = false;
-        feeRecipient = msg.sender;
+        factory = IRiseTokenFactory(_factory);
+        fCollateral = IfERC20(_fCollateral);
+        fDebt = IfERC20(_fDebt);
+        collateral = IERC20(fCollateral.underlying());
+        debt = IERC20(fDebt.underlying());
 
         // Get the collateral decimals
-        cdecimals = IERC20Metadata(collateral).decimals();
+        cdecimals = IERC20Metadata(address(collateral)).decimals();
+
+        // Transfer ownership to factory owner
+        transferOwnership(factory.owner());
     }
+
 
     /// ███ Owner actions ██████████████████████████████████████████████████████
 
@@ -185,7 +192,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
      * @param _newAdapter New contract that implements IUniswapAdapter interface
      */
     function setUniswapAdapter(address _newAdapter) external onlyOwner {
-        uniswapAdapter = _newAdapter;
+        uniswapAdapter = IUniswapAdapter(_newAdapter);
         emit UniswapAdapterUpdated(_newAdapter);
     }
 
@@ -232,8 +239,9 @@ contract FuseLeveragedToken is ERC20, Ownable {
 
         // Do the flash swap and transfer data to onBootstrap function
         uint256 amountOutMin = lc - ((0.05 ether * lc) / 1 ether); // 5% (swap fees + slippage tolerance)
-        IUniswapAdapter(uniswapAdapter).flashSwapExactTokensForTokensViaETH(b, amountOutMin, [debt, collateral], data);
+        // IUniswapAdapter(uniswapAdapter).flashSwapExactTokensForTokensViaETH(b, amountOutMin, [debt, collateral], data);
     }
+
 
     /// ███ Internal functions █████████████████████████████████████████████████
 
@@ -275,7 +283,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
         if (borrowResponse != 0) revert FuseBorrowFailed(borrowResponse);
 
         // Repay the flash swap
-        IERC20(debt).safeTransfer(uniswapAdapter, borrowAmount);
+        IERC20(debt).safeTransfer(address(uniswapAdapter), borrowAmount);
 
         // Mint the token
         _mint(bootstraper, shares);
@@ -309,7 +317,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
         if (borrowResponse != 0) revert FuseBorrowFailed(borrowResponse);
 
         // Repay the flash swap
-        IERC20(debt).safeTransfer(uniswapAdapter, debtAmount);
+        IERC20(debt).safeTransfer(address(uniswapAdapter), debtAmount);
 
         // Mint the token
         _mint(recipient, shares);
@@ -331,7 +339,7 @@ contract FuseLeveragedToken is ERC20, Ownable {
         /// ███ Checks
 
         // Check the caller
-        if (msg.sender != uniswapAdapter) revert NotUniswapAdapter();
+        if (msg.sender != address(uniswapAdapter)) revert NotUniswapAdapter();
 
         // Continue execution based on the type
         (FlashSwapType flashSwapType, bytes memory data) = abi.decode(_data, (FlashSwapType,bytes));
@@ -438,10 +446,10 @@ contract FuseLeveragedToken is ERC20, Ownable {
         uint256 debtAmount = (newShares * debtPerShares()) / (10**cdecimals);
 
         // Get the collateral amount using the borrowed asset
-        uint256 flashSwappedAmount = IUniswapAdapter(uniswapAdapter).getAmountOutViaETH([debt, collateral], debtAmount);
+        // uint256 flashSwappedAmount = IUniswapAdapter(uniswapAdapter).getAmountOutViaETH([debt, collateral], debtAmount);
 
         // Get the owed collateral
-        _collateral = collateralAmount - flashSwappedAmount;
+        // _collateral = collateralAmount - flashSwappedAmount;
     }
 
     /**
@@ -463,29 +471,28 @@ contract FuseLeveragedToken is ERC20, Ownable {
         uint256 debtAmount = (newShares * debtPerShares()) / (10**cdecimals);
 
         // Get the collateral amount using the borrowed asset
-        uint256 collateralSold = IUniswapAdapter(uniswapAdapter).getAmountInViaETH([collateral, debt], debtAmount);
+        // uint256 collateralSold = IUniswapAdapter(uniswapAdapter).getAmountInViaETH([collateral, debt], debtAmount);
 
         // Get the owed collateral
-        _collateral = collateralAmount - collateralSold;
+        // _collateral = collateralAmount - collateralSold;
     }
 
 
     /// ███ User actions ███████████████████████████████████████████████████████
 
     /**
-     * @notice Mints new FLT token using collateral token (e.g. gOHM)
-     * @param _shares The new supply of FLT token to be minted
-     * @param _recipient The recipient of newly minted token
-     * @return _collateral The amount of collateral used to mint the token
+     * @notice Mints new RISE token
+     * @param _shares The amount of RISE token to be minted
+     * @param _recipient The recipient of newly minted RISE token
+     * @param _token ERC20 used to mint the RISE token
      */
-    function mint(uint256 _shares, address _recipient) external returns (uint256 _collateral) {
+    function mint(uint256 _shares, address _recipient, address _token) external {
         /// ███ Checks
 
         // Check boostrap status
         if (!isBootstrapped) revert NotBootstrapped();
 
         // Check mint amount
-        if (_shares == 0) return 0;
         if (_shares > maxMint) revert MintAmountInvalid();
 
         /// ███ Effects
@@ -500,15 +507,9 @@ contract FuseLeveragedToken is ERC20, Ownable {
         uint256 collateralAmount = (newShares * collateralPerShares()) / (10**cdecimals);
         uint256 debtAmount = (newShares * debtPerShares()) / (10**cdecimals);
 
-        // Get the collateral amount using the borrowed asset
-        uint256 flashSwappedAmount = IUniswapAdapter(uniswapAdapter).getAmountOutViaETH([debt, collateral], debtAmount);
-
-        // Get the owed collateral
-        _collateral = collateralAmount - flashSwappedAmount;
-
         // Perform the flash swap
-        bytes memory data = abi.encode(FlashSwapType.Mint, abi.encode(msg.sender, _recipient, _shares, fee, collateralAmount, debtAmount));
-        IUniswapAdapter(uniswapAdapter).flashSwapExactTokensForTokensViaETH(debtAmount, 0, [debt, collateral], data);
+        bytes memory data = abi.encode(FlashSwapType.Mint, abi.encode(msg.sender, _recipient, _shares, fee, collateralAmount, debtAmount, _token));
+        // uniswapAdapter.flashSwapETHForExactTokens(collateral, collateralAmount);
     }
 
     /**
@@ -536,10 +537,10 @@ contract FuseLeveragedToken is ERC20, Ownable {
         if (redeemResponse != 0) revert FuseRedeemCollateralFailed(redeemResponse);
 
         // Swap the collateral to repay the debt
-        uint256 amountInMax = IUniswapAdapter(uniswapAdapter).getAmountInViaETH([collateral, debt], debtAmount);
-        IERC20(collateral).safeApprove(uniswapAdapter, amountInMax);
-        uint256 collateralSold = IUniswapAdapter(uniswapAdapter).swapTokensForExactTokensViaETH(debtAmount, amountInMax, [collateral, debt]);
-        IERC20(collateral).safeApprove(uniswapAdapter, 0);
+        // uint256 amountInMax = IUniswapAdapter(uniswapAdapter).getAmountInViaETH([collateral, debt], debtAmount);
+        // IERC20(collateral).safeApprove(uniswapAdapter, amountInMax);
+        // uint256 collateralSold = IUniswapAdapter(uniswapAdapter).swapTokensForExactTokensViaETH(debtAmount, amountInMax, [collateral, debt]);
+        // IERC20(collateral).safeApprove(uniswapAdapter, 0);
 
         // Repay the debt
         IERC20(debt).safeApprove(fDebt, debtAmount);
@@ -552,8 +553,8 @@ contract FuseLeveragedToken is ERC20, Ownable {
         _burn(msg.sender, newShares);
 
         // Transfer the leftover collateral back to the user
-        _collateral = collateralAmount - collateralSold;
-        IERC20(collateral).safeTransfer(msg.sender, _collateral);
+        // _collateral = collateralAmount - collateralSold;
+        // IERC20(collateral).safeTransfer(msg.sender, _collateral);
 
         emit Redeemed(_shares);
     }
@@ -564,4 +565,10 @@ contract FuseLeveragedToken is ERC20, Ownable {
         IERC20(address(this)).safeTransfer(feeRecipient, amount);
         emit FeeCollected(amount);
     }
+
+    /**
+     * @notice Redeems token to underlying collateral (e.g. gOHM)
+     * @param _shares The amount of FLT token to be burned
+     * @return _collateral The amount of collateral redeemed
+     */
 }
