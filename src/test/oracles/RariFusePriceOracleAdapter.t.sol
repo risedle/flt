@@ -47,4 +47,66 @@ contract RariFusePriceOracleAdapterTest is DSTest {
         assertEq(address(priceOracle), rariFuseGOHMPriceOracle);
         assertEq(decimals, 18);
     }
+
+    /// @notice Make sure it revert when base oracle is not set
+    function testFailPriceRevertIfBaseOracleIsNotSet() public {
+        // Create new oracle
+        RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
+
+        // Set oracle for tokens
+        oracle.setOracle(usdc, rariFuseUSDCPriceOracle);
+
+        // Base is not set, it should be reverted
+        oracle.price(gohm, usdc);
+    }
+
+    /// @notice Make sure it revert when quote oracle is not set
+    function testFailPriceRevertIfQuoteOracleIsNotSet() public {
+        // Create new oracle
+        RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
+
+        // Set oracle for tokens
+        oracle.setOracle(gohm, rariFuseGOHMPriceOracle);
+
+        // Base is not set, it should be reverted
+        oracle.price(gohm, usdc);
+    }
+
+    /// @notice Make sure it revert when token oracle is not set
+    function testFailPriceRevertIfTokenOracleIsNotSet() public {
+        // Create new oracle
+        RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
+
+        // Base is not set, it should be reverted
+        oracle.price(gohm);
+    }
+
+    /// @notice Make sure it returns correctly
+    function testPriceGOHMUSDC() public {
+        // Create new oracle
+        RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
+
+        // Set oracle for tokens
+        oracle.setOracle(gohm, rariFuseGOHMPriceOracle);
+        oracle.setOracle(usdc, rariFuseUSDCPriceOracle);
+
+        // Base is not set, it should be reverted
+        uint256 price = oracle.price(gohm, usdc);
+        assertGt(price, 2_000 * 1e6, "check price");
+        assertLt(price, 6_000 * 1e6, "check price");
+    }
+
+    /// @notice Make sure it returns correctly
+    function testPriceGOHMETH() public {
+        // Create new oracle
+        RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
+
+        // Set oracle for tokens
+        oracle.setOracle(gohm, rariFuseGOHMPriceOracle);
+
+        // Base is not set, it should be reverted
+        uint256 price = oracle.price(gohm);
+        assertLt(price, 5 ether);
+    }
+
 }
