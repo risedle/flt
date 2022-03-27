@@ -53,6 +53,18 @@ contract RariFusePriceOracleAdapter is Ownable {
 
     /// ███ Adapters ███████████████████████████████████████████████████████████
 
+    /**
+     * @notice Gets the price of `_token` in terms of ETH (1e18 precision)
+     * @param _token Token address (e.g. gOHM)
+     * @return _price Price in ETH (1e18 precision)
+     */
+    function price(address _token) public view returns (uint256 _price) {
+        /// ███ Checks
+        if (oracles[_token].decimals == 0) revert OracleNotExists(_token);
+
+        /// ███ Interaction
+        _price = oracles[_token].oracle.price(_token);
+    }
 
     /**
      * @notice Gets the price of `_base` in terms of `_quote`.
@@ -63,13 +75,9 @@ contract RariFusePriceOracleAdapter is Ownable {
      * @return _price Price in quote decimals precision (e.g. USDC is 1e6)
      */
     function price(address _base, address _quote) external view returns (uint256 _price) {
-        /// ███ Checks
-        if (oracles[_base].decimals == 0) revert OracleNotExists(_base);
-        if (oracles[_quote].decimals == 0) revert OracleNotExists(_quote);
-
         /// ███ Interaction
-        uint256 basePriceInETH = oracles[_base].oracle.price(_base);
-        uint256 quotePriceInETH = oracles[_quote].oracle.price(_quote);
+        uint256 basePriceInETH = price(_base);
+        uint256 quotePriceInETH = price(_quote);
 
         // Convert basePrice to quote price
         uint256 priceInETH = (basePriceInETH * 1e18) / quotePriceInETH;
