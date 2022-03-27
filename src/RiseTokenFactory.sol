@@ -39,6 +39,9 @@ contract RiseTokenFactory is Ownable {
     /// @notice Event emitted when new token is created
     event TokenCreated(address token, address fCollateral, address fDebt, uint256 totalTokens);
 
+    /// @notice Event emitted when feeRecipient is updated
+    event FeeRecipientUpdated(address newRecipient);
+
 
     /// ███ Errors █████████████████████████████████████████████████████████████
 
@@ -64,6 +67,15 @@ contract RiseTokenFactory is Ownable {
 
 
     /// ███ Owner actions ██████████████████████████████████████████████████████
+
+    /**
+     * @notice Sets fee recipient
+     * @param _newRecipient New fee recipient
+     */
+    function setFeeRecipient(address _newRecipient) external onlyOwner {
+        feeRecipient = _newRecipient;
+        emit FeeRecipientUpdated(_newRecipient);
+    }
 
     /**
      * @notice Creates new Rise Token.
@@ -97,14 +109,14 @@ contract RiseTokenFactory is Ownable {
         string memory tokenSymbol = string(abi.encodePacked(IERC20Metadata(collateral).symbol(), "RISE"));
         bytes memory constructorArgs = abi.encode(tokenName, tokenSymbol, address(this), _fCollateral, _fDebt);
         bytes memory bytecode = abi.encodePacked(creationCode, constructorArgs);
-        bytes32 salt = keccak256(abi.encodePacked(_fCollateral, token1));
+        bytes32 salt = keccak256(abi.encodePacked(_fCollateral, _fDebt));
         assembly {
             _token := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
 
         getToken[_fCollateral][_fDebt] = _token;
-        getPair[_fDebt][_fCollateral] = _token; // populate mapping in the reverse direction
-        tokens.push(pair);
+        getToken[_fDebt][_fCollateral] = _token; // populate mapping in the reverse direction
+        tokens.push(_token);
 
         emit TokenCreated(_token, _fCollateral, _fDebt, tokens.length);
     }
