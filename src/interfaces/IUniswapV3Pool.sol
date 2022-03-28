@@ -9,7 +9,7 @@ pragma experimental ABIEncoderV2;
 interface IUniswapV3Pool {
     /// @notice Docs: https://docs.uniswap.org/protocol/reference/core/UniswapV3Pool#swap
     function swap(address _recipient, bool _zeroForOne, int256 _amountSpecified, uint160 _sqrtPriceLimitX96, bytes memory _data) external returns (int256 amount0, int256 amount1);
-    function token0() external returns (address);
-    function token1() external returns (address);
-    function fee() external returns (uint24);
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+    function fee() external view returns (uint24);
 }
