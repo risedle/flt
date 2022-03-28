@@ -15,5 +15,5 @@ interface IUniswapAdapterCaller {
      * @param _amountOut The amount of of tokenOut transfered to the caller.
      * @param _data Data passed by the caller.
      */
-    function onFlashSwapETHForExactTokens(uint256 _wethAmount, uint256 _amountOut, bytes calldata _data) external;
+    function onFlashSwapWETHForExactTokens(uint256 _wethAmount, uint256 _amountOut, bytes calldata _data) external;
 }
