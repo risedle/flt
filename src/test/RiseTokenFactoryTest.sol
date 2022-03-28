@@ -167,6 +167,7 @@ contract RiseTokenFactoryTest is DSTest {
         // Check public properties
         assertEq(IERC20Metadata(_token).name(), "WBTC 2x Long Risedle");
         assertEq(IERC20Metadata(_token).symbol(), "WBTCRISE");
+        assertEq(IERC20Metadata(_token).decimals(), 8);
         assertEq(address(IRiseToken(_token).factory()), address(factory));
         assertEq(address(IRiseToken(_token).collateral()), wbtc);
         assertEq(address(IRiseToken(_token).debt()), usdc);
