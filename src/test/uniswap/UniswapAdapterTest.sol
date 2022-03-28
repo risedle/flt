@@ -27,8 +27,8 @@ contract UniswapAdapterTest is DSTest {
         hevm = new HEVM();
     }
 
-    /// @notice Make sure only owner can set token metadata
-    function testFailNonOwnerCannotSetTokenMetadata() public {
+    /// @notice Make sure only owner can set configure token
+    function testFailNonOwnerCannotConfgureToken() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
@@ -37,16 +37,16 @@ contract UniswapAdapterTest is DSTest {
         adapter.transferOwnership(newOwner);
 
         // Non-owner trying to set the token metadata; This should be reverted
-        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
     }
 
     /// @notice Make sure owner can set token metadata
-    function testOwnerCanSetMetadata() public {
+    function testOwnerCanConfigureToken() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata
-        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
 
         // Check the value
         (uint8 version, IUniswapV2Pair pair, IUniswapV3Pool pool, address router) = adapter.tokens(wbtc);
@@ -70,8 +70,8 @@ contract UniswapAdapterTest is DSTest {
         address pairOrPool = hevm.addr(4);
         address router = hevm.addr(5);
 
-        adapter.setMetadata(token1, 3, pairOrPool, router);
-        adapter.setMetadata(token2, 2, pairOrPool, router);
+        adapter.configure(token1, 3, pairOrPool, router);
+        adapter.configure(token2, 2, pairOrPool, router);
 
         // Check configured value
         assertTrue(adapter.isConfigured(token1), "token1");
@@ -87,7 +87,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
-        adapter.setMetadata(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+        adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
 
         // Execute the flashswap
         bytes memory data = abi.encode(TestType.CallerRepay, 2022);
@@ -100,7 +100,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
-        adapter.setMetadata(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+        adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
 
         // Execute the flashswap without repay; this should be reverted
         bytes memory data = abi.encode(TestType.CallerNotRepay, 2022);
@@ -113,7 +113,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
-        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
 
         // Execute the flashswap
         bytes memory data = abi.encode(TestType.CallerRepay, 2022);
@@ -126,7 +126,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
-        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
 
         // Execute the flashswap without repay; this should be reverted
         bytes memory data = abi.encode(TestType.CallerNotRepay, 2022);
@@ -195,7 +195,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
-        adapter.setMetadata(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+        adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
 
         // Swap the BTC
         hevm.setWBTCBalance(address(this), 1e8);
@@ -214,7 +214,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
-        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
 
         // Swap the BTC
         hevm.setWBTCBalance(address(this), 1e8);
@@ -232,7 +232,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
-        adapter.setMetadata(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+        adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
 
         // Swap the BTC
         hevm.setWBTCBalance(address(this), 1e8);
@@ -245,7 +245,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
-        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
 
         // Swap the BTC
         hevm.setWBTCBalance(address(this), 1e8);
@@ -268,7 +268,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Configure the token
-        adapter.setMetadata(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+        adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
 
         // This should returns value
         uint256 wethAmount = adapter.previewSwapWETHForExactTokens(wbtc, 1e8);
@@ -282,7 +282,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
-        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
 
         // This should returns value
         uint256 wethAmount = adapter.previewSwapWETHForExactTokens(wbtc, 1e8);
@@ -305,7 +305,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Configure the token
-        adapter.setMetadata(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+        adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
 
         // This should returns value
         uint256 wbtcAmount = adapter.previewSwapTokensForExactWETH(wbtc, 1e18);
@@ -319,7 +319,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
-        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
 
         // This should returns value
         uint256 wbtcAmount = adapter.previewSwapTokensForExactWETH(wbtc, 1e18);
@@ -342,7 +342,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Configure the token
-        adapter.setMetadata(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+        adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
 
         // This should returns value
         uint256 wethAmount = adapter.previewSwapExactTokensForWETH(wbtc, 1e8);
@@ -356,7 +356,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
-        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
 
         // This should returns value
         uint256 wethAmount = adapter.previewSwapExactTokensForWETH(wbtc, 1e8);
@@ -379,7 +379,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Configure the token
-        adapter.setMetadata(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+        adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
 
         // This should returns value
         uint256 wbtcAmount = adapter.previewSwapExactWETHForTokens(wbtc, 1e18);
@@ -393,7 +393,7 @@ contract UniswapAdapterTest is DSTest {
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
-        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
 
         // This should returns value
         uint256 wbtcAmount = adapter.previewSwapExactWETHForTokens(wbtc, 1e18);

@@ -71,8 +71,8 @@ contract UniswapAdapter is Ownable {
 
     /// ███ Events █████████████████████████████████████████████████████████████
 
-    /// @notice Event emitted when metadata us updated
-    event TokenMetadataUpdated(address token, uint8 version, address pairOrPool);
+    /// @notice Event emitted when token is configured
+    event TokenConfigured(address token, uint8 version, address pairOrPool);
 
     /// @notice Event emitted when flash swap succeeded
     event FlashSwapped(FlashSwapWETHForExactTokensParams params);
@@ -112,13 +112,13 @@ contract UniswapAdapter is Ownable {
     /// ███ Owner actions ██████████████████████████████████████████████████████
 
     /**
-     * @notice setMetadata set metadata for TOKEN
+     * @notice Configure the token
      * @param _token The ERC20 token
      * @param _version The Uniswap version (2 or 3)
      * @param _pairOrPool The contract address of the TOKEN/ETH pair or pool
      * @param _router The Uniswap V2 or V3 router address
      */
-    function setMetadata(address _token, uint8 _version, address _pairOrPool, address _router) external onlyOwner {
+    function configure(address _token, uint8 _version, address _pairOrPool, address _router) external onlyOwner {
         /// ███ Checks
         if (_version < 2 || _version > 3) revert InvalidUniswapVersion(_version);
 
@@ -128,7 +128,7 @@ contract UniswapAdapter is Ownable {
         isValidCallbackCaller[_pairOrPool] = true;
         tokens[_token] = TokenMetadata({ version: _version, pool: IUniswapV3Pool(_pairOrPool), pair: IUniswapV2Pair(_pairOrPool), router: _router });
 
-        emit TokenMetadataUpdated(_token, _version, _pairOrPool);
+        emit TokenConfigured(_token, _version, _pairOrPool);
     }
 
 

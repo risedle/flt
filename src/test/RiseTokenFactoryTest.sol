@@ -76,7 +76,7 @@ contract RiseTokenFactoryTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(address(uniswapAdapter), adapter);
 
         // Configure Uniswap Adapter
-        uniswapAdapter.setMetadata(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
 
         // This should revert
         factory.create(fwbtc, fusdc);
@@ -90,7 +90,7 @@ contract RiseTokenFactoryTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(address(uniswapAdapter), adapter);
 
         // Configure Uniswap Adapter
-        uniswapAdapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
 
         // This should revert
         factory.create(fwbtc, fusdc);
@@ -104,8 +104,8 @@ contract RiseTokenFactoryTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(address(uniswapAdapter), address(oracleAdapter));
 
         // Configure Uniswap Adapter
-        uniswapAdapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
-        uniswapAdapter.setMetadata(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
 
         // Configure Oracle Adapter
         oracleAdapter.setOracle(usdc, rariFuseUSDCPriceOracle);
@@ -122,8 +122,8 @@ contract RiseTokenFactoryTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(address(uniswapAdapter), address(oracleAdapter));
 
         // Configure Uniswap Adapter
-        uniswapAdapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
-        uniswapAdapter.setMetadata(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
 
         // Configure Oracle Adapter
         oracleAdapter.setOracle(wbtc, rariFuseWBTCPriceOracle);
@@ -154,8 +154,8 @@ contract RiseTokenFactoryTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(address(uniswapAdapter), address(oracleAdapter));
 
         // Configure Uniswap Adapter
-        uniswapAdapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
-        uniswapAdapter.setMetadata(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
 
         // Configure Oracle Adapter
         oracleAdapter.setOracle(wbtc, rariFuseWBTCPriceOracle);
