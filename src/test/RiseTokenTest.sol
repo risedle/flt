@@ -5,8 +5,8 @@ pragma experimental ABIEncoderV2;
 import "lib/ds-test/src/test.sol";
 import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-import { UniswapAdapter } from "../uniswap/UniswapAdapter.sol";
-import { RariFusePriceOracleAdapter } from "../oracles/RariFusePriceOracleAdapter.sol";
+import { UniswapAdapter } from "../adapters/UniswapAdapter.sol";
+import { RariFusePriceOracleAdapter } from "../adapters/RariFusePriceOracleAdapter.sol";
 import { RiseTokenFactory } from "../RiseTokenFactory.sol";
 
 import { IRiseToken } from "../interfaces/IRiseToken.sol";

@@ -16,7 +16,7 @@ import { IRariFusePriceOracleAdapter } from "./interfaces/IRariFusePriceOracleAd
 import { IWETH9 } from "./interfaces/IWETH9.sol";
 
 /**
- * @title RISE Token (2x Long Token)
+ * @title Rise Token (2x Long Token)
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
  * @notice 2x Long Token powered by Rari Fuse
  */
@@ -55,7 +55,7 @@ contract RiseToken is ERC20, Ownable {
     bool public isInitialized;
 
     /// @notice Cache the total collateral from Rari Fuse
-    /// @dev We need this because balanceOfUnderlying fToken is non-view function
+    /// @dev We need this because balanceOfUnderlying fToken is a non-view function
     uint256 public totalCollateral;
     uint256 public totalDebt;
 
@@ -89,7 +89,7 @@ contract RiseToken is ERC20, Ownable {
     uint8 private ddecimals;
 
     /// @notice Flashswap type
-    enum FlashSwapType {Initialize, Mint}
+    enum FlashSwapType { Initialize, Mint }
 
     /// @notice Initialize params
     struct InitializeParams {
@@ -105,35 +105,16 @@ contract RiseToken is ERC20, Ownable {
 
     /// ███ Events █████████████████████████████████████████████████████████████
 
-    /// @notice Event emitted when the rise token is initialized
+    /// @notice Event emitted when the Rise Token is initialized
     event Initialized(InitializeParams params);
-
-    /// @notice Event emitted when new supply is minted
-    event Minted(uint256 amount);
-
-    /// @notice Event emitted when existing supply is burned
-    event Redeemed(uint256 amount);
 
     /// @notice Event emitted when maxMint is updated
     event MaxMintUpdated(uint256 newMaxMint);
 
-    /// @notice Event emitted when fees is updated
-    event FeesUpdated(uint256 newFees);
-
-    /// @notice Event emitted when uniswapAdapter is updated
-    event UniswapAdapterUpdated(address newAdapter);
-
-    /// @notice Event emitted when oracle is updated
-    event OracleUpdated(address newOracle);
-
-    /// @notice Event emitted when fee is collected
-    event FeeCollected(uint256 amount);
-
 
     /// ███ Errors █████████████████████████████████████████████████████████████
 
-    /// @notice Error is raised if the caller of onFlashSwap is not specified
-    ///         Uniswap Adapter contract
+    /// @notice Error is raised if the caller of onFlashSwapWETHForExactTokens is not Uniswap Adapter contract
     error NotUniswapAdapter();
 
     /// @notice Error is raised if flash swap borrow token is not collateral
@@ -160,17 +141,17 @@ contract RiseToken is ERC20, Ownable {
     /// @notice Error is raised if mint amount is invalid
     error InputAmountInvalid();
 
-    /// @notice Error is raised if the owner run the bootstrap twice
+    /// @notice Error is raised if the owner run the initialize() twice
     error AlreadyInitialized();
 
-    /// @notice Error is raised if mint,redeem and rebalance is executed before the FLT is bootstrapped
+    /// @notice Error is raised if mint,redeem and rebalance is executed before the FLT is initialized
     error NotInitialized();
 
-    /// @notice Error is raised if flash swap/swap have slippage too high
+    /// @notice Error is raised if slippage too high
     error SlippageTooHigh();
 
     /// @notice Error is raised if contract failed to send ETH
-    error FailedToSendETH();
+    error FailedToSendETH(address to, uint256 amount);
 
 
     /// ███ Constructors ███████████████████████████████████████████████████████
@@ -206,13 +187,13 @@ contract RiseToken is ERC20, Ownable {
     /// ███ Internal functions █████████████████████████████████████████████████
 
     /**
-     * @notice Gets the initialize params
+     * @notice Gets the initialize parameters
      * @param _totalCollateralMin The minimum amount of total colllateral to initialize the token
      * @param _nav The initial net-asset value of the token in debt decimals precision (100 USDC is 100*1e6)
      * @param _lr The initial leverage ratio of the token in 1e18 precision (2x is 2*1e18)
      * @return _params The initialize parameters
      */
-    function getInitializeParams(uint256 _totalCollateralMin, uint256 _nav, uint256 _lr) internal returns (InitializeParams memory _params) {
+    function getInitializeParams(uint256 _totalCollateralMin, uint256 _nav, uint256 _lr) internal view returns (InitializeParams memory _params) {
         // Get the initial total shares using 2x leverage ratio
         uint256 price = oracleAdapter.price(address(collateral), address(debt));
         uint256 targetCollateralAmount = 2 * _totalCollateralMin;
@@ -239,7 +220,7 @@ contract RiseToken is ERC20, Ownable {
             targetCollateralAmount += collateralBought;
         }
 
-        // Perform the flash swap
+        // Create the parameters
         _params = InitializeParams({
             borrowAmount: targetBorrowAmount,
             collateralAmount: targetCollateralAmount,
@@ -252,10 +233,10 @@ contract RiseToken is ERC20, Ownable {
     }
 
     /**
-     * @notice Continue the initialize function
+     * @notice Finish off the initialize() function after flashswap
      * @param _wethAmount The amount of WETH that we need to send back to Uniswap Adapter
      * @param _collateralAmount The collateral amount that received by this contract
-     * @param _data Data passed from initialize function
+     * @param _data Data passed from initialize() function
      */
     function onInitialize(uint256 _wethAmount, uint256 _collateralAmount, bytes memory _data) internal {
         /// ███ Effects
@@ -273,13 +254,13 @@ contract RiseToken is ERC20, Ownable {
         uint256[] memory marketStatus = IFuseComptroller(fCollateral.comptroller()).enterMarkets(markets);
         if (marketStatus[0] != 0 && marketStatus[1] != 0) revert FuseFailedToEnterMarkets(marketStatus[0], marketStatus[1]);
 
-        // Deposit all collateral to the Fuse
+        // Deposit all collateral to Rari Fuse
         collateral.safeApprove(address(fCollateral), _collateralAmount);
         uint256 supplyResponse = fCollateral.mint(_collateralAmount);
         if (supplyResponse != 0) revert FuseAddCollateralFailed(supplyResponse);
         collateral.safeApprove(address(fCollateral), 0);
 
-        // Borrow from the Fuse
+        // Borrow from Rari Fuse
         uint256 borrowResponse = fDebt.borrow(params.borrowAmount);
         if (borrowResponse != 0) revert FuseBorrowFailed(borrowResponse);
 
@@ -299,13 +280,13 @@ contract RiseToken is ERC20, Ownable {
         // Transfer excess ETH back to the initializer
         uint256 excessETH = params.ethAmount - owedWETH;
         (bool sent, ) = params.initializer.call{value: excessETH}("");
-        if (!sent) revert FailedToSendETH();
+        if (!sent) revert FailedToSendETH(params.initializer, excessETH);
 
         // Send back WETH to uniswap adapter
         weth.deposit{ value: owedWETH }(); // Wrap the ETH to WETH
         weth.transfer(address(uniswapAdapter), _wethAmount);
 
-        // Mint the token
+        // Mint the Rise Token to the initializer
         _mint(params.initializer, params.shares);
 
         emit Initialized(params);
@@ -359,9 +340,9 @@ contract RiseToken is ERC20, Ownable {
     }
 
     /**
-     * @notice Initialize the Rise Token using ETH
-     * @param _collateralMin The minimum amount of collateral (in collateral decimals precision e.g. 0.01 WBTC is 0.01*1e8)
-     * @param _nav The initial net-asset value of the FLT (in debt decimals precision e.g. 600 USDC is 600*1e6)
+     * @notice Initialize the Rise Token using ETH. Get the required ETH amount using previewInitialize().
+     * @param _collateralMin The minimum amount of collateral in collateral decimals precision (0.01 WBTC is 0.01*1e8)
+     * @param _nav The initial net-asset value of the Rise Token in debt decimals precision (600 USDC is 600*1e6)
      * @param _lr Target leverage ratio in 1e18 precision (2x is 2*1e18)
      */
     function initialize(uint256 _collateralMin, uint256 _nav, uint256 _lr) external payable onlyOwner {
@@ -377,7 +358,7 @@ contract RiseToken is ERC20, Ownable {
 
         // Get collateral, debt and shares based on parameters
         InitializeParams memory params = getInitializeParams(_collateralMin, _nav, _lr);
-        params.ethAmount = msg.value; // Set the ETH sent by user
+        params.ethAmount = msg.value; // Set the ETH sent by the initializer
 
         // Do the flashswap
         bytes memory data = abi.encode(FlashSwapType.Initialize, abi.encode(params));
@@ -387,11 +368,11 @@ contract RiseToken is ERC20, Ownable {
     /// ███ External functions █████████████████████████████████████████████████
 
     /**
-     * @notice Gets amount of ETH that needed to initialize the token
-     * @param _totalCollateralMin The minimum amount of total colllateral to initialize the token
-     * @param _nav The initial net-asset value of the token in debt decimals precision (100 USDC is 100*1e6)
-     * @param _lr The initial leverage ratio of the token in 1e18 precision (2x is 2*1e18)
-     * @return _estimatedETHAmount The estimated amount of ETH needed to initialize the token
+     * @notice Gets amount of ETH that needed to initialize the Rise Token
+     * @param _totalCollateralMin The minimum amount of total colllateral to initialize the Rise Token
+     * @param _nav The initial net-asset value of the Rise Token in debt decimals precision (100 USDC is 100*1e6)
+     * @param _lr The initial leverage ratio of the Rise Token in 1e18 precision (2x is 2*1e18)
+     * @return _estimatedETHAmount The estimated amount of ETH needed to initialize the Rise Token
      */
     function previewInitialize(uint256 _totalCollateralMin, uint256 _nav, uint256 _lr) external view returns (uint256 _estimatedETHAmount) {
         // Get the initialize params
@@ -412,8 +393,8 @@ contract RiseToken is ERC20, Ownable {
     /**
      * @notice This function is executed when the flashSwapWETHForExactTokens is triggered.
      * @dev Only uniswapAdapter can call this function
-     * @param _wethAmount The amount of WETH that we need to send back to the pair/pool
-     * @param _amountOut The amount of tokenOut received by this contract
+     * @param _wethAmount The amount of WETH that we need to send back to the Uniswap Adapter
+     * @param _amountOut The amount of collateral token received by this contract
      * @param _data The calldata passed to this function
      */
     function onFlashSwapWETHForExactTokens(uint256 _wethAmount, uint256 _amountOut, bytes calldata _data) external {
@@ -444,7 +425,7 @@ contract RiseToken is ERC20, Ownable {
 
     /**
      * @notice Gets the total collateral per shares
-     * @return _cps Collateral per shares (in collateral decimals precision e.g. gOHM with 18 decimals is 1e18)
+     * @return _cps Collateral per shares in collateral token decimals precision (ex: gOHM is 1e18 precision)
      */
     function collateralPerShares() public view returns (uint256 _cps) {
         if (!isInitialized) return 0;
@@ -453,19 +434,17 @@ contract RiseToken is ERC20, Ownable {
 
     /**
      * @notice Gets the collateral value per shares
-     * @return _cvs Collateral value per shares (in debt decimals precision e.g. USDC with 6 decimals is 6)
+     * @return _cvs Collateral value per shares in debt token decimals precision (ex: USDC is 1e6 precision)
      */
     function collateralValuePerShares() public view returns (uint256 _cvs) {
         if (!isInitialized) return 0;
-        // Get the current price
         uint256 price = oracleAdapter.price(address(collateral), address(debt));
-        // Calculate the total value of collateral per shares
         _cvs = (collateralPerShares() * price) / (10**cdecimals);
     }
 
     /**
      * @notice Gets the total debt per shares
-     * @return _dps Debt per shares (in debt decimals precision e.g. USDC with 6 decimals is 1e6)
+     * @return _dps Debt per shares in debt token decimals precision (ex: USDC is 1e6 precision)
      */
     function debtPerShares() public view returns (uint256 _dps) {
         if (!isInitialized) return 0;
@@ -473,8 +452,8 @@ contract RiseToken is ERC20, Ownable {
     }
 
     /**
-     * @notice Gets the net-asset value of the shares
-     * @return _nav The net-asset value of the shares in debt decimals precision (e.g. USDC is 1e6)
+     * @notice Gets the net-asset value of the Rise Token
+     * @return _nav The net-asset value of the Rise Token in debt decimals precision (ex: USDC is 1e6 precision)
      */
     function nav() public view returns (uint256 _nav) {
         if (!isInitialized) return 0;
@@ -482,7 +461,7 @@ contract RiseToken is ERC20, Ownable {
     }
 
     /**
-     * @notice Gets the leverage ratio
+     * @notice Gets the leverage ratio of the Rise Token
      * @return _lr Leverage ratio in 1e18 precision
      */
     function leverageRatio() public view returns (uint256 _lr) {

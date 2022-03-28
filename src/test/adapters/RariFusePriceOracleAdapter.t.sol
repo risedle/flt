@@ -5,7 +5,7 @@ pragma experimental ABIEncoderV2;
 import "lib/ds-test/src/test.sol";
 
 import { HEVM } from "../hevm/HEVM.sol";
-import { RariFusePriceOracleAdapter } from "../../oracles/RariFusePriceOracleAdapter.sol";
+import { RariFusePriceOracleAdapter } from "../../adapters/RariFusePriceOracleAdapter.sol";
 import { gohm, rariFuseGOHMPriceOracle } from "chain/Tokens.sol";
 import { usdc, rariFuseUSDCPriceOracle } from "chain/Tokens.sol";
 import { IRariFusePriceOracle } from "../../interfaces/IRariFusePriceOracle.sol";

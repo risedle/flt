@@ -21,7 +21,7 @@ contract RiseTokenFactory is Ownable {
     /// @notice List of created tokens
     address[] public tokens;
 
-    /// @notice To make sure Rise token only created once
+    /// @notice To make sure Rise Token only created once
     mapping(address => mapping(address => address)) public getToken;
 
     /// @notice Fee recipient
@@ -78,7 +78,7 @@ contract RiseTokenFactory is Ownable {
     }
 
     /**
-     * @notice Creates new Rise Token.
+     * @notice Creates new Rise Token
      * @param _fCollateral fToken from Rari Fuse that used as collateral asset
      * @param _fDebt fToken from Rari Fuse that used as debt asset
      * @return _token The Rise Token address

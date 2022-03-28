@@ -7,8 +7,8 @@ import { IERC20Metadata } from "lib/openzeppelin-contracts/contracts/token/ERC20
 
 import { HEVM } from "./hevm/HEVM.sol";
 import { RiseTokenFactory } from "../RiseTokenFactory.sol";
-import { UniswapAdapter } from "../uniswap/UniswapAdapter.sol";
-import { RariFusePriceOracleAdapter } from "../oracles/RariFusePriceOracleAdapter.sol";
+import { UniswapAdapter } from "../adapters/UniswapAdapter.sol";
+import { RariFusePriceOracleAdapter } from "../adapters/RariFusePriceOracleAdapter.sol";
 import { weth, wbtc, usdc } from "chain/Tokens.sol";
 import { fgohm, fusdc, fwbtc } from "chain/Tokens.sol";
 import { rariFuseUSDCPriceOracle, rariFuseWBTCPriceOracle } from "chain/Tokens.sol";
