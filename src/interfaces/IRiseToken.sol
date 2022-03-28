@@ -25,4 +25,8 @@ interface IRiseToken is IERC20 {
     function totalDebt() external view returns (uint256);
     function nav() external view returns (uint256);
     function leverageRatio() external view returns (uint256);
+
+    // buy & sell
+    function previewBuy(uint256 _shares) external view returns (uint256 _ethAmount);
+    function previewBuy(uint256 _shares, address _tokenIn) external view returns (uint256 _amountIn);
 }

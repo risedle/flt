@@ -26,6 +26,8 @@ contract RiseTokenTest is DSTest {
     HEVM private hevm;
     UniswapAdapter private uniswapAdapterCached;
     RariFusePriceOracleAdapter private oracleAdapterCached;
+    IRiseToken private wbtcRiseCached;
+
 
     function setUp() public {
         hevm = new HEVM();
@@ -44,6 +46,23 @@ contract RiseTokenTest is DSTest {
         oracleAdapterCached = new RariFusePriceOracleAdapter();
         oracleAdapterCached.configure(wbtc, rariFuseWBTCPriceOracle);
         oracleAdapterCached.configure(usdc, rariFuseUSDCPriceOracle);
+
+        // Create factory
+        RiseTokenFactory factory = new RiseTokenFactory(address(uniswapAdapterCached), address(oracleAdapterCached));
+
+        // Create new Rise token
+        wbtcRiseCached = IRiseToken(factory.create(fwbtc, fusdc));
+
+        // Initialize WBTCRISE
+        uint256 nav = 400 * 1e6; // 400 UDSC
+        uint256 collateralAmount = 0.08 * 1e8; //
+        uint256 leverageRatio = 2 * 1e18;
+        uint256 ethAmount = wbtcRiseCached.previewInitialize(collateralAmount, nav, leverageRatio);
+
+        // Slippage tolerance 3%
+        ethAmount += (0.3 ether * ethAmount) / 1 ether;
+        wbtcRiseCached.initialize{value: ethAmount}(collateralAmount, nav, leverageRatio);
+
     }
 
     function testFailPreviewInitializeRevertIfCollateralTokenIsNotConfiguredInOracleAdapter() public {
@@ -213,7 +232,6 @@ contract RiseTokenTest is DSTest {
         assertLt(wbtcRise.leverageRatio(), leverageRatio + 0.001 ether, "check leverage ratio");
     }
 
-
     function testInitializeWBTCRISERefundExcessETH() public {
         // Create factory
         RiseTokenFactory factory = new RiseTokenFactory(address(uniswapAdapterCached), address(oracleAdapterCached));
@@ -227,10 +245,9 @@ contract RiseTokenTest is DSTest {
         uint256 leverageRatio = 2 * 1e18;
         uint256 ethAmount = wbtcRise.previewInitialize(collateralAmount, nav, leverageRatio);
 
-        // Slippage tolerance 3%
         uint256 prevBalance = address(this).balance;
         ethAmount += (2 * ethAmount);
-        wbtcRise.initialize{value: ethAmount}(collateralAmount, nav, leverageRatio); // This should be reverted to Slippage Too High
+        wbtcRise.initialize{value: ethAmount}(collateralAmount, nav, leverageRatio);
 
         // Check the parameters
         assertTrue(wbtcRise.isInitialized());
@@ -249,6 +266,34 @@ contract RiseTokenTest is DSTest {
 
         // Make sure ETH is refunded
         assertGt(address(this).balance, prevBalance - ethAmount, "check excess ETH refund");
+    }
+
+    function testPreviewBuyWithZeroShares() public {
+        assertEq(wbtcRiseCached.previewBuy(0), 0, "check preview amount");
+    }
+
+    function testPreviewBuyWithNonInitializedRiseToken() public {
+        RiseTokenFactory factory = new RiseTokenFactory(address(uniswapAdapterCached), address(oracleAdapterCached));
+        IRiseToken wbtcRise = IRiseToken(factory.create(fwbtc, fusdc));
+        assertEq(wbtcRise.previewBuy(1e8), 0, "check preview amount");
+    }
+
+    function testFailPreviewBuyRevertIfTheTokenIsNotConfiguredInOracleAdapter() public {
+        // Preview with zero shares
+        address randomToken = hevm.addr(1);
+        wbtcRiseCached.previewBuy(1e8, randomToken);
+    }
+
+    function testPreviewBuyGetETHAmount() public {
+        uint256 ethAmount = wbtcRiseCached.previewBuy(1e8);
+        assertGt(ethAmount, 0.1 ether, "check min amount");
+        assertLt(ethAmount, 0.2 ether, "check max amount");
+    }
+
+    function testPreviewBuyGetUSDCAmount() public {
+        uint256 usdcAmount = wbtcRiseCached.previewBuy(1e8, usdc);
+        assertGt(usdcAmount, 350 * 1e6, "check min amount");
+        assertLt(usdcAmount, 405 * 1e6, "check max amount");
     }
 
     receive() external payable {}

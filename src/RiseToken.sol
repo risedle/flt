@@ -368,29 +368,6 @@ contract RiseToken is ERC20, Ownable {
     /// ███ External functions █████████████████████████████████████████████████
 
     /**
-     * @notice Gets amount of ETH that needed to initialize the Rise Token
-     * @param _totalCollateralMin The minimum amount of total colllateral to initialize the Rise Token
-     * @param _nav The initial net-asset value of the Rise Token in debt decimals precision (100 USDC is 100*1e6)
-     * @param _lr The initial leverage ratio of the Rise Token in 1e18 precision (2x is 2*1e18)
-     * @return _estimatedETHAmount The estimated amount of ETH needed to initialize the Rise Token
-     */
-    function previewInitialize(uint256 _totalCollateralMin, uint256 _nav, uint256 _lr) external view returns (uint256 _estimatedETHAmount) {
-        // Get the initialize params
-        InitializeParams memory params = getInitializeParams(_totalCollateralMin, _nav, _lr);
-
-        // Get the price in ETH
-        uint256 cPrice = oracleAdapter.price(address(collateral));
-        uint256 dPrice = oracleAdapter.price(address(debt));
-
-        // Get total value in ETH
-        uint256 collateralValue = (params.collateralAmount * cPrice) / (10**cdecimals);
-        uint256 borrowValue = (params.borrowAmount * dPrice) / (10**ddecimals);
-
-        // Get the estimated ETH
-        _estimatedETHAmount = collateralValue - borrowValue;
-    }
-
-    /**
      * @notice This function is executed when the flashSwapWETHForExactTokens is triggered.
      * @dev Only uniswapAdapter can call this function
      * @param _wethAmount The amount of WETH that we need to send back to the Uniswap Adapter
@@ -470,29 +447,72 @@ contract RiseToken is ERC20, Ownable {
     }
 
     /**
-     * @notice Preview mint
-     * @param _shares The amount of token to be minted
-     * @return _collateral The amount of collateral that will be used to mint the token
+     * @notice Gets amount of ETH that needed to initialize the Rise Token
+     * @param _totalCollateralMin The minimum amount of total colllateral to initialize the Rise Token
+     * @param _nav The initial net-asset value of the Rise Token in debt decimals precision (100 USDC is 100*1e6)
+     * @param _lr The initial leverage ratio of the Rise Token in 1e18 precision (2x is 2*1e18)
+     * @return _estimatedETHAmount The estimated amount of ETH needed to initialize the Rise Token
      */
-    // function previewMint(uint256 _shares) external returns (uint256 _collateral) {
-    //     // Early return
-    //     if (_shares == 0) return 0;
-    //     if (!isInitialized) return 0;
+    function previewInitialize(uint256 _totalCollateralMin, uint256 _nav, uint256 _lr) external view returns (uint256 _estimatedETHAmount) {
+        // Get the initialize params
+        InitializeParams memory params = getInitializeParams(_totalCollateralMin, _nav, _lr);
 
-    //     // Add fees
-    //     uint256 fee = ((fees * _shares) / 1e18);
-    //     uint256 newShares = _shares + fee;
+        // Get the price in ETH
+        uint256 cPrice = oracleAdapter.price(address(collateral));
+        uint256 dPrice = oracleAdapter.price(address(debt));
 
-    //     // Get the collateral & debt amount
-    //     uint256 collateralAmount = (newShares * collateralPerShares()) / (10**cdecimals);
-    //     uint256 debtAmount = (newShares * debtPerShares()) / (10**cdecimals);
+        // Get total value in ETH
+        uint256 collateralValue = (params.collateralAmount * cPrice) / (10**cdecimals);
+        uint256 borrowValue = (params.borrowAmount * dPrice) / (10**ddecimals);
 
-    //     // Get the collateral amount using the borrowed asset
-    //     // uint256 flashSwappedAmount = IUniswapAdapter(uniswapAdapter).getAmountOutViaETH([debt, collateral], debtAmount);
+        // Get the estimated ETH
+        _estimatedETHAmount = collateralValue - borrowValue;
+    }
 
-    //     // Get the owed collateral
-    //     // _collateral = collateralAmount - flashSwappedAmount;
-    // }
+    /**
+     * @notice Get the amount of ETH to buy _shares amount of Rise Token
+     * @param _shares The amount of Rise Token to buy
+     * @return _ethAmount The amount of ETH that will be used to buy the token
+     */
+    function previewBuy(uint256 _shares) public view returns (uint256 _ethAmount) {
+        // Early return
+        if (_shares == 0) return 0;
+        if (!isInitialized) return 0;
+
+        // Add fees
+        uint256 fee = ((fees * _shares) / 1e18);
+        uint256 newShares = _shares + fee;
+
+        // Get the collateral & debt amount
+        uint256 collateralAmount = (newShares * collateralPerShares()) / (10**cdecimals);
+        uint256 debtAmount = (newShares * debtPerShares()) / (10**cdecimals);
+
+        // Get the price in ETH
+        uint256 cPrice = oracleAdapter.price(address(collateral));
+        uint256 dPrice = oracleAdapter.price(address(debt));
+
+        // Get total value in ETH
+        uint256 collateralValue = (collateralAmount * cPrice) / (10**cdecimals);
+        uint256 debtValue = (debtAmount * dPrice) / (10**ddecimals);
+
+        // Get the estimated ETH
+        _ethAmount = collateralValue - debtValue;
+    }
+
+    /**
+     * @notice Get the amount of tokenIn to buy _shares amount of Rise Token
+     * @dev The function may reverted if tokenIn is not configured in Rari Fuse Price Oracle Adapter
+     * @param _shares The amount of Rise Token to buy
+     * @param _tokenIn The address of tokenIn
+     * @return _amountIn The amount of tokenIn
+     */
+    function previewBuy(uint256 _shares, address _tokenIn) external view returns (uint256 _amountIn) {
+        uint256 decimals = IERC20Metadata(_tokenIn).decimals();
+        uint256 sharesValue = previewBuy(_shares);
+        uint256 tokenInPrice = oracleAdapter.price(_tokenIn);
+        uint256 amountInETH = (sharesValue * 1e18) / tokenInPrice;
+        _amountIn = (amountInETH * (10**decimals)) / 1e18;
+    }
 
     /**
      * @notice Preview redeem
