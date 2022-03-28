@@ -81,7 +81,7 @@ contract UniswapAdapterTest is DSTest {
 
     enum TestType { CallerRepay, CallerNotRepay }
 
-    /// @notice Make sure flashSwapETHForExactTokens is working on Uniswap V2
+    /// @notice Make sure flashSwapWETHForExactTokens is working on Uniswap V2
     function testUniswapV2FlashSwapETHForExactTokens() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
@@ -91,10 +91,10 @@ contract UniswapAdapterTest is DSTest {
 
         // Execute the flashswap
         bytes memory data = abi.encode(TestType.CallerRepay, 2022);
-        adapter.flashSwapETHForExactTokens(wbtc, 1e8, data);
+        adapter.flashSwapWETHForExactTokens(wbtc, 1e8, data);
     }
 
-    /// @notice Make sure flashSwapETHForExactTokens is failed when token is not repay
+    /// @notice Make sure flashSwapWETHForExactTokens is failed when token is not repay
     function testFailUniswapV2FlashSwapETHForExactTokensRevertedIfCallerNotRepay() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
@@ -104,10 +104,10 @@ contract UniswapAdapterTest is DSTest {
 
         // Execute the flashswap without repay; this should be reverted
         bytes memory data = abi.encode(TestType.CallerNotRepay, 2022);
-        adapter.flashSwapETHForExactTokens(wbtc, 1e8, data);
+        adapter.flashSwapWETHForExactTokens(wbtc, 1e8, data);
     }
 
-    /// @notice Make sure flashSwapETHForExactTokens is working on Uniswap V3
+    /// @notice Make sure flashSwapWETHForExactTokens is working on Uniswap V3
     function testUniswapV3FlashSwapETHForExactTokens() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
@@ -117,10 +117,10 @@ contract UniswapAdapterTest is DSTest {
 
         // Execute the flashswap
         bytes memory data = abi.encode(TestType.CallerRepay, 2022);
-        adapter.flashSwapETHForExactTokens(wbtc, 1e8, data);
+        adapter.flashSwapWETHForExactTokens(wbtc, 1e8, data);
     }
 
-    /// @notice Make sure flashSwapETHForExactTokens is failed when token is not repay
+    /// @notice Make sure flashSwapWETHForExactTokens is failed when token is not repay
     function testFailUniswapV3FlashSwapETHForExactTokensRevertedIfCallerNotRepay() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
@@ -130,11 +130,11 @@ contract UniswapAdapterTest is DSTest {
 
         // Execute the flashswap without repay; this should be reverted
         bytes memory data = abi.encode(TestType.CallerNotRepay, 2022);
-        adapter.flashSwapETHForExactTokens(wbtc, 1e8, data);
+        adapter.flashSwapWETHForExactTokens(wbtc, 1e8, data);
     }
 
     /// @notice Check the callback
-    function onFlashSwapETHForExactTokens(uint256 _wethAmount, uint256 _amountOut, bytes memory _data) external {
+    function onFlashSwapWETHForExactTokens(uint256 _wethAmount, uint256 _amountOut, bytes memory _data) external {
         assertGt(_wethAmount, 0, "check _wethAmount");
         assertGt(_amountOut, 0, "check _amountOut");
         assertEq(IERC20(wbtc).balanceOf(address(this)), _amountOut, "check balance");
@@ -171,13 +171,13 @@ contract UniswapAdapterTest is DSTest {
         adapter.uniswapV3SwapCallback(0, 0, bytes(""));
     }
 
-    /// @notice Make sure flashSwapETHForExactTokens revert if the token is not configured
+    /// @notice Make sure flashSwapWETHForExactTokens revert if the token is not configured
     function testFailFlashSwapETHForExactTokensRevertIfTokenIsNotConfigured() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Call the flash swap
-        adapter.flashSwapETHForExactTokens(hevm.addr(1), 1 ether, bytes(""));
+        adapter.flashSwapWETHForExactTokens(hevm.addr(1), 1 ether, bytes(""));
     }
 
     /// @notice Make sure swapExactTokensForWETH revert if the token is not configured
@@ -251,5 +251,153 @@ contract UniswapAdapterTest is DSTest {
         hevm.setWBTCBalance(address(this), 1e8);
         IERC20(wbtc).approve(address(adapter), 1e8);
         adapter.swapExactTokensForWETH(wbtc, 1e8, 10_000 ether); // This should be reverted
+    }
+
+    /// @notice previewSwapWETHForExactTokens test
+    function testFailPreviewSwapWETHForExactTokensRevertIfTokenIsNotConfigured() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // This should be reverted
+        adapter.previewSwapWETHForExactTokens(wbtc, 1e8);
+    }
+
+    /// @notice previewSwapWETHForExactTokens test
+    function testPreviewSwapWETHForExactTokensOnUniswapV2() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Configure the token
+        adapter.setMetadata(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+
+        // This should returns value
+        uint256 wethAmount = adapter.previewSwapWETHForExactTokens(wbtc, 1e8);
+        assertGt(wethAmount, 10 ether, "check weth amount");
+        assertLt(wethAmount, 20 ether, "check weth amount");
+    }
+
+    /// @notice previewSwapWETHForExactTokens test
+    function testPreviewSwapWETHForExactTokensOnUniswapV3() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+
+        // This should returns value
+        uint256 wethAmount = adapter.previewSwapWETHForExactTokens(wbtc, 1e8);
+        assertGt(wethAmount, 10 ether, "check weth amount");
+        assertLt(wethAmount, 20 ether, "check weth amount");
+    }
+
+    /// @notice previewSwapTokensForExactWETH test
+    function testFailPreviewSwapTokensForExactWETHRevertIfTokenIsNotConfigured() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // This should be reverted
+        adapter.previewSwapTokensForExactWETH(wbtc, 1e8);
+    }
+
+    /// @notice previewSwapTokensForExactWETH test
+    function testPreviewSwapTokensForExactWETHOnUniswapV2() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Configure the token
+        adapter.setMetadata(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+
+        // This should returns value
+        uint256 wbtcAmount = adapter.previewSwapTokensForExactWETH(wbtc, 1e18);
+        assertGt(wbtcAmount, 0.01 * 1e8, "check wbtc amount");
+        assertLt(wbtcAmount, 1 * 1e8, "check wbtc amount");
+    }
+
+    /// @notice previewSwapTokensForExactWETH test
+    function testPreviewSwapTokensForExactWETHOnUniswapV3() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+
+        // This should returns value
+        uint256 wbtcAmount = adapter.previewSwapTokensForExactWETH(wbtc, 1e18);
+        assertGt(wbtcAmount, 0.01 * 1e8, "check wbtc amount");
+        assertLt(wbtcAmount, 1 * 1e8, "check wbtc amount");
+    }
+
+    /// @notice previewSwapExactTokensForWETH test
+    function testFailPreviewSwapExactTokensForWETHRevertIfTokenIsNotConfigured() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // This should be reverted
+        adapter.previewSwapExactTokensForWETH(wbtc, 1e8);
+    }
+
+    /// @notice previewSwapExactTokensForWETH test
+    function testPreviewSwapExactTokensForWETHOnUniswapV2() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Configure the token
+        adapter.setMetadata(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+
+        // This should returns value
+        uint256 wethAmount = adapter.previewSwapExactTokensForWETH(wbtc, 1e8);
+        assertGt(wethAmount, 10 ether, "check weth amount");
+        assertLt(wethAmount, 20 ether, "check weth amount");
+    }
+
+    /// @notice previewSwapExactTokensForWETH test
+    function testPreviewSwapExactTokensForWETHOnUniswapV3() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+
+        // This should returns value
+        uint256 wethAmount = adapter.previewSwapExactTokensForWETH(wbtc, 1e8);
+        assertGt(wethAmount, 10 ether, "check weth amount");
+        assertLt(wethAmount, 20 ether, "check weth amount");
+    }
+
+    /// @notice previewSwapExactWETHForTokens test
+    function testFailPreviewSwapExactWETHForTokensRevertIfTokenIsNotConfigured() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // This should be reverted
+        adapter.previewSwapExactWETHForTokens(wbtc, 1e8);
+    }
+
+    /// @notice previewSwapExactWETHForTokens test
+    function testPreviewSwapExactWETHForTokensOnUniswapV2() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Configure the token
+        adapter.setMetadata(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+
+        // This should returns value
+        uint256 wbtcAmount = adapter.previewSwapExactWETHForTokens(wbtc, 1e18);
+        assertGt(wbtcAmount, 0.01 * 1e8, "check wbtc amount");
+        assertLt(wbtcAmount, 1 * 1e8, "check wbtc amount");
+    }
+
+    /// @notice previewSwapExactWETHForTokens test
+    function testPreviewSwapExactWETHForTokensOnUniswapV3() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.setMetadata(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+
+        // This should returns value
+        uint256 wbtcAmount = adapter.previewSwapExactWETHForTokens(wbtc, 1e18);
+        assertGt(wbtcAmount, 0.01 * 1e8, "check wbtc amount");
+        assertLt(wbtcAmount, 1 * 1e8, "check wbtc amount");
     }
 }
