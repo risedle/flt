@@ -21,8 +21,8 @@ contract RariFusePriceOracleAdapterTest is DSTest {
         hevm = new HEVM();
     }
 
-    /// @notice Make sure non-owner can set the oracle
-    function testFailNonOwnerCannotSetOracle() public {
+    /// @notice Make sure non-owner cannot configure the oracle
+    function testFailNonOwnerCannotConfigureOracle() public {
         // Create new oracle
         RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
 
@@ -30,8 +30,8 @@ contract RariFusePriceOracleAdapterTest is DSTest {
         address newOwner = hevm.addr(1);
         oracle.transferOwnership(newOwner);
 
-        // Set oracle for token
-        oracle.setOracle(gohm, rariFuseGOHMPriceOracle);
+        // Configure oracle for token
+        oracle.configure(gohm, rariFuseGOHMPriceOracle);
     }
 
     /// @notice Make sure owner can set the oracle
@@ -39,8 +39,8 @@ contract RariFusePriceOracleAdapterTest is DSTest {
         // Create new oracle
         RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
 
-        // Set oracle for token
-        oracle.setOracle(gohm, rariFuseGOHMPriceOracle);
+        // Configure oracle for token
+        oracle.configure(gohm, rariFuseGOHMPriceOracle);
 
         // Check the metadata
         (IRariFusePriceOracle priceOracle, uint8 decimals) = oracle.oracles(gohm);
@@ -48,36 +48,36 @@ contract RariFusePriceOracleAdapterTest is DSTest {
         assertEq(decimals, 18);
     }
 
-    /// @notice Make sure it revert when base oracle is not set
-    function testFailPriceRevertIfBaseOracleIsNotSet() public {
+    /// @notice Make sure it revert when base oracle is not configured
+    function testFailPriceRevertIfBaseOracleNotConfigured() public {
         // Create new oracle
         RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
 
-        // Set oracle for tokens
-        oracle.setOracle(usdc, rariFuseUSDCPriceOracle);
+        // Configure oracle for tokens
+        oracle.configure(usdc, rariFuseUSDCPriceOracle);
 
-        // Base is not set, it should be reverted
+        // Base is not configured, it should be reverted
         oracle.price(gohm, usdc);
     }
 
-    /// @notice Make sure it revert when quote oracle is not set
-    function testFailPriceRevertIfQuoteOracleIsNotSet() public {
+    /// @notice Make sure it revert when quote oracle is not configured
+    function testFailPriceRevertIfQuoteOracleNotConfigured() public {
         // Create new oracle
         RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
 
-        // Set oracle for tokens
-        oracle.setOracle(gohm, rariFuseGOHMPriceOracle);
+        // Configure oracle for tokens
+        oracle.configure(gohm, rariFuseGOHMPriceOracle);
 
-        // Base is not set, it should be reverted
+        // Base is not configured, it should be reverted
         oracle.price(gohm, usdc);
     }
 
-    /// @notice Make sure it revert when token oracle is not set
-    function testFailPriceRevertIfTokenOracleIsNotSet() public {
+    /// @notice Make sure it revert when token oracle is not configured
+    function testFailPriceRevertIfTokenOracleNotConfigured() public {
         // Create new oracle
         RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
 
-        // Base is not set, it should be reverted
+        // Base is not configured, it should be reverted
         oracle.price(gohm);
     }
 
@@ -86,11 +86,11 @@ contract RariFusePriceOracleAdapterTest is DSTest {
         // Create new oracle
         RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
 
-        // Set oracle for tokens
-        oracle.setOracle(gohm, rariFuseGOHMPriceOracle);
-        oracle.setOracle(usdc, rariFuseUSDCPriceOracle);
+        // Configure oracle for tokens
+        oracle.configure(gohm, rariFuseGOHMPriceOracle);
+        oracle.configure(usdc, rariFuseUSDCPriceOracle);
 
-        // Base is not set, it should be reverted
+        // Base is not configured, it should be reverted
         uint256 price = oracle.price(gohm, usdc);
         assertGt(price, 2_000 * 1e6, "check price");
         assertLt(price, 6_000 * 1e6, "check price");
@@ -101,10 +101,10 @@ contract RariFusePriceOracleAdapterTest is DSTest {
         // Create new oracle
         RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
 
-        // Set oracle for tokens
-        oracle.setOracle(gohm, rariFuseGOHMPriceOracle);
+        // Configure oracle for tokens
+        oracle.configure(gohm, rariFuseGOHMPriceOracle);
 
-        // Base is not set, it should be reverted
+        // Base is not configured, it should be reverted
         uint256 price = oracle.price(gohm);
         assertLt(price, 5 ether);
     }
@@ -114,8 +114,8 @@ contract RariFusePriceOracleAdapterTest is DSTest {
         // Create new oracle
         RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
 
-        // Set oracle for tokens
-        oracle.setOracle(gohm, rariFuseGOHMPriceOracle);
+        // Configure oracle for tokens
+        oracle.configure(gohm, rariFuseGOHMPriceOracle);
 
         // Check configured value
         assertTrue(oracle.isConfigured(gohm), "gohm");

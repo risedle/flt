@@ -108,7 +108,7 @@ contract RiseTokenFactoryTest is DSTest {
         uniswapAdapter.configure(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
 
         // Configure Oracle Adapter
-        oracleAdapter.setOracle(usdc, rariFuseUSDCPriceOracle);
+        oracleAdapter.configure(usdc, rariFuseUSDCPriceOracle);
 
         // This should revert
         factory.create(fwbtc, fusdc);
@@ -126,7 +126,7 @@ contract RiseTokenFactoryTest is DSTest {
         uniswapAdapter.configure(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
 
         // Configure Oracle Adapter
-        oracleAdapter.setOracle(wbtc, rariFuseWBTCPriceOracle);
+        oracleAdapter.configure(wbtc, rariFuseWBTCPriceOracle);
 
         // This should revert
         factory.create(fwbtc, fusdc);
@@ -158,8 +158,8 @@ contract RiseTokenFactoryTest is DSTest {
         uniswapAdapter.configure(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
 
         // Configure Oracle Adapter
-        oracleAdapter.setOracle(wbtc, rariFuseWBTCPriceOracle);
-        oracleAdapter.setOracle(usdc, rariFuseUSDCPriceOracle);
+        oracleAdapter.configure(wbtc, rariFuseWBTCPriceOracle);
+        oracleAdapter.configure(usdc, rariFuseUSDCPriceOracle);
 
         // Create new token
         address _token = factory.create(fwbtc, fusdc);

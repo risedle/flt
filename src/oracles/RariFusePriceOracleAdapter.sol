@@ -28,7 +28,7 @@ contract RariFusePriceOracleAdapter is Ownable {
     /// ███ Events █████████████████████████████████████████████████████████████
 
     /// @notice Event emitted when oracle data is updated
-    event OracleUpdated(address token, OracleMetadata metadata);
+    event OracleConfigured(address token, OracleMetadata metadata);
 
 
     /// ███ Errors █████████████████████████████████████████████████████████████
@@ -40,14 +40,14 @@ contract RariFusePriceOracleAdapter is Ownable {
     /// ███ Owner actions ██████████████████████████████████████████████████████
 
     /**
-     * @notice Sets Rari Fuse Price Oracle for `_token`.
+     * @notice Configure oracle for token
      * @param _token The ERC20 token
      * @param _rariFusePriceOracle Contract that conform IRariFusePriceOracle interface
      */
-    function setOracle(address _token, address _rariFusePriceOracle) external onlyOwner {
+    function configure(address _token, address _rariFusePriceOracle) external onlyOwner {
         /// ███ Effects
         oracles[_token] = OracleMetadata({oracle: IRariFusePriceOracle(_rariFusePriceOracle), decimals: IERC20Metadata(_token).decimals()});
-        emit OracleUpdated(_token, oracles[_token]);
+        emit OracleConfigured(_token, oracles[_token]);
     }
 
 
