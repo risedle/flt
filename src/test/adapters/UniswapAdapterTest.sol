@@ -324,4 +324,71 @@ contract UniswapAdapterTest is DSTest {
         IERC20(wbtc).approve(address(adapter), 1e8);
         adapter.swapTokensForExactWETH(wbtc, 1e18, 0); // This should be reverted
     }
+
+    function testFailSwapExactWETHForTokensRevertIfTokenIsNotConfigured() public {
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+        adapter.swapExactWETHForTokens(hevm.addr(1), 1 ether, 1 ether);
+    }
+
+    function testUniswapV2SwapExactWETHForTokens() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+
+        // Swap the WETH
+        hevm.setWETHBalance(address(this), 1 ether);
+        IERC20(weth).approve(address(adapter), 1 ether);
+        uint256 wbtcAmount = adapter.swapExactWETHForTokens(wbtc, 1 ether, 0);
+        IERC20(weth).approve(address(adapter), 0);
+
+        // Check
+        assertEq(IERC20(wbtc).balanceOf(address(this)), wbtcAmount);
+        assertEq(IERC20(weth).balanceOf(address(this)), 0);
+    }
+
+    function testUniswapV3SwapExactWETHForTokens() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+
+        // Swap the WETH
+        hevm.setWETHBalance(address(this), 1 ether);
+        IERC20(weth).approve(address(adapter), 1 ether);
+        uint256 wbtcAmount = adapter.swapExactWETHForTokens(wbtc, 1 ether, 0);
+        IERC20(wbtc).approve(address(adapter), 0);
+
+        // Check
+        assertEq(IERC20(wbtc).balanceOf(address(this)), wbtcAmount);
+        assertEq(IERC20(weth).balanceOf(address(this)), 0);
+    }
+
+    function testFailUniswapV2SwapExactWETHForTokensAmountOutMin() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
+
+        // Swap the WETH
+        hevm.setWETHBalance(address(this), 1 ether);
+        IERC20(weth).approve(address(adapter), 1 ether);
+        adapter.swapExactTokensForWETH(wbtc, 1 ether, 10 * 1e8); // This should be reverted
+    }
+
+    function testFailUniswapV3SwapExactWETHForTokensAmountOutMin() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+
+        // Swap the WETH
+        hevm.setWETHBalance(address(this), 1 ether);
+        IERC20(weth).approve(address(adapter), 1 ether);
+        adapter.swapExactTokensForWETH(wbtc, 1 ether, 10 * 1e8); // This should be reverted
+    }
 }

@@ -388,4 +388,50 @@ contract UniswapAdapter is Ownable {
         }
     }
 
+    /**
+     * @notice Swaps an exact amount of WETH for tokens
+     * @param _tokenOut tokenOut address
+     * @param _wethAmount The amount of WETH
+     * @param _amountOutMin The minimum amount of WETH to be received
+     * @return _amountOut The WETH amount received
+     */
+    function swapExactWETHForTokens(address _tokenOut, uint256 _wethAmount, uint256 _amountOutMin) external returns (uint256 _amountOut) {
+        /// ███ Checks
+
+        // Check the metadata
+        TokenMetadata memory metadata = tokens[_tokenOut];
+        if (metadata.version == 0) revert TokenNotConfigured(_tokenOut);
+
+        /// ███ Interactions
+        IERC20(address(weth)).safeTransferFrom(msg.sender, address(this), _wethAmount);
+
+        if (metadata.version == 2) {
+            // Do the swap
+            address[] memory path = new address[](2);
+            path[0] = address(weth);
+            path[1] = _tokenOut;
+            weth.approve(metadata.router, _wethAmount);
+            _amountOut = IUniswapV2Router02(metadata.router).swapExactTokensForTokens(_wethAmount, _amountOutMin, path, msg.sender, block.timestamp)[1];
+            weth.approve(metadata.router, 0);
+            return _amountOut;
+        }
+
+        if (metadata.version == 3) {
+            // Do the swap
+            IUniswapV3SwapRouter.ExactInputSingleParams memory params = IUniswapV3SwapRouter.ExactInputSingleParams({
+                tokenIn: address(weth),
+                tokenOut: _tokenOut,
+                fee: metadata.pool.fee(),
+                recipient: msg.sender,
+                deadline: block.timestamp,
+                amountIn: _wethAmount,
+                amountOutMinimum: _amountOutMin,
+                sqrtPriceLimitX96: 0
+            });
+            weth.approve(metadata.router, _wethAmount);
+            _amountOut = IUniswapV3SwapRouter(metadata.router).exactInputSingle(params);
+            weth.approve(metadata.router, 0);
+            return _amountOut;
+        }
+    }
 }
