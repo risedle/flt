@@ -59,8 +59,8 @@ contract RiseTokenFactory is Ownable {
 
     /// ███ Constructors ███████████████████████████████████████████████████████
 
-    constructor(address _uniswapAdapter, address _oracleAdapter) {
-        feeRecipient = msg.sender;
+    constructor(address _feeRecipient, address _uniswapAdapter, address _oracleAdapter) {
+        feeRecipient = _feeRecipient;
         uniswapAdapter = IUniswapAdapter(_uniswapAdapter);
         oracleAdapter = IRariFusePriceOracleAdapter(_oracleAdapter);
     }

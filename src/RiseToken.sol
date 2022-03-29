@@ -62,10 +62,10 @@ contract RiseToken is ERC20, Ownable {
     /**
      * @notice The maximum amount of total supply that can be minted in one transaction.
      *         - There is no limit by default (2**256-1).
-     *         - Owner can set maxMint to zero to disable the deposit if
+     *         - Owner can set maxBuy to zero to disable the deposit if
      *           something bad happen
      */
-    uint256 public maxMint = type(uint256).max;
+    uint256 public maxBuy = type(uint256).max;
 
     /// @notice Fees in 1e18 precision (e.g. 0.1% is 0.001 * 1e8)
     uint256 public fees = 0.001 ether;
@@ -89,17 +89,30 @@ contract RiseToken is ERC20, Ownable {
     uint8 private ddecimals;
 
     /// @notice Flashswap type
-    enum FlashSwapType { Initialize, Mint }
+    enum FlashSwapType { Initialize, Buy }
 
     /// @notice Initialize params
     struct InitializeParams {
         uint256 borrowAmount;
         uint256 collateralAmount;
-        address initializer;
         uint256 shares;
         uint256 leverageRatio;
         uint256 nav;
         uint256 ethAmount;
+        address initializer;
+    }
+
+    /// @notice Buy params
+    struct BuyParams {
+        address buyer;
+        address recipient;
+        IERC20 tokenIn;
+        uint256 collateralAmount;
+        uint256 debtAmount;
+        uint256 shares;
+        uint256 fee;
+        uint256 amountInMax;
+        uint256 nav;
     }
 
 
@@ -108,8 +121,11 @@ contract RiseToken is ERC20, Ownable {
     /// @notice Event emitted when the Rise Token is initialized
     event Initialized(InitializeParams params);
 
-    /// @notice Event emitted when maxMint is updated
-    event MaxMintUpdated(uint256 newMaxMint);
+    /// @notice Event emitted when maxBuy is updated
+    event MaxBuyUpdated(uint256 newMaxMint);
+
+    /// @notice Event emitted when user buy the token
+    event Buy(BuyParams params);
 
 
     /// ███ Errors █████████████████████████████████████████████████████████████
@@ -233,6 +249,27 @@ contract RiseToken is ERC20, Ownable {
     }
 
     /**
+     * @notice Supply and borrow in Rari Fuse
+     * @param _collateralAmount The amount of collateral supplied to the Rari Fuse
+     * @param _borrowAmount The amount of borrowed debt token from Rari Fuse
+     */
+    function supplyThenBorrow(uint256 _collateralAmount, uint256 _borrowAmount) internal {
+        // Deposit all collateral to Rari Fuse
+        collateral.safeApprove(address(fCollateral), _collateralAmount);
+        uint256 supplyResponse = fCollateral.mint(_collateralAmount);
+        if (supplyResponse != 0) revert FuseAddCollateralFailed(supplyResponse);
+        collateral.safeApprove(address(fCollateral), 0);
+
+        // Borrow from Rari Fuse
+        uint256 borrowResponse = fDebt.borrow(_borrowAmount);
+        if (borrowResponse != 0) revert FuseBorrowFailed(borrowResponse);
+
+        // Cache the value
+        totalCollateral = fCollateral.balanceOfUnderlying(address(this));
+        totalDebt = fDebt.borrowBalanceCurrent(address(this));
+    }
+
+    /**
      * @notice Finish off the initialize() function after flashswap
      * @param _wethAmount The amount of WETH that we need to send back to Uniswap Adapter
      * @param _collateralAmount The collateral amount that received by this contract
@@ -244,7 +281,7 @@ contract RiseToken is ERC20, Ownable {
 
         /// ███ Interactions
 
-        // Parse the data from bootstrap function
+        // Parse the data from initialize() function
         (InitializeParams memory params) = abi.decode(_data, (InitializeParams));
 
         // Enter Rari Fuse Markets
@@ -254,15 +291,7 @@ contract RiseToken is ERC20, Ownable {
         uint256[] memory marketStatus = IFuseComptroller(fCollateral.comptroller()).enterMarkets(markets);
         if (marketStatus[0] != 0 && marketStatus[1] != 0) revert FuseFailedToEnterMarkets(marketStatus[0], marketStatus[1]);
 
-        // Deposit all collateral to Rari Fuse
-        collateral.safeApprove(address(fCollateral), _collateralAmount);
-        uint256 supplyResponse = fCollateral.mint(_collateralAmount);
-        if (supplyResponse != 0) revert FuseAddCollateralFailed(supplyResponse);
-        collateral.safeApprove(address(fCollateral), 0);
-
-        // Borrow from Rari Fuse
-        uint256 borrowResponse = fDebt.borrow(params.borrowAmount);
-        if (borrowResponse != 0) revert FuseBorrowFailed(borrowResponse);
+        supplyThenBorrow(_collateralAmount, params.borrowAmount);
 
         // Swap debt asset to WETH
         debt.safeApprove(address(uniswapAdapter), params.borrowAmount);
@@ -293,50 +322,67 @@ contract RiseToken is ERC20, Ownable {
     }
 
     /**
-     * @notice Continue mint function after the flash swap callback
-     * @param _amountOut The amount of collateral received via Flash Swap
-     * @param _data Data passed from mint function
+     * @notice Finish off the buy() function after flashswap
+     * @param _wethAmount The amount of WETH that we need to send back to Uniswap Adapter
+     * @param _collateralAmount The collateral amount that received by this contract
+     * @param _data Data passed from buy() function
      */
-    // function onMint(uint256 _amountOut, bytes memory _data) internal {
-    //     // Parse the data from mint function
-    //     (address minter, address recipient, uint256 shares, uint256 fee, uint256 collateralAmount, uint256 debtAmount) = abi.decode(_data, (address, address, uint256, uint256, uint256, uint256));
+    function onBuy(uint256 _wethAmount, uint256 _collateralAmount, bytes memory _data) internal {
+        /// ███ Interactions
 
-    //     // Get the owed collateral by the user
-    //     uint256 owedCollateral = collateralAmount - _amountOut;
+        // Parse the data from bootstrap function
+        (BuyParams memory params) = abi.decode(_data, (BuyParams));
 
-    //     // Transfer collateral to the contract
-    //     IERC20(collateral).safeTransferFrom(minter, address(this), owedCollateral);
+        // Supply then borrow in Rari Fuse
+        supplyThenBorrow(_collateralAmount, params.debtAmount);
 
-    //     // Deposit all collateral to the Fuse
-    //     IERC20(collateral).safeApprove(fCollateral, collateralAmount);
-    //     uint256 supplyResponse = fCollateral.mint(collateralAmount);
-    //     if (supplyResponse != 0) revert FuseAddCollateralFailed(supplyResponse);
-    //     IERC20(collateral).safeApprove(fCollateral, 0);
+        // Swap debt asset to WETH
+        debt.safeApprove(address(uniswapAdapter), params.debtAmount);
+        uint256 wethAmountFromBorrow = uniswapAdapter.swapExactTokensForWETH(address(debt), params.debtAmount, 0);
+        debt.safeApprove(address(uniswapAdapter), 0);
 
-    //     // Borrow from the Rari Fuse
-    //     uint256 borrowResponse = fDebt.borrow(debtAmount);
-    //     if (borrowResponse != 0) revert FuseBorrowFailed(borrowResponse);
+        // Get owed WETH
+        uint256 owedWETH = _wethAmount - wethAmountFromBorrow;
 
-    //     // Repay the flash swap
-    //     IERC20(debt).safeTransfer(address(uniswapAdapter), debtAmount);
+        if (address(params.tokenIn) == address(0)) {
+            if (owedWETH > params.amountInMax) revert SlippageTooHigh();
+            // Transfer excess ETH back to the buyer
+            uint256 excessETH = params.amountInMax - owedWETH;
+            (bool sent, ) = params.buyer.call{value: excessETH}("");
+            if (!sent) revert FailedToSendETH(params.buyer, excessETH);
+            weth.deposit{ value: owedWETH }();
+        } else {
+            // Transfer tokenIn to the contract
+            params.tokenIn.safeTransferFrom(params.buyer, address(this), params.amountInMax);
+            // Swap tokenIn to exact amount of WETH
+            params.tokenIn.safeApprove(address(uniswapAdapter), params.amountInMax);
+            uint256 amountIn = uniswapAdapter.swapTokensForExactWETH(address(params.tokenIn), owedWETH, params.amountInMax);
+            params.tokenIn.safeApprove(address(uniswapAdapter), 0);
+            if (amountIn < params.amountInMax) {
+                params.tokenIn.safeTransfer(params.buyer, params.amountInMax - amountIn);
+            }
+        }
 
-    //     // Mint the token
-    //     _mint(recipient, shares);
-    //     _mint(address(this), fee);
+        // Transder WETH to Uniswap Adapter to repay the flash swap
+        weth.transfer(address(uniswapAdapter), _wethAmount);
 
-    //     emit Minted(shares);
-    // }
+        // Mint the Rise Token to the buyer
+        _mint(params.recipient, params.shares);
+        _mint(factory.feeRecipient(), params.fee);
+
+        emit Buy(params);
+    }
 
 
     /// ███ Owner actions ██████████████████████████████████████████████████████
 
     /**
-     * @notice Set the maxMint value
-     * @param _newMaxMint New maximum mint amount
+     * @notice Set the maxBuy value
+     * @param _newMaxBuy New maximum mint amount
      */
-    function setMaxMint(uint256 _newMaxMint) external onlyOwner {
-        maxMint = _newMaxMint;
-        emit MaxMintUpdated(_newMaxMint);
+    function setMaxBuy(uint256 _newMaxBuy) external onlyOwner {
+        maxBuy = _newMaxBuy;
+        emit MaxBuyUpdated(_newMaxBuy);
     }
 
     /**
@@ -387,8 +433,8 @@ contract RiseToken is ERC20, Ownable {
             return;
         }
 
-        if (flashSwapType == FlashSwapType.Mint) {
-            // onMint(_amountOut, data);
+        if (flashSwapType == FlashSwapType.Buy) {
+            onBuy(_wethAmount, _amountOut, data);
             return;
         }
     }
@@ -507,72 +553,88 @@ contract RiseToken is ERC20, Ownable {
      * @return _amountIn The amount of tokenIn
      */
     function previewBuy(uint256 _shares, address _tokenIn) external view returns (uint256 _amountIn) {
-        uint256 decimals = IERC20Metadata(_tokenIn).decimals();
+        uint256 tokenInDecimals = IERC20Metadata(_tokenIn).decimals();
         uint256 sharesValue = previewBuy(_shares);
         uint256 tokenInPrice = oracleAdapter.price(_tokenIn);
         uint256 amountInETH = (sharesValue * 1e18) / tokenInPrice;
-        _amountIn = (amountInETH * (10**decimals)) / 1e18;
+        _amountIn = (amountInETH * (10**tokenInDecimals)) / 1e18;
     }
-
-    /**
-     * @notice Preview redeem
-     * @param _shares The amount of token to be redeemed
-     * @return _collateral The amount of collateral that user will received
-     */
-    // function previewRedeem(uint256 _shares) external returns (uint256 _collateral) {
-    //     // Early return
-    //     if (_shares == 0) return 0;
-    //     if (!isInitialized) return 0;
-
-    //     // Add fees
-    //     uint256 fee = ((fees * _shares) / 1e18);
-    //     uint256 newShares = _shares - fee;
-
-    //     // Get the collateral & debt amount
-    //     uint256 collateralAmount = (newShares * collateralPerShares()) / (10**cdecimals);
-    //     uint256 debtAmount = (newShares * debtPerShares()) / (10**cdecimals);
-
-    //     // Get the collateral amount using the borrowed asset
-    //     // uint256 collateralSold = IUniswapAdapter(uniswapAdapter).getAmountInViaETH([collateral, debt], debtAmount);
-
-    //     // Get the owed collateral
-    //     // _collateral = collateralAmount - collateralSold;
-    // }
 
 
     /// ███ User actions ███████████████████████████████████████████████████████
 
+    /// @notice Buy Rise Token using ETH or ERC20
+    function buy(BuyParams memory params) internal {
+        /// ███ Checks
+
+        // Check initialize status
+        if (!isInitialized) revert NotInitialized();
+
+        // Check max buy
+        if (params.shares > maxBuy) revert InputAmountInvalid();
+
+        /// ███ Effects
+
+        /// ███ Interactions
+
+        // Add fees
+        uint256 fee = ((fees * params.shares) / 1e18);
+        uint256 newShares = params.shares + fee;
+
+        // Get the collateral & debt amount
+        uint256 collateralAmount = (newShares * collateralPerShares()) / (10**cdecimals);
+        uint256 debtAmount = (newShares * debtPerShares()) / (10**cdecimals);
+
+        // Update params
+        params.fee = fee;
+        params.collateralAmount = collateralAmount;
+        params.debtAmount = debtAmount;
+
+        // Perform the flash swap
+        bytes memory data = abi.encode(FlashSwapType.Buy, abi.encode(params));
+        uniswapAdapter.flashSwapWETHForExactTokens(address(collateral), collateralAmount, data);
+    }
+
     /**
-     * @notice Mints new RISE token
-     * @param _shares The amount of RISE token to be minted
-     * @param _recipient The recipient of newly minted RISE token
-     * @param _token ERC20 used to mint the RISE token
+     * @notice Buy Rise Token with ETH. New Rise Token supply will be minted.
+     * @param _shares The amount of Rise Token to buy
+     * @param _recipient The recipient of the transaction
      */
-    // function mint(uint256 _shares, address _recipient, address _token) external {
-    //     /// ███ Checks
+    function buy(uint256 _shares, address _recipient) external payable {
+        BuyParams memory params = BuyParams({
+            buyer: msg.sender,
+            recipient: _recipient,
+            tokenIn: IERC20(address(0)),
+            amountInMax: msg.value,
+            shares: _shares,
+            collateralAmount: 0,
+            debtAmount: 0,
+            fee: 0,
+            nav: nav()
+        });
+        buy(params);
+    }
 
-    //     // Check boostrap status
-    //     if (!isInitialized) revert NotInitialized();
-
-    //     // Check mint amount
-    //     if (_shares > maxMint) revert MintAmountInvalid();
-
-    //     /// ███ Effects
-
-    //     /// ███ Interactions
-
-    //     // Add fees
-    //     uint256 fee = ((fees * _shares) / 1e18);
-    //     uint256 newShares = _shares + fee;
-
-    //     // Get the collateral & debt amount
-    //     uint256 collateralAmount = (newShares * collateralPerShares()) / (10**cdecimals);
-    //     uint256 debtAmount = (newShares * debtPerShares()) / (10**cdecimals);
-
-    //     // Perform the flash swap
-    //     bytes memory data = abi.encode(FlashSwapType.Mint, abi.encode(msg.sender, _recipient, _shares, fee, collateralAmount, debtAmount, _token));
-    //     // uniswapAdapter.flashSwapETHForExactTokens(collateral, collateralAmount);
-    // }
+    /**
+     * @notice Buy Rise Token with tokenIn. New Rise Token supply will be minted.
+     * @param _shares The amount of Rise Token to buy
+     * @param _recipient The recipient of the transaction.
+     * @param _tokenIn ERC20 used to buy the Rise Token
+     */
+    function buy(uint256 _shares, address _recipient, address _tokenIn, uint256 _amountInMax) external {
+        BuyParams memory params = BuyParams({
+            buyer: msg.sender,
+            recipient: _recipient,
+            tokenIn: IERC20(_tokenIn),
+            amountInMax: _amountInMax,
+            shares: _shares,
+            collateralAmount: 0,
+            debtAmount: 0,
+            fee: 0,
+            nav: nav()
+        });
+        buy(params);
+    }
 
     /**
      * @notice Redeems token to underlying collateral (e.g. gOHM)

@@ -31,7 +31,8 @@ contract RiseTokenFactoryTest is DSTest {
     function testDefaultStorages() public {
         // Create new factory
         address adapter = hevm.addr(1);
-        RiseTokenFactory factory = new RiseTokenFactory(adapter, adapter);
+        address feeRecipient = hevm.addr(2);
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, adapter, adapter);
 
         // Check
         assertEq(factory.feeRecipient(), address(this), "check fee recipient");
@@ -43,7 +44,8 @@ contract RiseTokenFactoryTest is DSTest {
     function testFailNonOwnerCannotSetFeeRecipient() public {
         // Create new factory
         address adapter = hevm.addr(1);
-        RiseTokenFactory factory = new RiseTokenFactory(adapter, adapter);
+        address feeRecipient = hevm.addr(2);
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, adapter, adapter);
 
         // Transfer ownership
         address newOwner = hevm.addr(2);
@@ -58,7 +60,8 @@ contract RiseTokenFactoryTest is DSTest {
     function testOwnerCanSetFeeRecipient() public {
         // Create new factory
         address adapter = hevm.addr(1);
-        RiseTokenFactory factory = new RiseTokenFactory(adapter, adapter);
+        address feeRecipient = hevm.addr(2);
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, adapter, adapter);
 
         // Non-owner trying to set the fee recipient; It should be reverted
         address recipient = hevm.addr(2);
@@ -72,8 +75,9 @@ contract RiseTokenFactoryTest is DSTest {
     function testFailCreateRevertIfCollateralNotConfiguredInUniswapAdapter() public {
         // Create new factory
         address adapter = hevm.addr(1);
+        address feeRecipient = hevm.addr(2);
         UniswapAdapter uniswapAdapter = new UniswapAdapter(weth);
-        RiseTokenFactory factory = new RiseTokenFactory(address(uniswapAdapter), adapter);
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapter), adapter);
 
         // Configure Uniswap Adapter
         uniswapAdapter.configure(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
@@ -86,8 +90,9 @@ contract RiseTokenFactoryTest is DSTest {
     function testFailCreateRevertIfDebtNotConfiguredInUniswapAdapter() public {
         // Create new factory
         address adapter = hevm.addr(1);
+        address feeRecipient = hevm.addr(2);
         UniswapAdapter uniswapAdapter = new UniswapAdapter(weth);
-        RiseTokenFactory factory = new RiseTokenFactory(address(uniswapAdapter), adapter);
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapter), adapter);
 
         // Configure Uniswap Adapter
         uniswapAdapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
@@ -99,9 +104,10 @@ contract RiseTokenFactoryTest is DSTest {
     /// @notice Create should revert if collateral is not configured in Oracle Adapter
     function testFailCreateRevertIfCollateralNotConfiguredInOracleAdapter() public {
         // Create new factory
+        address feeRecipient = hevm.addr(1);
         UniswapAdapter uniswapAdapter = new UniswapAdapter(weth);
         RariFusePriceOracleAdapter oracleAdapter = new RariFusePriceOracleAdapter();
-        RiseTokenFactory factory = new RiseTokenFactory(address(uniswapAdapter), address(oracleAdapter));
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapter), address(oracleAdapter));
 
         // Configure Uniswap Adapter
         uniswapAdapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
@@ -117,9 +123,10 @@ contract RiseTokenFactoryTest is DSTest {
     /// @notice Create should revert if debt is not configured in Uniswap Adapter
     function testFailCreateRevertIfDebtNotConfiguredInOracleAdapter() public {
         // Create new factory
+        address feeRecipient = hevm.addr(1);
         UniswapAdapter uniswapAdapter = new UniswapAdapter(weth);
         RariFusePriceOracleAdapter oracleAdapter = new RariFusePriceOracleAdapter();
-        RiseTokenFactory factory = new RiseTokenFactory(address(uniswapAdapter), address(oracleAdapter));
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapter), address(oracleAdapter));
 
         // Configure Uniswap Adapter
         uniswapAdapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
@@ -136,10 +143,11 @@ contract RiseTokenFactoryTest is DSTest {
     function testFailNonOwnerCannotCreateRiseToken() public {
         // Create new factory
         address adapter = hevm.addr(1);
-        RiseTokenFactory factory = new RiseTokenFactory(adapter, adapter);
+        address feeRecipient = hevm.addr(2);
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, adapter, adapter);
 
         // Transfer ownership
-        address newOwner = hevm.addr(2);
+        address newOwner = hevm.addr(3);
         factory.transferOwnership(newOwner);
 
         // Non-owner trying to set the fee recipient; It should be reverted
@@ -149,9 +157,10 @@ contract RiseTokenFactoryTest is DSTest {
     /// @notice Owner can set fee recipient
     function testOwnerCanCreateRiseToken() public {
         // Create new factory
+        address feeRecipient = hevm.addr(1);
         UniswapAdapter uniswapAdapter = new UniswapAdapter(weth);
         RariFusePriceOracleAdapter oracleAdapter = new RariFusePriceOracleAdapter();
-        RiseTokenFactory factory = new RiseTokenFactory(address(uniswapAdapter), address(oracleAdapter));
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapter), address(oracleAdapter));
 
         // Configure Uniswap Adapter
         uniswapAdapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
