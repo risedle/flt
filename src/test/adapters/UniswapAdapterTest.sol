@@ -253,151 +253,75 @@ contract UniswapAdapterTest is DSTest {
         adapter.swapExactTokensForWETH(wbtc, 1e8, 10_000 ether); // This should be reverted
     }
 
-    /// @notice previewSwapWETHForExactTokens test
-    function testFailPreviewSwapWETHForExactTokensRevertIfTokenIsNotConfigured() public {
+    /// @notice Make sure swapTokensForExactWETH revert if the token is not configured
+    function testFailSwapTokensForExactWETHRevertIfTokenIsNotConfigured() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
-        // This should be reverted
-        adapter.previewSwapWETHForExactTokens(wbtc, 1e8);
+        // Call the flash swap
+        adapter.swapTokensForExactWETH(hevm.addr(1), 1 ether, 1 ether);
     }
 
-    /// @notice previewSwapWETHForExactTokens test
-    function testPreviewSwapWETHForExactTokensOnUniswapV2() public {
+    /// @notice Make sure the its working properly on Uniswap V2
+    function testUniswapV2SwapTokensForExactWETH() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
-        // Configure the token
+        // Owner set metadata for wbtc
         adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
 
-        // This should returns value
-        uint256 wethAmount = adapter.previewSwapWETHForExactTokens(wbtc, 1e8);
-        assertGt(wethAmount, 10 ether, "check weth amount");
-        assertLt(wethAmount, 20 ether, "check weth amount");
+        // Swap the BTC
+        hevm.setWBTCBalance(address(this), 1e8);
+        IERC20(wbtc).approve(address(adapter), 1e8);
+        uint256 wethAmount = adapter.swapTokensForExactWETH(wbtc, 1e18, 1e8);
+        IERC20(wbtc).approve(address(adapter), 0);
+
+        // Check
+        assertEq(IERC20(wbtc).balanceOf(address(this)), 0);
+        assertEq(IERC20(weth).balanceOf(address(this)), wethAmount);
     }
 
-    /// @notice previewSwapWETHForExactTokens test
-    function testPreviewSwapWETHForExactTokensOnUniswapV3() public {
+    function testUniswapV3SwapTokensForExactWETH() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
         adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
 
-        // This should returns value
-        uint256 wethAmount = adapter.previewSwapWETHForExactTokens(wbtc, 1e8);
-        assertGt(wethAmount, 10 ether, "check weth amount");
-        assertLt(wethAmount, 20 ether, "check weth amount");
+        // Swap the BTC
+        hevm.setWBTCBalance(address(this), 1e8);
+        IERC20(wbtc).approve(address(adapter), 1e8);
+        uint256 amountIn = adapter.swapTokensForExactWETH(wbtc, 1e18, 1e8);
+        IERC20(wbtc).approve(address(adapter), 0);
+
+        // Check
+        assertEq(IERC20(wbtc).balanceOf(address(this)), 1e8 - amountIn, "check wbtc balance");
+        assertEq(IERC20(weth).balanceOf(address(this)), 1e18, "check weth balance");
     }
 
-    /// @notice previewSwapTokensForExactWETH test
-    function testFailPreviewSwapTokensForExactWETHRevertIfTokenIsNotConfigured() public {
+    function testFailUniswapV2SwapTokensForExactWETHAmountInMax() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
-        // This should be reverted
-        adapter.previewSwapTokensForExactWETH(wbtc, 1e8);
-    }
-
-    /// @notice previewSwapTokensForExactWETH test
-    function testPreviewSwapTokensForExactWETHOnUniswapV2() public {
-        // Create new Uniswap Adapter
-        UniswapAdapter adapter = new UniswapAdapter(weth);
-
-        // Configure the token
+        // Owner set metadata for wbtc
         adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
 
-        // This should returns value
-        uint256 wbtcAmount = adapter.previewSwapTokensForExactWETH(wbtc, 1e18);
-        assertGt(wbtcAmount, 0.01 * 1e8, "check wbtc amount");
-        assertLt(wbtcAmount, 1 * 1e8, "check wbtc amount");
+        // Swap the BTC
+        hevm.setWBTCBalance(address(this), 1e8);
+        IERC20(wbtc).approve(address(adapter), 1e8);
+        adapter.swapTokensForExactWETH(wbtc, 1e18, 0); // This should be reverted
     }
 
-    /// @notice previewSwapTokensForExactWETH test
-    function testPreviewSwapTokensForExactWETHOnUniswapV3() public {
+    function testFailUniswapV3SwapTokensForExactWETHAmountInMax() public {
         // Create new Uniswap Adapter
         UniswapAdapter adapter = new UniswapAdapter(weth);
 
         // Owner set metadata for wbtc
         adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
 
-        // This should returns value
-        uint256 wbtcAmount = adapter.previewSwapTokensForExactWETH(wbtc, 1e18);
-        assertGt(wbtcAmount, 0.01 * 1e8, "check wbtc amount");
-        assertLt(wbtcAmount, 1 * 1e8, "check wbtc amount");
-    }
-
-    /// @notice previewSwapExactTokensForWETH test
-    function testFailPreviewSwapExactTokensForWETHRevertIfTokenIsNotConfigured() public {
-        // Create new Uniswap Adapter
-        UniswapAdapter adapter = new UniswapAdapter(weth);
-
-        // This should be reverted
-        adapter.previewSwapExactTokensForWETH(wbtc, 1e8);
-    }
-
-    /// @notice previewSwapExactTokensForWETH test
-    function testPreviewSwapExactTokensForWETHOnUniswapV2() public {
-        // Create new Uniswap Adapter
-        UniswapAdapter adapter = new UniswapAdapter(weth);
-
-        // Configure the token
-        adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
-
-        // This should returns value
-        uint256 wethAmount = adapter.previewSwapExactTokensForWETH(wbtc, 1e8);
-        assertGt(wethAmount, 10 ether, "check weth amount");
-        assertLt(wethAmount, 20 ether, "check weth amount");
-    }
-
-    /// @notice previewSwapExactTokensForWETH test
-    function testPreviewSwapExactTokensForWETHOnUniswapV3() public {
-        // Create new Uniswap Adapter
-        UniswapAdapter adapter = new UniswapAdapter(weth);
-
-        // Owner set metadata for wbtc
-        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
-
-        // This should returns value
-        uint256 wethAmount = adapter.previewSwapExactTokensForWETH(wbtc, 1e8);
-        assertGt(wethAmount, 10 ether, "check weth amount");
-        assertLt(wethAmount, 20 ether, "check weth amount");
-    }
-
-    /// @notice previewSwapExactWETHForTokens test
-    function testFailPreviewSwapExactWETHForTokensRevertIfTokenIsNotConfigured() public {
-        // Create new Uniswap Adapter
-        UniswapAdapter adapter = new UniswapAdapter(weth);
-
-        // This should be reverted
-        adapter.previewSwapExactWETHForTokens(wbtc, 1e8);
-    }
-
-    /// @notice previewSwapExactWETHForTokens test
-    function testPreviewSwapExactWETHForTokensOnUniswapV2() public {
-        // Create new Uniswap Adapter
-        UniswapAdapter adapter = new UniswapAdapter(weth);
-
-        // Configure the token
-        adapter.configure(wbtc, 2, sushiWBTCETHPair, sushiRouter);
-
-        // This should returns value
-        uint256 wbtcAmount = adapter.previewSwapExactWETHForTokens(wbtc, 1e18);
-        assertGt(wbtcAmount, 0.01 * 1e8, "check wbtc amount");
-        assertLt(wbtcAmount, 1 * 1e8, "check wbtc amount");
-    }
-
-    /// @notice previewSwapExactWETHForTokens test
-    function testPreviewSwapExactWETHForTokensOnUniswapV3() public {
-        // Create new Uniswap Adapter
-        UniswapAdapter adapter = new UniswapAdapter(weth);
-
-        // Owner set metadata for wbtc
-        adapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
-
-        // This should returns value
-        uint256 wbtcAmount = adapter.previewSwapExactWETHForTokens(wbtc, 1e18);
-        assertGt(wbtcAmount, 0.01 * 1e8, "check wbtc amount");
-        assertLt(wbtcAmount, 1 * 1e8, "check wbtc amount");
+        // Swap the BTC
+        hevm.setWBTCBalance(address(this), 1e8);
+        IERC20(wbtc).approve(address(adapter), 1e8);
+        adapter.swapTokensForExactWETH(wbtc, 1e18, 0); // This should be reverted
     }
 }

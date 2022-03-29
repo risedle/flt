@@ -57,13 +57,7 @@ contract UniswapAdapter is Ownable {
     mapping(address => TokenMetadata) public tokens;
 
     /// @notice Flash swap types
-    enum FlashSwapType {
-        FlashSwapWETHForExactTokens,
-        PreviewSwapWETHForExactTokens,
-        PreviewSwapTokensForExactWETH,
-        PreviewSwapExactTokensForWETH,
-        PreviewSwapExactWETHForTokens
-    }
+    enum FlashSwapType { FlashSwapWETHForExactTokens }
 
     /// @notice Whitelisted pair/pool that can call the callback
     mapping(address => bool) private isValidCallbackCaller;
@@ -97,9 +91,6 @@ contract UniswapAdapter is Ownable {
 
     /// @notice Error is raised when this contract receive invalid amount when flashswap
     error FlashSwapReceivedAmountInvalid(uint256 expected, uint256 got);
-
-    /// @notice Error is raised if preview is failed
-    error PreviewFailed();
 
 
     /// ███ Constuctors ████████████████████████████████████████████████████████
@@ -226,25 +217,6 @@ contract UniswapAdapter is Ownable {
             onFlashSwapWETHForExactTokens(params, callData);
             return;
         }
-
-        if (flashSwapType == FlashSwapType.PreviewSwapWETHForExactTokens || flashSwapType == FlashSwapType.PreviewSwapTokensForExactWETH) {
-            (uint8 tokenNumber) = abi.decode(data, (uint8));
-            if (tokenNumber == 0) {
-                revert(string(abi.encode(uint256(_amount0Delta))));
-            } else {
-                revert(string(abi.encode(uint256(_amount1Delta))));
-            }
-        }
-
-        // WETH/tokenOut amount is negative, coz it was sent by the pool
-        if (flashSwapType == FlashSwapType.PreviewSwapExactTokensForWETH || flashSwapType == FlashSwapType.PreviewSwapExactWETHForTokens) {
-            (uint8 tokenNumber) = abi.decode(data, (uint8));
-            if (tokenNumber == 0) {
-                revert(string(abi.encode(uint256(-1 * _amount0Delta))));
-            } else {
-                revert(string(abi.encode(uint256(-1 * _amount1Delta))));
-            }
-        }
     }
 
 
@@ -361,198 +333,59 @@ contract UniswapAdapter is Ownable {
     }
 
     /**
-     * @notice Get the amount of WETH to get exact amount of specified token.
-     * @dev The transaction will reverted if _tokenOut is not configured
-     * @param _tokenOut The output token
-     * @param _amountOut The amount of output token
-     * @return _wethAmount The amount of WETH
+     * @notice Swaps an exact amount of WETH tokens for as few input tokens as possible.
+     * @param _tokenIn tokenIn address
+     * @param _wethAmount The amount of tokenIn
+     * @param _amountInMax The minimum amount of WETH to be received
+     * @return _amountIn The WETH amount received
      */
-    function previewSwapWETHForExactTokens(address _tokenOut, uint256 _amountOut) external returns (uint256 _wethAmount) {
+    function swapTokensForExactWETH(address _tokenIn, uint256 _wethAmount, uint256 _amountInMax) external returns (uint256 _amountIn) {
         /// ███ Checks
-
-        // Early returns
-        if (_amountOut == 0) return 0;
-
-        // Check the metadata
-        TokenMetadata memory metadata = tokens[_tokenOut];
-        if (metadata.version == 0) revert TokenNotConfigured(_tokenOut);
-
-        /// ███ Interactions
-
-        if (metadata.version == 2) {
-            address[] memory path = new address[](2);
-            path[0] = address(weth);
-            path[1] = _tokenOut;
-            _wethAmount = IUniswapV2Router02(metadata.router).getAmountsIn(_amountOut, path)[0];
-            return _wethAmount;
-        }
-
-        if (metadata.version == 3) {
-            // Get the ETH token number
-            uint8 ethTokenNumber = _tokenOut == metadata.pool.token0() ? 1 : 0;
-
-            // zeroForOne (true: token0 -> token1) (false: token1 -> token0)
-            bool zeroForOne = _tokenOut == metadata.pool.token1() ? true : false;
-
-            // amountSpecified (Exact input: positive) (Exact output: negative)
-            int256 amountSpecified = -1 * int256(_amountOut);
-            uint160 sqrtPriceLimitX96 = (zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341);
-
-            // Perform swap
-            bytes memory data = abi.encode(FlashSwapType.PreviewSwapWETHForExactTokens, abi.encode(ethTokenNumber));
-            try metadata.pool.swap(address(this), zeroForOne, amountSpecified, sqrtPriceLimitX96, data) {
-                revert PreviewFailed();
-            } catch Error(string memory revertData) {
-                _wethAmount = abi.decode(bytes(revertData), (uint256));
-            }
-            return _wethAmount;
-        }
-    }
-
-    /**
-     * @notice Get the amount of tokenIn to get exact amount of WETH.
-     * @dev The transaction will reverted if _tokenIn is not configured
-     * @param _tokenIn The output token
-     * @param _wethAmount The amount of WETH
-     * @return _amountIn The amount of _tokenIn
-     */
-    function previewSwapTokensForExactWETH(address _tokenIn, uint256 _wethAmount) external returns (uint256 _amountIn) {
-        /// ███ Checks
-
-        // Early returns
-        if (_wethAmount == 0) return 0;
 
         // Check the metadata
         TokenMetadata memory metadata = tokens[_tokenIn];
         if (metadata.version == 0) revert TokenNotConfigured(_tokenIn);
 
         /// ███ Interactions
+        IERC20(_tokenIn).safeTransferFrom(msg.sender, address(this), _amountInMax);
 
         if (metadata.version == 2) {
+            // Do the swap
             address[] memory path = new address[](2);
             path[0] = _tokenIn;
             path[1] = address(weth);
-            _amountIn = IUniswapV2Router02(metadata.router).getAmountsIn(_wethAmount, path)[0];
+            IERC20(_tokenIn).safeApprove(metadata.router, _wethAmount);
+            _amountIn = IUniswapV2Router02(metadata.router).swapTokensForExactTokens(_wethAmount, _amountInMax, path, msg.sender, block.timestamp)[1];
+            IERC20(_tokenIn).safeApprove(metadata.router, 0);
+            if (_amountInMax > _amountIn) {
+                // Transfer back excess token
+                IERC20(_tokenIn).safeTransfer(msg.sender, _amountInMax - _amountIn);
+            }
             return _amountIn;
         }
 
         if (metadata.version == 3) {
-            // Get the tokenIn token number
-            uint8 tokenInNumber = _tokenIn == metadata.pool.token0() ? 0 : 1;
+            // Do the swap
+            IUniswapV3SwapRouter.ExactOutputSingleParams memory params = IUniswapV3SwapRouter.ExactOutputSingleParams({
+                tokenIn: _tokenIn,
+                tokenOut: address(weth),
+                fee: metadata.pool.fee(),
+                recipient: msg.sender,
+                deadline: block.timestamp,
+                amountOut: _wethAmount,
+                amountInMaximum: _amountInMax,
+                sqrtPriceLimitX96: 0
+            });
 
-            // zeroForOne (true: token0 -> token1) (false: token1 -> token0)
-            bool zeroForOne = _tokenIn == metadata.pool.token0() ? true : false;
-
-            // amountSpecified (Exact input: positive) (Exact output: negative)
-            int256 amountSpecified = -1 * int256(_wethAmount);
-            uint160 sqrtPriceLimitX96 = (zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341);
-
-            // Perform swap
-            bytes memory data = abi.encode(FlashSwapType.PreviewSwapTokensForExactWETH, abi.encode(tokenInNumber));
-            try metadata.pool.swap(address(this), zeroForOne, amountSpecified, sqrtPriceLimitX96, data) {
-                revert PreviewFailed();
-            } catch Error(string memory revertData) {
-                _amountIn = abi.decode(bytes(revertData), (uint256));
+            IERC20(_tokenIn).safeApprove(metadata.router, _wethAmount);
+            _amountIn = IUniswapV3SwapRouter(metadata.router).exactOutputSingle(params);
+            IERC20(_tokenIn).safeApprove(metadata.router, 0);
+            if (_amountInMax > _amountIn) {
+                // Transfer back excess token
+                IERC20(_tokenIn).safeTransfer(msg.sender, _amountInMax - _amountIn);
             }
             return _amountIn;
         }
     }
 
-    /**
-     * @notice Get the amount of WETH given exact amount of tokenIn
-     * @dev The transaction will reverted if tokenIn is not configured
-     * @param _tokenIn The output token
-     * @param _amountIn The amount of tokenIn
-     * @return _wethAmount The amount of WETH
-     */
-    function previewSwapExactTokensForWETH(address _tokenIn, uint256 _amountIn) external returns (uint256 _wethAmount) {
-        /// ███ Checks
-
-        // Early returns
-        if (_amountIn == 0) return 0;
-
-        // Check the metadata
-        TokenMetadata memory metadata = tokens[_tokenIn];
-        if (metadata.version == 0) revert TokenNotConfigured(_tokenIn);
-
-        /// ███ Interactions
-
-        if (metadata.version == 2) {
-            address[] memory path = new address[](2);
-            path[0] = _tokenIn;
-            path[1] = address(weth);
-            _wethAmount = IUniswapV2Router02(metadata.router).getAmountsOut(_amountIn, path)[1];
-            return _wethAmount;
-        }
-
-        if (metadata.version == 3) {
-            // Get the WETH token number
-            uint8 ethTokenNumber = _tokenIn == metadata.pool.token0() ? 1 : 0;
-
-            // zeroForOne (true: token0 -> token1) (false: token1 -> token0)
-            bool zeroForOne = _tokenIn == metadata.pool.token0() ? true : false;
-
-            // amountSpecified (Exact input: positive) (Exact output: negative)
-            int256 amountSpecified = int256(_amountIn);
-            uint160 sqrtPriceLimitX96 = (zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341);
-
-            // Perform swap
-            bytes memory data = abi.encode(FlashSwapType.PreviewSwapExactTokensForWETH, abi.encode(ethTokenNumber));
-            try metadata.pool.swap(address(this), zeroForOne, amountSpecified, sqrtPriceLimitX96, data) {
-                revert PreviewFailed();
-            } catch Error(string memory revertData) {
-                _wethAmount = abi.decode(bytes(revertData), (uint256));
-            }
-            return _wethAmount;
-        }
-    }
-
-    /**
-     * @notice Get the amount of tokenOut given exact amount of WETH
-     * @dev The transaction will revert if tokenOut is not configured
-     * @param _tokenOut The output token
-     * @param _wethAmount The amount of WETH
-     * @return _amountOut The amount of tokenOut
-     */
-    function previewSwapExactWETHForTokens(address _tokenOut, uint256 _wethAmount) external returns (uint256 _amountOut) {
-        /// ███ Checks
-
-        // Early returns
-        if (_wethAmount == 0) return 0;
-
-        // Check the metadata
-        TokenMetadata memory metadata = tokens[_tokenOut];
-        if (metadata.version == 0) revert TokenNotConfigured(_tokenOut);
-
-        /// ███ Interactions
-
-        if (metadata.version == 2) {
-            address[] memory path = new address[](2);
-            path[0] = address(weth);
-            path[1] = _tokenOut;
-            _amountOut = IUniswapV2Router02(metadata.router).getAmountsOut(_wethAmount, path)[1];
-            return _amountOut;
-        }
-
-        if (metadata.version == 3) {
-            // Get the tokenOut token number
-            uint8 tokenNumber = _tokenOut == metadata.pool.token0() ? 0 : 1;
-
-            // zeroForOne (true: token0 -> token1) (false: token1 -> token0)
-            bool zeroForOne = _tokenOut == metadata.pool.token1() ? true : false;
-
-            // amountSpecified (Exact input: positive) (Exact output: negative)
-            int256 amountSpecified = int256(_wethAmount);
-            uint160 sqrtPriceLimitX96 = (zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341);
-
-            // Perform swap
-            bytes memory data = abi.encode(FlashSwapType.PreviewSwapExactWETHForTokens, abi.encode(tokenNumber));
-            try metadata.pool.swap(address(this), zeroForOne, amountSpecified, sqrtPriceLimitX96, data) {
-                revert PreviewFailed();
-            } catch Error(string memory revertData) {
-                _amountOut = abi.decode(bytes(revertData), (uint256));
-            }
-            return _amountOut;
-        }
-    }
 }
