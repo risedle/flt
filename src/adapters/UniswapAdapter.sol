@@ -6,120 +6,57 @@ import { Ownable } from "lib/openzeppelin-contracts/contracts/access/Ownable.sol
 import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import { IUniswapAdapter } from "../interfaces/IUniswapAdapter.sol";
 import { IUniswapV2Router02 } from "../interfaces/IUniswapV2Router02.sol";
 import { IUniswapV2Pair } from "../interfaces/IUniswapV2Pair.sol";
 import { IUniswapV3Pool } from "../interfaces/IUniswapV3Pool.sol";
 import { IUniswapV3SwapRouter } from "../interfaces/IUniswapV3SwapRouter.sol";
 import { IUniswapAdapterCaller } from "../interfaces/IUniswapAdapterCaller.sol";
 
+import { IWETH9 } from "../interfaces/IWETH9.sol";
+
 /**
  * @title Uniswap Adapter
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
- * @notice Simplify the interaction with Uniswap V2 (and its forks) and Uniswap V3
+ * @notice Utility contract to interact with Uniswap V2 & V3
  */
-contract UniswapAdapter is Ownable {
+contract UniswapAdapter is IUniswapAdapter, Ownable {
     /// ███ Libraries ██████████████████████████████████████████████████████████
 
     using SafeERC20 for IERC20;
+    using SafeERC20 for IWETH9;
 
     /// ███ Storages ███████████████████████████████████████████████████████████
 
     /// @notice WETH address
-    IERC20 public weth;
+    IWETH9 public weth;
 
-    /// @notice Pair/Pool of the TOKEN/ETH
-    struct TokenMetadata {
-        // Uniswap Version, 2 or 3
-        uint8 version;
-        // Uniswap V2 pair address
-        IUniswapV2Pair pair;
-        // Uniswap V3 pool address
-        IUniswapV3Pool pool;
-        // The router address
-        address router;
-    }
-
-    /// @notice FlashSwapWETHForExactTokens parameters
-    struct FlashSwapWETHForExactTokensParams {
-        // ERC20 that received by this contract and sent to the caller
-        IERC20 tokenOut;
-        // The flash swap caller
-        IUniswapAdapterCaller caller;
-        // The Uniswap Pair or Pool
-        TokenMetadata metadata;
-        // The amount of tokenOut
-        uint256 amountOut;
-        // The amount of WETH that need to transfer to pair/pool address
-        uint256 wethAmount;
-    }
-
-    /// @notice Mapping token to their TOKEN/ETH pair or pool address
-    mapping(address => TokenMetadata) public tokens;
-
-    /// @notice Flash swap types
-    enum FlashSwapType { FlashSwapWETHForExactTokens }
+    /// @notice Mapping token to their liquidity metadata
+    mapping(address => LiquidityData) public liquidities;
 
     /// @notice Whitelisted pair/pool that can call the callback
     mapping(address => bool) private isValidCallbackCaller;
 
 
-    /// ███ Events █████████████████████████████████████████████████████████████
-
-    /// @notice Event emitted when token is configured
-    event TokenConfigured(address token, uint8 version, address pairOrPool);
-
-    /// @notice Event emitted when flash swap succeeded
-    event FlashSwapped(FlashSwapWETHForExactTokensParams params);
-
-
-    /// ███ Errors █████████████████████████████████████████████████████████████
-
-    /// @notice Error is raised when owner use invalid uniswap version
-    error InvalidUniswapVersion(uint8 version);
-
-    /// @notice Error is raised when invalid amount
-    error InvalidAmount(uint256 amount);
-
-    /// @notice Error is raised when token is not configured
-    error TokenNotConfigured(address token);
-
-    /// @notice Error is raised when the callback is called by unkown pair/pool
-    error CallerNotAuthorized();
-
-    /// @notice Error is raised when the caller not repay the token
-    error CallerNotRepay();
-
-    /// @notice Error is raised when this contract receive invalid amount when flashswap
-    error FlashSwapReceivedAmountInvalid(uint256 expected, uint256 got);
-
-
     /// ███ Constuctors ████████████████████████████████████████████████████████
 
     constructor(address _weth) {
-        weth = IERC20(_weth);
+        weth = IWETH9(_weth);
     }
 
 
     /// ███ Owner actions ██████████████████████████████████████████████████████
 
-    /**
-     * @notice Configure the token
-     * @param _token The ERC20 token
-     * @param _version The Uniswap version (2 or 3)
-     * @param _pairOrPool The contract address of the TOKEN/ETH pair or pool
-     * @param _router The Uniswap V2 or V3 router address
-     */
-    function configure(address _token, uint8 _version, address _pairOrPool, address _router) external onlyOwner {
-        /// ███ Checks
-        if (_version < 2 || _version > 3) revert InvalidUniswapVersion(_version);
-
-        /// ███ Effects
-
-        // Set metadata
+    /// @inheritdoc IUniswapAdapter
+    function configure(address _token, UniswapVersion _version, address _pairOrPool, address _router) external onlyOwner {
         isValidCallbackCaller[_pairOrPool] = true;
-        tokens[_token] = TokenMetadata({ version: _version, pool: IUniswapV3Pool(_pairOrPool), pair: IUniswapV2Pair(_pairOrPool), router: _router });
-
-        emit TokenConfigured(_token, _version, _pairOrPool);
+        liquidities[_token] = LiquidityData({
+            version: _version,
+            pool: IUniswapV3Pool(_pairOrPool),
+            pair: IUniswapV2Pair(_pairOrPool),
+            router: _router
+        });
+        emit TokenConfigured(liquidities[_token]);
     }
 
 
@@ -139,10 +76,10 @@ contract UniswapAdapter is Ownable {
         if (balance < prevBalance + _params.wethAmount) revert CallerNotRepay();
 
         // Transfer the WETH to the Uniswap V2 pair or pool
-        if (_params.metadata.version == 2) {
-            weth.safeTransfer(address(_params.metadata.pair), _params.wethAmount);
+        if (_params.liquidityData.version == UniswapVersion.UniswapV2) {
+            weth.safeTransfer(address(_params.liquidityData.pair), _params.wethAmount);
         } else {
-            weth.safeTransfer(address(_params.metadata.pool), _params.wethAmount);
+            weth.safeTransfer(address(_params.liquidityData.pool), _params.wethAmount);
         }
 
         emit FlashSwapped(_params);
@@ -151,7 +88,6 @@ contract UniswapAdapter is Ownable {
 
     /// ███ Callbacks ██████████████████████████████████████████████████████████
 
-    /// @notice Function is called by the Uniswap V2 pair's when swap function is executed
     function uniswapV2Call(address _sender, uint256 _amount0, uint256 _amount1, bytes memory _data) external {
         /// ███ Checks
 
@@ -175,23 +111,13 @@ contract UniswapAdapter is Ownable {
             address[] memory path = new address[](2);
             path[0] = address(weth);
             path[1] = address(params.tokenOut);
-            params.wethAmount = IUniswapV2Router02(params.metadata.router).getAmountsIn(params.amountOut, path)[0];
+            params.wethAmount = IUniswapV2Router02(params.liquidityData.router).getAmountsIn(params.amountOut, path)[0];
 
             onFlashSwapWETHForExactTokens(params, callData);
             return;
         }
     }
 
-    /**
-     * @notice Function is called by the Uniswap V3 pool when the swap function is executed
-     * @param _amount0Delta The amount of token0 that was sent (negative) or must
-     *                      be received (positive) by the pool by the end of the swap.
-     *                      If positive, the callback must send that amount of token0 to the pool.
-     * @param _amount1Delta The amount of token1 that was sent (negative) or must
-     *                      be received (positive) by the pool by the end of the swap.
-     *                      If positive, the callback must send that amount of token1 to the pool.
-     * @param _data Callback data
-     */
     function uniswapV3SwapCallback(int256 _amount0Delta, int256 _amount1Delta, bytes memory _data) external {
         /// ███ Checks
 
@@ -222,30 +148,22 @@ contract UniswapAdapter is Ownable {
 
     /// ███ Read-only functions ████████████████████████████████████████████████
 
-    /**
-     * @notice Returns true if token is configured
-     * @param _token The token address
-     */
-    function isConfigured(address _token) external view returns (bool) {
-        if (tokens[_token].version == 2 || tokens[_token].version == 3) return true;
-        return false;
+    /// @inheritdoc IUniswapAdapter
+    function isConfigured(address _token) public view returns (bool) {
+        if (liquidities[_token].router == address(0)) return false;
+        return true;
     }
 
     /// ███ Adapters ███████████████████████████████████████████████████████████
 
-    /**
-     * @notice Borrow exact amount of tokenOut and repay it with WETH.
-     *         The Uniswap Adapter will call msg.sender#onFlashSwapWETHForExactTokens.
-     * @param _tokenOut The address of ERC20 that swapped
-     * @param _amountOut The exact amount of tokenOut that will be received by the caller
-     */
+    /// @inheritdoc IUniswapAdapter
     function flashSwapWETHForExactTokens(address _tokenOut, uint256 _amountOut, bytes memory _data) external {
         /// ███ Checks
         if (_amountOut == 0) revert InvalidAmount(0);
+        if (!isConfigured(_tokenOut)) revert TokenNotConfigured(_tokenOut);
 
         // Check the metadata
-        TokenMetadata memory metadata = tokens[_tokenOut];
-        if (metadata.version == 0) revert TokenNotConfigured(_tokenOut);
+        LiquidityData memory metadata = liquidities[_tokenOut];
 
         /// ███ Interactions
 
@@ -254,13 +172,13 @@ contract UniswapAdapter is Ownable {
             tokenOut: IERC20(_tokenOut),
             amountOut: _amountOut,
             caller: IUniswapAdapterCaller(msg.sender),
-            metadata: metadata,
+            liquidityData: metadata,
             wethAmount: 0 // Initialize as zero; It will be updated in the callback
         });
         bytes memory data = abi.encode(FlashSwapType.FlashSwapWETHForExactTokens, abi.encode(params, _data));
 
         // Flash swap Uniswap V2; The pair address will call uniswapV2Callback function
-        if (metadata.version == 2) {
+        if (metadata.version == UniswapVersion.UniswapV2) {
             // Get amountOut for token and weth
             uint256 amount0Out = _tokenOut == metadata.pair.token0() ? _amountOut : 0;
             uint256 amount1Out = _tokenOut == metadata.pair.token1() ? _amountOut : 0;
@@ -270,7 +188,7 @@ contract UniswapAdapter is Ownable {
             return;
         }
 
-        if (metadata.version == 3) {
+        if (metadata.version == UniswapVersion.UniswapV3) {
             // zeroForOne (true: token0 -> token1) (false: token1 -> token0)
             bool zeroForOne = _tokenOut == metadata.pool.token1() ? true : false;
 
@@ -284,35 +202,25 @@ contract UniswapAdapter is Ownable {
         }
     }
 
-    /**
-     * @notice Swaps an exact amount of input tokens for as many WETH tokens as possible.
-     * @param _tokenIn tokenIn address
-     * @param _amountIn The amount of tokenIn
-     * @param _amountOutMin The minimum amount of WETH to be received
-     * @return _amountOut The WETH amount received
-     */
+    /// @inheritdoc IUniswapAdapter
     function swapExactTokensForWETH(address _tokenIn, uint256 _amountIn, uint256 _amountOutMin) external returns (uint256 _amountOut) {
         /// ███ Checks
-
-        // Check the metadata
-        TokenMetadata memory metadata = tokens[_tokenIn];
-        if (metadata.version == 0) revert TokenNotConfigured(_tokenIn);
+        if (!isConfigured(_tokenIn)) revert TokenNotConfigured(_tokenIn);
 
         /// ███ Interactions
+        LiquidityData memory metadata = liquidities[_tokenIn];
         IERC20(_tokenIn).safeTransferFrom(msg.sender, address(this), _amountIn);
+        IERC20(_tokenIn).safeIncreaseAllowance(metadata.router, _amountIn);
 
-        if (metadata.version == 2) {
+        if (metadata.version == UniswapVersion.UniswapV2) {
             // Do the swap
             address[] memory path = new address[](2);
             path[0] = _tokenIn;
             path[1] = address(weth);
-            IERC20(_tokenIn).safeApprove(metadata.router, _amountIn);
             _amountOut = IUniswapV2Router02(metadata.router).swapExactTokensForTokens(_amountIn, _amountOutMin, path, msg.sender, block.timestamp)[1];
-            IERC20(_tokenIn).safeApprove(metadata.router, 0);
-            return _amountOut;
         }
 
-        if (metadata.version == 3) {
+        if (metadata.version == UniswapVersion.UniswapV3) {
             // Do the swap
             IUniswapV3SwapRouter.ExactInputSingleParams memory params = IUniswapV3SwapRouter.ExactInputSingleParams({
                 tokenIn: _tokenIn,
@@ -324,47 +232,31 @@ contract UniswapAdapter is Ownable {
                 amountOutMinimum: _amountOutMin,
                 sqrtPriceLimitX96: 0
             });
-
-            IERC20(_tokenIn).safeApprove(metadata.router, _amountIn);
             _amountOut = IUniswapV3SwapRouter(metadata.router).exactInputSingle(params);
-            IERC20(_tokenIn).safeApprove(metadata.router, 0);
-            return _amountOut;
         }
+
+        return _amountOut;
     }
 
-    /**
-     * @notice Swaps an exact amount of WETH tokens for as few input tokens as possible.
-     * @param _tokenIn tokenIn address
-     * @param _wethAmount The amount of tokenIn
-     * @param _amountInMax The minimum amount of WETH to be received
-     * @return _amountIn The WETH amount received
-     */
+    /// @inheritdoc IUniswapAdapter
     function swapTokensForExactWETH(address _tokenIn, uint256 _wethAmount, uint256 _amountInMax) external returns (uint256 _amountIn) {
         /// ███ Checks
-
-        // Check the metadata
-        TokenMetadata memory metadata = tokens[_tokenIn];
-        if (metadata.version == 0) revert TokenNotConfigured(_tokenIn);
+        if (!isConfigured(_tokenIn)) revert TokenNotConfigured(_tokenIn);
 
         /// ███ Interactions
+        LiquidityData memory metadata = liquidities[_tokenIn];
         IERC20(_tokenIn).safeTransferFrom(msg.sender, address(this), _amountInMax);
+        IERC20(_tokenIn).safeIncreaseAllowance(metadata.router, _amountInMax);
 
-        if (metadata.version == 2) {
+        if (metadata.version == UniswapVersion.UniswapV2) {
             // Do the swap
             address[] memory path = new address[](2);
             path[0] = _tokenIn;
             path[1] = address(weth);
-            IERC20(_tokenIn).safeApprove(metadata.router, _wethAmount);
             _amountIn = IUniswapV2Router02(metadata.router).swapTokensForExactTokens(_wethAmount, _amountInMax, path, msg.sender, block.timestamp)[1];
-            IERC20(_tokenIn).safeApprove(metadata.router, 0);
-            if (_amountInMax > _amountIn) {
-                // Transfer back excess token
-                IERC20(_tokenIn).safeTransfer(msg.sender, _amountInMax - _amountIn);
-            }
-            return _amountIn;
         }
 
-        if (metadata.version == 3) {
+        if (metadata.version == UniswapVersion.UniswapV3) {
             // Do the swap
             IUniswapV3SwapRouter.ExactOutputSingleParams memory params = IUniswapV3SwapRouter.ExactOutputSingleParams({
                 tokenIn: _tokenIn,
@@ -376,47 +268,35 @@ contract UniswapAdapter is Ownable {
                 amountInMaximum: _amountInMax,
                 sqrtPriceLimitX96: 0
             });
-
-            IERC20(_tokenIn).safeApprove(metadata.router, _wethAmount);
             _amountIn = IUniswapV3SwapRouter(metadata.router).exactOutputSingle(params);
-            IERC20(_tokenIn).safeApprove(metadata.router, 0);
-            if (_amountInMax > _amountIn) {
-                // Transfer back excess token
-                IERC20(_tokenIn).safeTransfer(msg.sender, _amountInMax - _amountIn);
-            }
-            return _amountIn;
         }
+
+        if (_amountInMax > _amountIn) {
+            // Transfer back excess token
+            IERC20(_tokenIn).safeTransfer(msg.sender, _amountInMax - _amountIn);
+        }
+        return _amountIn;
     }
 
-    /**
-     * @notice Swaps an exact amount of WETH for tokens
-     * @param _tokenOut tokenOut address
-     * @param _wethAmount The amount of WETH
-     * @param _amountOutMin The minimum amount of WETH to be received
-     * @return _amountOut The WETH amount received
-     */
+    /// @inheritdoc IUniswapAdapter
     function swapExactWETHForTokens(address _tokenOut, uint256 _wethAmount, uint256 _amountOutMin) external returns (uint256 _amountOut) {
         /// ███ Checks
-
-        // Check the metadata
-        TokenMetadata memory metadata = tokens[_tokenOut];
-        if (metadata.version == 0) revert TokenNotConfigured(_tokenOut);
+        if (!isConfigured(_tokenOut)) revert TokenNotConfigured(_tokenOut);
 
         /// ███ Interactions
+        LiquidityData memory metadata = liquidities[_tokenOut];
         IERC20(address(weth)).safeTransferFrom(msg.sender, address(this), _wethAmount);
+        weth.safeIncreaseAllowance(metadata.router, _wethAmount);
 
-        if (metadata.version == 2) {
+        if (metadata.version == UniswapVersion.UniswapV2) {
             // Do the swap
             address[] memory path = new address[](2);
             path[0] = address(weth);
             path[1] = _tokenOut;
-            weth.approve(metadata.router, _wethAmount);
             _amountOut = IUniswapV2Router02(metadata.router).swapExactTokensForTokens(_wethAmount, _amountOutMin, path, msg.sender, block.timestamp)[1];
-            weth.approve(metadata.router, 0);
-            return _amountOut;
         }
 
-        if (metadata.version == 3) {
+        if (metadata.version == UniswapVersion.UniswapV3) {
             // Do the swap
             IUniswapV3SwapRouter.ExactInputSingleParams memory params = IUniswapV3SwapRouter.ExactInputSingleParams({
                 tokenIn: address(weth),
@@ -428,10 +308,9 @@ contract UniswapAdapter is Ownable {
                 amountOutMinimum: _amountOutMin,
                 sqrtPriceLimitX96: 0
             });
-            weth.approve(metadata.router, _wethAmount);
             _amountOut = IUniswapV3SwapRouter(metadata.router).exactInputSingle(params);
-            weth.approve(metadata.router, 0);
-            return _amountOut;
         }
+
+        return _amountOut;
     }
 }
