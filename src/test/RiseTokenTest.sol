@@ -938,7 +938,7 @@ contract RiseTokenTest is DSTest {
         uint256 expectedCollateralAmount = (0.1 ether * 1e8) / price;
 
         assertEq(IERC20(wbtc).balanceOf(address(marketMaker)), collateralAmount, "check wbtc balance after swap");
-        assertEq(address(marketMaker).balance, 0.1 ether, "check eth balance after swap");
+        assertEq(address(marketMaker).balance, 0, "check eth balance after swap");
         assertEq(collateralAmount, expectedCollateralAmount, "check collateral amount");
     }
 
