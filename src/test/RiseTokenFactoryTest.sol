@@ -5,6 +5,8 @@ pragma experimental ABIEncoderV2;
 import "lib/ds-test/src/test.sol";
 import { IERC20Metadata } from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
+import { IUniswapAdapter } from "../interfaces/IUniswapAdapter.sol";
+
 import { HEVM } from "./hevm/HEVM.sol";
 import { RiseTokenFactory } from "../RiseTokenFactory.sol";
 import { UniswapAdapter } from "../adapters/UniswapAdapter.sol";
@@ -13,7 +15,8 @@ import { weth, wbtc, usdc } from "chain/Tokens.sol";
 import { fgohm, fusdc, fwbtc } from "chain/Tokens.sol";
 import { rariFuseUSDCPriceOracle, rariFuseWBTCPriceOracle } from "chain/Tokens.sol";
 import { uniswapV3WBTCETHPool, uniswapV3USDCETHPool, uniswapV3Router } from "chain/Tokens.sol";
-import { IRiseToken } from "../interfaces/IRiseToken.sol";
+
+import { RiseToken } from "../RiseToken.sol";
 
 /**
  * @title Rise Token Factory Test
@@ -80,7 +83,7 @@ contract RiseTokenFactoryTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapter), adapter);
 
         // Configure Uniswap Adapter
-        uniswapAdapter.configure(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(usdc, IUniswapAdapter.UniswapVersion.UniswapV3, uniswapV3USDCETHPool, uniswapV3Router);
 
         // This should revert
         factory.create(fwbtc, fusdc);
@@ -95,7 +98,7 @@ contract RiseTokenFactoryTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapter), adapter);
 
         // Configure Uniswap Adapter
-        uniswapAdapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(wbtc, IUniswapAdapter.UniswapVersion.UniswapV3, uniswapV3WBTCETHPool, uniswapV3Router);
 
         // This should revert
         factory.create(fwbtc, fusdc);
@@ -110,8 +113,8 @@ contract RiseTokenFactoryTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapter), address(oracleAdapter));
 
         // Configure Uniswap Adapter
-        uniswapAdapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
-        uniswapAdapter.configure(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(wbtc, IUniswapAdapter.UniswapVersion.UniswapV3, uniswapV3WBTCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(usdc, IUniswapAdapter.UniswapVersion.UniswapV3, uniswapV3USDCETHPool, uniswapV3Router);
 
         // Configure Oracle Adapter
         oracleAdapter.configure(usdc, rariFuseUSDCPriceOracle);
@@ -129,8 +132,8 @@ contract RiseTokenFactoryTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapter), address(oracleAdapter));
 
         // Configure Uniswap Adapter
-        uniswapAdapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
-        uniswapAdapter.configure(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(wbtc, IUniswapAdapter.UniswapVersion.UniswapV3, uniswapV3WBTCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(usdc, IUniswapAdapter.UniswapVersion.UniswapV3, uniswapV3USDCETHPool, uniswapV3Router);
 
         // Configure Oracle Adapter
         oracleAdapter.configure(wbtc, rariFuseWBTCPriceOracle);
@@ -163,8 +166,8 @@ contract RiseTokenFactoryTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapter), address(oracleAdapter));
 
         // Configure Uniswap Adapter
-        uniswapAdapter.configure(wbtc, 3, uniswapV3WBTCETHPool, uniswapV3Router);
-        uniswapAdapter.configure(usdc, 3, uniswapV3USDCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(wbtc, IUniswapAdapter.UniswapVersion.UniswapV3, uniswapV3WBTCETHPool, uniswapV3Router);
+        uniswapAdapter.configure(usdc, IUniswapAdapter.UniswapVersion.UniswapV3, uniswapV3USDCETHPool, uniswapV3Router);
 
         // Configure Oracle Adapter
         oracleAdapter.configure(wbtc, rariFuseWBTCPriceOracle);
@@ -177,14 +180,14 @@ contract RiseTokenFactoryTest is DSTest {
         assertEq(IERC20Metadata(_token).name(), "WBTC 2x Long Risedle");
         assertEq(IERC20Metadata(_token).symbol(), "WBTCRISE");
         assertEq(IERC20Metadata(_token).decimals(), 8);
-        assertEq(address(IRiseToken(_token).factory()), address(factory));
-        assertEq(address(IRiseToken(_token).collateral()), wbtc);
-        assertEq(address(IRiseToken(_token).debt()), usdc);
-        assertEq(address(IRiseToken(_token).fCollateral()), fwbtc);
-        assertEq(address(IRiseToken(_token).fDebt()), fusdc);
-        assertEq(IRiseToken(_token).owner(), address(this));
-        assertEq(address(IRiseToken(_token).uniswapAdapter()), address(factory.uniswapAdapter()));
-        assertEq(address(IRiseToken(_token).oracleAdapter()), address(factory.oracleAdapter()));
+        assertEq(address(RiseToken(payable(_token)).factory()), address(factory));
+        assertEq(address(RiseToken(payable(_token)).collateral()), wbtc);
+        assertEq(address(RiseToken(payable(_token)).debt()), usdc);
+        assertEq(address(RiseToken(payable(_token)).fCollateral()), fwbtc);
+        assertEq(address(RiseToken(payable(_token)).fDebt()), fusdc);
+        assertEq(RiseToken(payable(_token)).owner(), address(this));
+        assertEq(address(RiseToken(payable(_token)).uniswapAdapter()), address(factory.uniswapAdapter()));
+        assertEq(address(RiseToken(payable(_token)).oracleAdapter()), address(factory.oracleAdapter()));
     }
 
 }

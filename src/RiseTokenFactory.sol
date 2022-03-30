@@ -6,16 +6,18 @@ import { Ownable } from "lib/openzeppelin-contracts/contracts/access/Ownable.sol
 import { IERC20Metadata } from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 import { IfERC20 } from "./interfaces/IfERC20.sol";
-import { IUniswapAdapter } from "./interfaces/IUniswapAdapter.sol";
-import { IRariFusePriceOracleAdapter } from "./interfaces/IRariFusePriceOracleAdapter.sol";
+import { IRiseTokenFactory } from "./interfaces/IRiseTokenFactory.sol";
+
 import { RiseToken } from "./RiseToken.sol";
+import { UniswapAdapter } from "./adapters/UniswapAdapter.sol";
+import { RariFusePriceOracleAdapter } from "./adapters/RariFusePriceOracleAdapter.sol";
 
 /**
  * @title Rise Token Factory
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
  * @notice Factory contract to create new Rise Token
  */
-contract RiseTokenFactory is Ownable {
+contract RiseTokenFactory is IRiseTokenFactory, Ownable {
     /// ███ Storages ███████████████████████████████████████████████████████████
 
     /// @notice List of created tokens
@@ -28,61 +30,30 @@ contract RiseTokenFactory is Ownable {
     address public feeRecipient;
 
     /// @notice Uniswap Adapter
-    IUniswapAdapter public uniswapAdapter;
+    UniswapAdapter public uniswapAdapter;
 
     /// @notice Rari Fuse Price Oracle Adapter
-    IRariFusePriceOracleAdapter public oracleAdapter;
-
-
-    /// ███ Events █████████████████████████████████████████████████████████████
-
-    /// @notice Event emitted when new token is created
-    event TokenCreated(address token, address fCollateral, address fDebt, uint256 totalTokens);
-
-    /// @notice Event emitted when feeRecipient is updated
-    event FeeRecipientUpdated(address newRecipient);
-
-
-    /// ███ Errors █████████████████████████████████████████████████████████████
-
-    /// @notice Error is raised when collateral or debt token is not configured
-    ///         in Uniswap Adapter
-    error UniswapNotConfigured(address token);
-
-    /// @notice Error is raised when oracle for collateral or debt token is not
-    ///         configured in Rari Fuse Price Oracle Adapter
-    error OracleNotConfigured(address token);
-
-    /// @notice Error is raised when token is already exists
-    error TokenExists(address token);
+    RariFusePriceOracleAdapter public oracleAdapter;
 
 
     /// ███ Constructors ███████████████████████████████████████████████████████
 
     constructor(address _feeRecipient, address _uniswapAdapter, address _oracleAdapter) {
         feeRecipient = _feeRecipient;
-        uniswapAdapter = IUniswapAdapter(_uniswapAdapter);
-        oracleAdapter = IRariFusePriceOracleAdapter(_oracleAdapter);
+        uniswapAdapter = UniswapAdapter(_uniswapAdapter);
+        oracleAdapter = RariFusePriceOracleAdapter(_oracleAdapter);
     }
 
 
     /// ███ Owner actions ██████████████████████████████████████████████████████
 
-    /**
-     * @notice Sets fee recipient
-     * @param _newRecipient New fee recipient
-     */
+    /// @inheritdoc IRiseTokenFactory
     function setFeeRecipient(address _newRecipient) external onlyOwner {
         feeRecipient = _newRecipient;
         emit FeeRecipientUpdated(_newRecipient);
     }
 
-    /**
-     * @notice Creates new Rise Token
-     * @param _fCollateral fToken from Rari Fuse that used as collateral asset
-     * @param _fDebt fToken from Rari Fuse that used as debt asset
-     * @return _token The Rise Token address
-     */
+    /// @inheritdoc IRiseTokenFactory
     function create(address _fCollateral, address _fDebt) external onlyOwner returns (address _token) {
         /// ███ Checks
 
@@ -91,12 +62,12 @@ contract RiseTokenFactory is Ownable {
         address debt = IfERC20(_fDebt).underlying();
 
         // Check uniswap adapter
-        if (!uniswapAdapter.isConfigured(collateral)) revert UniswapNotConfigured(collateral);
-        if (!uniswapAdapter.isConfigured(debt)) revert UniswapNotConfigured(debt);
+        if (!uniswapAdapter.isConfigured(collateral)) revert UniswapAdapterNotConfigured(collateral);
+        if (!uniswapAdapter.isConfigured(debt)) revert UniswapAdapterNotConfigured(debt);
 
         // Check price oracle
-        if (!oracleAdapter.isConfigured(collateral)) revert OracleNotConfigured(collateral);
-        if (!oracleAdapter.isConfigured(debt)) revert OracleNotConfigured(debt);
+        if (!oracleAdapter.isConfigured(collateral)) revert RariFusePriceOracleAdapterNotConfigured(collateral);
+        if (!oracleAdapter.isConfigured(debt)) revert RariFusePriceOracleAdapterNotConfigured(debt);
 
         // Check existing token
         if (getToken[collateral][debt] != address(0)) revert TokenExists(getToken[collateral][debt]);

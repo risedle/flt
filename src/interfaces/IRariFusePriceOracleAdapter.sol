@@ -5,8 +5,9 @@ pragma experimental ABIEncoderV2;
 import { IRariFusePriceOracle } from "./IRariFusePriceOracle.sol";
 
 /**
- * @title Rari Fuse Price Oracle Adapter Interface
+ * @title Rari Fuse Price Oracle Adapter
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
+ * @notice Adapter for Rari Fuse Price Oracle
  */
 interface IRariFusePriceOracleAdapter {
     /// ███ Types ██████████████████████████████████████████████████████████████
