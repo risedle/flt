@@ -155,6 +155,9 @@ interface IRiseToken is IERC20 {
     /// @notice Error is raised if contract failed to send ETH
     error FailedToSendETH(address to, uint256 amount);
 
+    /// @notice Error is raised if rebalance is executed but leverage ratio is invalid
+    error NoNeedToRebalance(uint256 leverageRatio);
+
 
     /// ███ Owner actions ██████████████████████████████████████████████████████
 
@@ -298,5 +301,95 @@ interface IRiseToken is IERC20 {
         address _tokenOut,
         uint256 _amountOutMin
     ) external;
+
+
+    /// ███ Market makers ██████████████████████████████████████████████████████
+
+    /**
+     * Rise Token is designed in such way that users get protection against
+     * liquidation, while market makers are well-incentivized to execute the
+     * rebalancing process.
+     *
+     * ===== Leveraging Up
+     * When collateral (ex: gOHM) price is going up, the net-asset value of
+     * Rise Token (ex: gOHMRISE) will going up and the leverage ratio of
+     * the Rise Token will going down.
+     *
+     * If leverage ratio is below specified minimum leverage ratio (ex: 1.7x),
+     * Rise Token need to borrow more asset from Rari Fuse (ex: USDC), in order
+     * to buy more collateral then supply the collateral to Rari Fuse.
+     *
+     * If leverageRatio < minLeverageRatio:
+     *     Rise Token want collateral (ex: gOHM)
+     *     Rise Token have liquid asset (ex: USDC)
+     *
+     * Market makers can swap collateral to ETH if leverage ratio below minimal
+     * Leverage ratio.
+     *
+     * ===== Leveraging Down
+     * When collateral (ex: gOHM) price is going down, the net-asset value of
+     * Rise Token (ex: gOHMRISE) will going down and the leverage ratio of
+     * the Rise Token will going up.
+     *
+     * If leverage ratio is above specified maximum leverage ratio (ex: 2.3x),
+     * Rise Token need to sell collateral in order to repay debt to Rari Fuse.
+     *
+     * If leverageRatio > maxLeverageRatio:
+     *     Rise Token want liquid asset (ex: USDC)
+     *     Rise Token have collateral (ex: gOHM)
+     *
+     * Market makers can swap ETH to collateral if leverage ratio above maximum
+     * Leverage ratio.
+     *
+     * -----------
+     *
+     * In order to incentives the swap process, Rise Token will give specified
+     * discount price 0.6%.
+     *
+     * swapColleteralForETH -> Market Makers can sell collateral +0.6% above the
+     *                         market price
+     *
+     * swapETHForCollateral -> Market Makers can buy collateral -0.6% below the
+     *                         market price
+     *
+     * In this case, market price is determined using Rari Fuse Oracle Adapter.
+     *
+     */
+
+     /**
+      * @notice Swaps collateral for ETH
+      * @dev Anyone can execute this if leverage ratio is below minimum.
+      * @param _amountIn The amount of collateral
+      * @param _amountOutMin The minimum amount of ETH to be received
+      * @return _amountOut The amount of ETH that received by msg.sender
+      */
+    function swapExactCollateralForETH(
+        uint256 _amountIn,
+        uint256 _amountOutMin
+    ) external returns (uint256 _amountOut);
+
+     /**
+      * @notice Swaps ETH for collateral
+      * @dev Anyone can execute this if leverage ratio is below minimum.
+      * @param _amountOut The amount of collateral that will received by msg.sender
+      * @param _amountInMax The amount of ETH
+      * @return _amountIn The amount of ETH
+      */
+    function swapETHForExactCollateral(
+        uint256 _amountOut,
+        uint256 _amountInMax
+    ) external returns (uint256 _amountIn);
+
+    /**
+     * @notice Return how much collateral we want to buy in cdecimals precision
+     *         (ex: gOHM have 18 decimals so it's 1e18)
+     */
+    function wtb() external returns (uint256 _amount);
+
+    /**
+     * @notice Returns how much collateral we want to sell in cdecimals precision
+     *         (ex: gOHM have 18 decimals so it's 1e18)
+     */
+    function wts() external returns (uint256 _amount);
 
 }

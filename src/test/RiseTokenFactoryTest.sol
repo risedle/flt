@@ -38,7 +38,7 @@ contract RiseTokenFactoryTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, adapter, adapter);
 
         // Check
-        assertEq(factory.feeRecipient(), address(this), "check fee recipient");
+        assertEq(factory.feeRecipient(), feeRecipient, "check fee recipient");
         assertEq(address(factory.uniswapAdapter()), adapter, "check uniswap adapter");
         assertEq(address(factory.oracleAdapter()), adapter, "check oracle adapter");
     }

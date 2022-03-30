@@ -329,7 +329,7 @@ contract RiseTokenTest is DSTest {
         assertLt(wbtcRise.leverageRatio(), leverageRatio + 0.001 ether, "check leverage ratio");
 
         // Make sure ETH is refunded
-        assertEq(address(this).balance, prevBalance - params.ethAmount, "check excess ETH refund");
+        assertGt(address(this).balance, prevBalance - params.ethAmount, "check excess ETH refund");
     }
 
     function testPreviewBuyWithZeroShares() public {
