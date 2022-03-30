@@ -2,6 +2,9 @@
 pragma solidity 0.8.11;
 pragma experimental ABIEncoderV2;
 
+import { UniswapAdapter } from "../adapters/UniswapAdapter.sol";
+import { RariFusePriceOracleAdapter } from "../adapters/RariFusePriceOracleAdapter.sol";
+
 /**
  * @title Rise Token Factory Interface
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
@@ -34,20 +37,6 @@ interface IRiseTokenFactory {
     /// ███ Errors █████████████████████████████████████████████████████████████
 
     /**
-     * @notice Error is raised when collateral or debt token is not configured
-     *         in Uniswap Adapter.
-     * @param token The ERC20 that not available on Uniswap Adapter
-     */
-    error UniswapAdapterNotConfigured(address token);
-
-    /**
-     * @notice Error is raised when oracle for collateral or debt token is not
-     *         configured in Rari Fuse Price Oracle Adapter
-     * @param token The ERC20 that not available on Rari Fuse Price Oracle Adapter
-     */
-    error RariFusePriceOracleAdapterNotConfigured(address token);
-
-    /**
      * @notice Error is raised when Rise Token already exists
      * @param token The Rise Token that already exists with the same collateral
      *               and debt pair
@@ -69,6 +58,11 @@ interface IRiseTokenFactory {
      * @param _fDebt fToken from Rari Fuse that used as debt asset
      * @return _token The Rise Token address
      */
-    function create(address _fCollateral, address _fDebt) external returns (address _token);
+    function create(
+        address _fCollateral,
+        address _fDebt,
+        address _uniswapAdapter,
+        address _oracleAdapter
+    ) external returns (address _token);
 
 }

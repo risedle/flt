@@ -4,6 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "lib/ds-test/src/test.sol";
 import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { ERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { UniswapAdapter } from "../adapters/UniswapAdapter.sol";
@@ -34,11 +35,11 @@ contract User {
     }
 
     function buy(uint256 _shares) public payable {
-        riseToken.buy{value: msg.value}(_shares, address(this));
+        riseToken.buy{value: msg.value}(_shares, address(this), address(0), msg.value);
     }
 
     function buy(uint256 _shares, address _recipient) public payable {
-        riseToken.buy{value: msg.value}(_shares, _recipient);
+        riseToken.buy{value: msg.value}(_shares, _recipient, address(0), msg.value);
     }
 
     function buy(uint256 _shares, address _tokenIn, uint256 _amountInMax) public {
@@ -53,12 +54,12 @@ contract User {
 
     function sell(uint256 _shares, uint256 _amountOutMin) public {
         IERC20(address(riseToken)).safeIncreaseAllowance(address(riseToken), _shares);
-        riseToken.sell(_shares, address(this), _amountOutMin);
+        riseToken.sell(_shares, address(this), address(0), _amountOutMin);
     }
 
     function sell(uint256 _shares, uint256 _amountOutMin, address _recipient) public {
         IERC20(address(riseToken)).safeIncreaseAllowance(address(riseToken), _shares);
-        riseToken.sell(_shares, _recipient, _amountOutMin);
+        riseToken.sell(_shares, _recipient, address(0), _amountOutMin);
     }
 
     function sell(uint256 _shares, address _tokenOut, uint256 _amountOutMin) public {
@@ -79,7 +80,7 @@ contract User {
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
  */
 contract MarketMaker {
-    using SafeERC20 for IERC20;
+    using SafeERC20 for ERC20;
 
     RiseToken private riseToken;
 
@@ -196,10 +197,10 @@ contract RiseTokenTest is DSTest {
         oracleAdapterCached.configure(usdc, rariFuseUSDCPriceOracle);
 
         // Create factory
-        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapterCached), address(oracleAdapterCached));
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        wbtcRiseCached = RiseToken(payable(factory.create(fwbtc, fusdc)));
+        wbtcRiseCached = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -215,10 +216,10 @@ contract RiseTokenTest is DSTest {
 
     function initializeWithCustomLeverageRatio(uint256 _lr) internal returns (RiseToken _wbtcRise) {
         // Create factory
-        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapterCached), address(oracleAdapterCached));
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        _wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc)));
+        _wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -229,12 +230,53 @@ contract RiseTokenTest is DSTest {
         _wbtcRise.initialize{value: params.ethAmount}(params);
     }
 
+    function previewBuy(RiseToken _riseToken, uint256 _shares) public view returns (uint256 _ethAmount) {
+        if (_shares == 0) return 0;
+        uint256 fee = ((_riseToken.fees() * _shares) / 1e18);
+        uint256 newShares = _shares + fee;
+        _ethAmount = _riseToken.value(newShares);
+    }
+
+    function previewBuy(RiseToken _riseToken, uint256 _shares, address _tokenIn) public view returns (uint256 _amountIn) {
+        if (_shares == 0) return 0;
+        uint256 fee = ((_riseToken.fees() * _shares) / 1e18);
+        uint256 newShares = _shares + fee;
+        _amountIn = _riseToken.value(newShares, _tokenIn);
+    }
+
+    function previewSell(RiseToken _riseToken, uint256 _shares) public view returns (uint256 _ethAmount) {
+        if (_shares == 0) return 0;
+        uint256 fee = ((_riseToken.fees() * _shares) / 1e18);
+        uint256 newShares = _shares - fee;
+        _ethAmount = _riseToken.value(newShares);
+    }
+
+    function previewSell(RiseToken _riseToken, uint256 _shares, address _tokenOut) public view returns (uint256 _amountOut) {
+        if (_shares == 0) return 0;
+        uint256 fee = ((_riseToken.fees() * _shares) / 1e18);
+        uint256 newShares = _shares - fee;
+        _amountOut = _riseToken.value(newShares, _tokenOut);
+    }
+
+    function wtb(RiseToken riseToken) public view returns (uint256 _amount) {
+        uint256 decimals = riseToken.collateral().decimals();
+        uint256 oneShare = (10**decimals);
+        _amount = ((riseToken.step() * riseToken.value(oneShare, address(riseToken.collateral())) / 1e18) * riseToken.totalSupply()) / oneShare;
+    }
+
+    function wts(RiseToken riseToken) public view returns (uint256 _amount) {
+        uint256 decimals = riseToken.collateral().decimals();
+        uint256 oneShare = (10**decimals);
+        _amount = ((riseToken.step() * riseToken.value(oneShare, address(riseToken.collateral())) * riseToken.totalSupply())) / oneShare;
+    }
+
+
     function testFailInitializeWBTCRISERevertIfSlippageTooHigh() public {
         // Create factory
-        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapterCached), address(oracleAdapterCached));
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc)));
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -249,10 +291,10 @@ contract RiseTokenTest is DSTest {
 
     function testInitializeWBTCRISEWithLeverageRatio2x() public {
         // Create factory
-        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapterCached), address(oracleAdapterCached));
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc)));
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -274,18 +316,18 @@ contract RiseTokenTest is DSTest {
         assertGt(wbtcRise.totalSupply(), 0, "check rise token supply");
         assertEq(wbtcRise.totalSupply(), wbtcRise.balanceOf(address(this)), "check rise token supply");
 
-        assertGt(wbtcRise.nav(usdc), nav - 1e6, "check nav");
-        assertLt(wbtcRise.nav(usdc), nav + 1e6, "check nav");
+        assertGt(wbtcRise.value(1e8, usdc), nav - 1e6, "check nav");
+        assertLt(wbtcRise.value(1e8, usdc), nav + 1e6, "check nav");
         assertGt(wbtcRise.leverageRatio(), leverageRatio - 0.001 ether, "check leverage ratio");
         assertLt(wbtcRise.leverageRatio(), leverageRatio + 0.001 ether, "check leverage ratio");
     }
 
     function testInitializeWBTCRISEWithLeverageRatio1point69x() public {
         // Create factory
-        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapterCached), address(oracleAdapterCached));
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc)));
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -303,18 +345,18 @@ contract RiseTokenTest is DSTest {
         assertGt(wbtcRise.totalSupply(), 0, "check rise token supply");
         assertEq(wbtcRise.totalSupply(), wbtcRise.balanceOf(address(this)), "check rise token supply");
 
-        assertGt(wbtcRise.nav(usdc), nav - 1e6, "check nav");
-        assertLt(wbtcRise.nav(usdc), nav + 1e6, "check nav");
+        assertGt(wbtcRise.value(1e8, usdc), nav - 1e6, "check nav");
+        assertLt(wbtcRise.value(1e8, usdc), nav + 1e6, "check nav");
         assertGt(wbtcRise.leverageRatio(), leverageRatio - 0.001 ether, "check leverage ratio");
         assertLt(wbtcRise.leverageRatio(), leverageRatio + 0.001 ether, "check leverage ratio");
     }
 
     function testInitializeWBTCRISEWithLeverageRatio2point5x() public {
         // Create factory
-        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapterCached), address(oracleAdapterCached));
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc)));
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -332,18 +374,18 @@ contract RiseTokenTest is DSTest {
         assertGt(wbtcRise.totalSupply(), 0, "check rise token supply");
         assertEq(wbtcRise.totalSupply(), wbtcRise.balanceOf(address(this)), "check rise token supply");
 
-        assertGt(wbtcRise.nav(usdc), nav - 1e6, "check nav");
-        assertLt(wbtcRise.nav(usdc), nav + 1e6, "check nav");
+        assertGt(wbtcRise.value(1e8, usdc), nav - 1e6, "check nav");
+        assertLt(wbtcRise.value(1e8, usdc), nav + 1e6, "check nav");
         assertGt(wbtcRise.leverageRatio(), leverageRatio - 0.001 ether, "check leverage ratio");
         assertLt(wbtcRise.leverageRatio(), leverageRatio + 0.001 ether, "check leverage ratio");
     }
 
     function testInitializeWBTCRISERefundExcessETH() public {
         // Create factory
-        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapterCached), address(oracleAdapterCached));
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc)));
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -365,8 +407,8 @@ contract RiseTokenTest is DSTest {
         assertGt(wbtcRise.totalSupply(), 0, "check rise token supply");
         assertEq(wbtcRise.totalSupply(), wbtcRise.balanceOf(address(this)), "check rise token supply");
 
-        assertGt(wbtcRise.nav(usdc), nav - 1e6, "check nav");
-        assertLt(wbtcRise.nav(usdc), nav + 1e6, "check nav");
+        assertGt(wbtcRise.value(1e8, usdc), nav - 1e6, "check nav");
+        assertLt(wbtcRise.value(1e8, usdc), nav + 1e6, "check nav");
         assertGt(wbtcRise.leverageRatio(), leverageRatio - 0.001 ether, "check leverage ratio");
         assertLt(wbtcRise.leverageRatio(), leverageRatio + 0.001 ether, "check leverage ratio");
 
@@ -374,47 +416,19 @@ contract RiseTokenTest is DSTest {
         assertGt(address(this).balance, prevBalance - params.ethAmount, "check excess ETH refund");
     }
 
-    function testPreviewBuyWithZeroShares() public {
-        assertEq(wbtcRiseCached.previewBuy(0), 0, "check preview amount");
-    }
-
-    function testPreviewBuyWithNonInitializedRiseToken() public {
-        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapterCached), address(oracleAdapterCached));
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc)));
-        assertEq(wbtcRise.previewBuy(1e8), 0, "check preview amount");
-    }
-
-    function testFailPreviewBuyRevertIfTheTokenIsNotConfiguredInOracleAdapter() public {
-        // Preview with zero shares
-        address randomToken = hevm.addr(1);
-        wbtcRiseCached.previewBuy(1e8, randomToken);
-    }
-
-    function testPreviewBuyGetETHAmount() public {
-        uint256 ethAmount = wbtcRiseCached.previewBuy(1e8);
-        assertGt(ethAmount, 0.1 ether, "check min amount");
-        assertLt(ethAmount, 0.2 ether, "check max amount");
-    }
-
-    function testPreviewBuyGetUSDCAmount() public {
-        uint256 usdcAmount = wbtcRiseCached.previewBuy(1e8, usdc);
-        assertGt(usdcAmount, (400 * 1e6) - (5 * 1e6), "check min amount");
-        assertLt(usdcAmount, (400 * 1e6) + (5 * 1e6), "check max amount");
-    }
-
     function testFailBuyRevertIfRiseTokenNotInitialized() public {
-        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapterCached), address(oracleAdapterCached));
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc)));
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
         uint256 shares = 0.1 * 1e8;
-        uint256 ethAmount = wbtcRise.previewBuy(shares);
+        uint256 ethAmount = previewBuy(wbtcRise, shares);
         ethAmount += (0.03 ether * ethAmount) / 1 ether; // slippage 3%
-        wbtcRise.buy{value: ethAmount}(shares, address(this));
+        wbtcRise.buy{value: ethAmount}(shares, address(this), address(0), ethAmount);
     }
 
     function testFailBuyRevertIfMoreThanMaxBuy() public {
-        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapterCached), address(oracleAdapterCached));
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc)));
-        wbtcRise.setMaxBuy(2 * 1e8);
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
+        wbtcRise.setParams(wbtcRise.minLeverageRatio(), wbtcRise.maxLeverageRatio(), wbtcRise.step(), wbtcRise.discount(), 2 * 1e8);
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -427,21 +441,21 @@ contract RiseTokenTest is DSTest {
         wbtcRise.initialize{value: params.ethAmount}(params);
 
         uint256 shares = 10 * 1e8;
-        uint256 ethAmount = wbtcRise.previewBuy(shares);
+        uint256 ethAmount = previewBuy(wbtcRise, shares);
         ethAmount += (0.03 ether * ethAmount) / 1 ether; // slippage 3%
-        wbtcRise.buy{value: ethAmount}(shares, address(this));
+        wbtcRise.buy{value: ethAmount}(shares, address(this), address(0), ethAmount);
     }
 
     function testFailBuyWithETHRevertIfSlippageIsTooHigh() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 ethAmount = wbtcRiseCached.previewBuy(shares);
+        uint256 ethAmount = previewBuy(wbtcRiseCached, shares);
         ethAmount -= (0.05 ether * ethAmount) / 1 ether; // slippage -5% to test out the revert
-        wbtcRiseCached.buy{value: ethAmount}(shares, address(this));
+        wbtcRiseCached.buy{value: ethAmount}(shares, address(this), address(0), ethAmount);
     }
 
     function testFailBuyWithUSDCRevertIfSlippageIsTooHigh() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 usdcAmount = wbtcRiseCached.previewBuy(shares, usdc);
+        uint256 usdcAmount = previewBuy(wbtcRiseCached, shares, usdc);
         usdcAmount -= (0.05 ether * usdcAmount) / 1 ether; // slippage -5% to test out the revert
 
         // Top up user balance
@@ -452,14 +466,14 @@ contract RiseTokenTest is DSTest {
 
     function testBuyWBTCRISEWithETH() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 ethAmountInMax = wbtcRiseCached.previewBuy(shares);
+        uint256 ethAmountInMax = previewBuy(wbtcRiseCached, shares);
         ethAmountInMax += (0.05 ether * ethAmountInMax) / 1 ether; // Slippage tollerance 3%
 
         // Make sure these are value doesn't not change
         uint256 cps = wbtcRiseCached.collateralPerShare();
         uint256 dps = wbtcRiseCached.debtPerShare();
         uint256 navInETH  = wbtcRiseCached.nav();
-        uint256 navInUSDC = wbtcRiseCached.nav(usdc);
+        uint256 navInUSDC = wbtcRiseCached.value(1e8, usdc);
         uint256 lr  = wbtcRiseCached.leverageRatio();
 
         uint256 prevTotalSupply = wbtcRiseCached.totalSupply();
@@ -483,13 +497,13 @@ contract RiseTokenTest is DSTest {
         assertEq(wbtcRiseCached.collateralPerShare(), cps, "check cps");
         assertEq(wbtcRiseCached.debtPerShare(), dps, "check dps");
         assertEq(wbtcRiseCached.nav(), navInETH, "check nav in ETH");
-        assertEq(wbtcRiseCached.nav(usdc), navInUSDC, "check nav in USDC");
+        assertEq(wbtcRiseCached.value(1e8, usdc), navInUSDC, "check nav in USDC");
         assertEq(wbtcRiseCached.leverageRatio(), lr, "check leverage ratio");
     }
 
     function testBuyWBTCRISEWithETHExcessRefunded() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 ethAmountInMax = wbtcRiseCached.previewBuy(shares);
+        uint256 ethAmountInMax = previewBuy(wbtcRiseCached, shares);
         ethAmountInMax += (0.5 ether * ethAmountInMax) / 1 ether; // Slippage tollerance 50%
 
         // Create new user
@@ -504,7 +518,7 @@ contract RiseTokenTest is DSTest {
 
     function testBuyWBTCRISEWithETHAndCustomRecipient() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 ethAmountInMax = wbtcRiseCached.previewBuy(shares);
+        uint256 ethAmountInMax = previewBuy(wbtcRiseCached, shares);
         ethAmountInMax += (0.5 ether * ethAmountInMax) / 1 ether; // Slippage tollerance 50%
 
         // Create new user
@@ -520,14 +534,14 @@ contract RiseTokenTest is DSTest {
 
     function testBuyWBTCRISEWithUSDC() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 usdcAmountInMax = wbtcRiseCached.previewBuy(shares, usdc);
+        uint256 usdcAmountInMax = previewBuy(wbtcRiseCached, shares, usdc);
         usdcAmountInMax += (0.05 ether * usdcAmountInMax) / 1 ether; // Slippage tollerance 5%
 
         // Make sure these are value doesn't not change
         uint256 cps = wbtcRiseCached.collateralPerShare();
         uint256 dps = wbtcRiseCached.debtPerShare();
         uint256 navInETH  = wbtcRiseCached.nav();
-        uint256 navInUSDC = wbtcRiseCached.nav(usdc);
+        uint256 navInUSDC = wbtcRiseCached.value(1e8, usdc);
         uint256 lr  = wbtcRiseCached.leverageRatio();
 
         uint256 prevTotalSupply = wbtcRiseCached.totalSupply();
@@ -555,13 +569,13 @@ contract RiseTokenTest is DSTest {
         assertEq(wbtcRiseCached.collateralPerShare(), cps, "check cps");
         assertEq(wbtcRiseCached.debtPerShare(), dps, "check dps");
         assertEq(wbtcRiseCached.nav(), navInETH, "check nav in ETH");
-        assertEq(wbtcRiseCached.nav(usdc), navInUSDC, "check nav in USDC");
+        assertEq(wbtcRiseCached.value(1e8, usdc), navInUSDC, "check nav in USDC");
         assertEq(wbtcRiseCached.leverageRatio(), lr, "check leverage ratio");
     }
 
     function testBuyWBTCRISEWithUSDCExcessRefunded() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 usdcAmountInMax = wbtcRiseCached.previewBuy(shares, usdc);
+        uint256 usdcAmountInMax = previewBuy(wbtcRiseCached, shares, usdc);
         usdcAmountInMax += (0.5 ether * usdcAmountInMax) / 1 ether; // Slippage tollerance 3%
 
         // Create new user
@@ -577,7 +591,7 @@ contract RiseTokenTest is DSTest {
 
     function testBuyWBTCRISEWithUSDCAndCustomRecipient() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 usdcAmountInMax = wbtcRiseCached.previewBuy(shares, usdc);
+        uint256 usdcAmountInMax = previewBuy(wbtcRiseCached, shares, usdc);
         usdcAmountInMax += (0.5 ether * usdcAmountInMax) / 1 ether; // Slippage tollerance 3%
 
         // Create new user
@@ -592,48 +606,20 @@ contract RiseTokenTest is DSTest {
         assertGt(wbtcRiseCached.balanceOf(recipient), 0, "check usdc balance");
     }
 
-    function testPreviewSellWithZeroShares() public {
-        assertEq(wbtcRiseCached.previewSell(0), 0, "check preview amount");
-    }
-
-    function testPreviewSellWithNonInitializedRiseToken() public {
-        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapterCached), address(oracleAdapterCached));
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc)));
-        assertEq(wbtcRise.previewSell(1e8), 0, "check preview amount");
-    }
-
-    function testFailPreviewSellRevertIfTheTokenIsNotConfiguredInOracleAdapter() public {
-        // Preview with zero shares
-        address randomToken = hevm.addr(1);
-        wbtcRiseCached.previewSell(1e8, randomToken);
-    }
-
-    function testPreviewSellGetETHAmount() public {
-        uint256 ethAmount = wbtcRiseCached.previewSell(1e8);
-        assertGt(ethAmount, 0.1 ether, "check min amount");
-        assertLt(ethAmount, 0.2 ether, "check max amount");
-    }
-
-    function testPreviewSellGetUSDCAmount() public {
-        uint256 usdcAmount = wbtcRiseCached.previewSell(1e8, usdc);
-        assertGt(usdcAmount, (400 * 1e6) - (5 * 1e6), "check min amount");
-        assertLt(usdcAmount, (400 * 1e6) + (5 * 1e6), "check max amount");
-    }
-
     function testFailSellWBTCRevertIfRiseTokenNotInitialized() public {
-        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapterCached), address(oracleAdapterCached));
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc)));
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
         uint256 shares = 0.1 * 1e8;
-        uint256 ethAmountOutMin = wbtcRise.previewSell(shares);
+        uint256 ethAmountOutMin = previewSell(wbtcRise, shares);
         ethAmountOutMin -= (0.03 ether * ethAmountOutMin) / 1 ether; // slippage tollerance 3%
-        wbtcRise.sell(shares, address(this), ethAmountOutMin);
+        wbtcRise.sell(shares, address(this), address(0), ethAmountOutMin);
     }
 
     function testFailSellWBTCForETHRevertIfSlippageIsTooHigh() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 ethAmountInMax = wbtcRiseCached.previewBuy(shares);
+        uint256 ethAmountInMax = previewBuy(wbtcRiseCached, shares);
         ethAmountInMax += (0.03 ether * ethAmountInMax) / 1 ether; // Slippage tollerance 3%
-        uint256 ethAmountOutMin = wbtcRiseCached.previewSell(shares);
+        uint256 ethAmountOutMin = previewSell(wbtcRiseCached, shares);
         ethAmountOutMin += (0.05 ether * ethAmountOutMin) / 1 ether; // slippage -5% to test out the revert
 
         // Create new user
@@ -648,9 +634,9 @@ contract RiseTokenTest is DSTest {
 
     function testFailSellWBTCForUSDCRevertIfSlippageIsTooHigh() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 usdcAmountInMax = wbtcRiseCached.previewBuy(shares, usdc);
+        uint256 usdcAmountInMax = previewBuy(wbtcRiseCached, shares, usdc);
         usdcAmountInMax += (0.05 ether * usdcAmountInMax) / 1 ether; // Slippage tollerance 3%
-        uint256 usdcAmountOutMin = wbtcRiseCached.previewSell(shares, usdc);
+        uint256 usdcAmountOutMin = previewSell(wbtcRiseCached, shares, usdc);
         usdcAmountOutMin += (0.05 ether * usdcAmountOutMin) / 1 ether; // slippage -5% to test out the revert
 
         // Create new user
@@ -669,16 +655,16 @@ contract RiseTokenTest is DSTest {
 
     function testSellWBTCRISEForETH() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 ethAmountInMax = wbtcRiseCached.previewBuy(shares);
+        uint256 ethAmountInMax = previewBuy(wbtcRiseCached, shares);
         ethAmountInMax += (0.05 ether * ethAmountInMax) / 1 ether; // Slippage tollerance 5%
-        uint256 ethAmountOutMin = wbtcRiseCached.previewSell(shares);
+        uint256 ethAmountOutMin = previewSell(wbtcRiseCached, shares);
         ethAmountOutMin -= (0.03 ether * ethAmountOutMin) / 1 ether; // Slippage tollerance 3%
 
         // Make sure these are value doesn't not change
         uint256 cps = wbtcRiseCached.collateralPerShare();
         uint256 dps = wbtcRiseCached.debtPerShare();
         uint256 navInETH  = wbtcRiseCached.nav();
-        uint256 navInUSDC = wbtcRiseCached.nav(usdc);
+        uint256 navInUSDC = wbtcRiseCached.value(1e8, usdc);
         uint256 lr  = wbtcRiseCached.leverageRatio();
 
         uint256 prevTotalSupply = wbtcRiseCached.totalSupply();
@@ -711,15 +697,15 @@ contract RiseTokenTest is DSTest {
         assertEq(wbtcRiseCached.collateralPerShare(), cps, "check cps");
         assertEq(wbtcRiseCached.debtPerShare(), dps, "check dps");
         assertEq(wbtcRiseCached.nav(), navInETH, "check nav in ETH");
-        assertEq(wbtcRiseCached.nav(usdc), navInUSDC, "check nav in USDC");
+        assertEq(wbtcRiseCached.value(1e8, usdc), navInUSDC, "check nav in USDC");
         assertEq(wbtcRiseCached.leverageRatio(), lr, "check leverage ratio");
     }
 
     function testSellWBTCRISEForETHWithCustomRecipient() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 ethAmountInMax = wbtcRiseCached.previewBuy(shares);
+        uint256 ethAmountInMax = previewBuy(wbtcRiseCached, shares);
         ethAmountInMax += (0.05 ether * ethAmountInMax) / 1 ether; // Slippage tollerance 5%
-        uint256 ethAmountOutMin = wbtcRiseCached.previewSell(shares);
+        uint256 ethAmountOutMin = previewSell(wbtcRiseCached, shares);
         ethAmountOutMin -= (0.03 ether * ethAmountOutMin) / 1 ether; // Slippage tollerance 3%
 
         // Create new user
@@ -738,16 +724,16 @@ contract RiseTokenTest is DSTest {
 
     function testSellWBTCRISEForUSDC() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 usdcAmountInMax = wbtcRiseCached.previewBuy(shares, usdc);
+        uint256 usdcAmountInMax = previewBuy(wbtcRiseCached, shares, usdc);
         usdcAmountInMax += (0.05 ether * usdcAmountInMax) / 1 ether; // Slippage tollerance 5%
-        uint256 usdcAmountOutMin = wbtcRiseCached.previewSell(shares, usdc);
+        uint256 usdcAmountOutMin = previewSell(wbtcRiseCached, shares, usdc);
         usdcAmountOutMin -= (0.03 ether * usdcAmountOutMin) / 1 ether; // Slippage tollerance 3%
 
         // Make sure these are value doesn't not change
         uint256 cps = wbtcRiseCached.collateralPerShare();
         uint256 dps = wbtcRiseCached.debtPerShare();
         uint256 navInETH  = wbtcRiseCached.nav();
-        uint256 navInUSDC = wbtcRiseCached.nav(usdc);
+        uint256 navInUSDC = wbtcRiseCached.value(1e8, usdc);
         uint256 lr  = wbtcRiseCached.leverageRatio();
 
         uint256 prevTotalSupply = wbtcRiseCached.totalSupply();
@@ -780,15 +766,15 @@ contract RiseTokenTest is DSTest {
         assertEq(wbtcRiseCached.collateralPerShare(), cps, "check cps");
         assertEq(wbtcRiseCached.debtPerShare(), dps, "check dps");
         assertEq(wbtcRiseCached.nav(), navInETH, "check nav in ETH");
-        assertEq(wbtcRiseCached.nav(usdc), navInUSDC, "check nav in USDC");
+        assertEq(wbtcRiseCached.value(1e8, usdc), navInUSDC, "check nav in USDC");
         assertEq(wbtcRiseCached.leverageRatio(), lr, "check leverage ratio");
     }
 
     function testSellForUSDCWithCustomRecipient() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 usdcAmountInMax = wbtcRiseCached.previewBuy(shares, usdc);
+        uint256 usdcAmountInMax = previewBuy(wbtcRiseCached, shares, usdc);
         usdcAmountInMax += (0.05 ether * usdcAmountInMax) / 1 ether; // Slippage tollerance 3%
-        uint256 usdcAmountOutMin = wbtcRiseCached.previewSell(shares, usdc);
+        uint256 usdcAmountOutMin = previewSell(wbtcRiseCached, shares, usdc);
         usdcAmountOutMin -= (0.03 ether * usdcAmountOutMin) / 1 ether; // Slippage tollerance 3%
 
         // Create new user
@@ -808,16 +794,16 @@ contract RiseTokenTest is DSTest {
 
     function testSellWBTCRISEForWBTC() public {
         uint256 shares = 0.1 * 1e8;
-        uint256 usdcAmountInMax = wbtcRiseCached.previewBuy(shares, usdc);
+        uint256 usdcAmountInMax = previewBuy(wbtcRiseCached, shares, usdc);
         usdcAmountInMax += (0.05 ether * usdcAmountInMax) / 1 ether; // Slippage tollerance 3%
-        uint256 wbtcAmountOutMin = wbtcRiseCached.previewSell(shares, wbtc);
+        uint256 wbtcAmountOutMin = previewSell(wbtcRiseCached, shares, wbtc);
         wbtcAmountOutMin -= (0.03 ether * wbtcAmountOutMin) / 1 ether; // Slippage tollerance 3%
 
         // Make sure these are value doesn't not change
         uint256 cps = wbtcRiseCached.collateralPerShare();
         uint256 dps = wbtcRiseCached.debtPerShare();
         uint256 navInETH  = wbtcRiseCached.nav();
-        uint256 navInUSDC = wbtcRiseCached.nav(usdc);
+        uint256 navInUSDC = wbtcRiseCached.value(1e8, usdc);
         uint256 lr  = wbtcRiseCached.leverageRatio();
 
         uint256 prevTotalSupply = wbtcRiseCached.totalSupply();
@@ -850,26 +836,8 @@ contract RiseTokenTest is DSTest {
         assertEq(wbtcRiseCached.collateralPerShare(), cps, "check cps");
         assertEq(wbtcRiseCached.debtPerShare(), dps, "check dps");
         assertEq(wbtcRiseCached.nav(), navInETH, "check nav in ETH");
-        assertEq(wbtcRiseCached.nav(usdc), navInUSDC, "check nav in USDC");
+        assertEq(wbtcRiseCached.value(1e8, usdc), navInUSDC, "check nav in USDC");
         assertEq(wbtcRiseCached.leverageRatio(), lr, "check leverage ratio");
-    }
-
-    function testWTBAndWTSReturnZeroIfLeverageRatioIsInRange() public {
-        assertGt(wbtcRiseCached.leverageRatio(), 1.7 ether);
-        assertLt(wbtcRiseCached.leverageRatio(), 2.5 ether);
-
-        assertEq(wbtcRiseCached.wtb(), 0);
-        assertEq(wbtcRiseCached.wts(), 0);
-    }
-
-    function testWTBReturnValueIfLeverageRatioBelowMinimum() public {
-        RiseToken wbtcRise = initializeWithCustomLeverageRatio(1.6 ether);
-        assertGt(wbtcRise.wtb(), 0);
-    }
-
-    function testWTSReturnValueIfLeverageRatioAboveMaximum() public {
-        RiseToken wbtcRise = initializeWithCustomLeverageRatio(2.5 ether);
-        assertGt(wbtcRise.wts(), 0);
     }
 
     function testFailSwapExactCollateralForETHRevertIfLeverageRatioInRrange() public {
@@ -911,7 +879,7 @@ contract RiseTokenTest is DSTest {
         assertEq(address(marketMaker).balance, 0, "check eth balance before swap");
 
         // Sell the collateral
-        uint256 collateralAmount = wbtcRise.wtb();
+        uint256 collateralAmount = wtb(wbtcRise);
         hevm.setWBTCBalance(address(marketMaker), collateralAmount);
 
         uint256 ethAmount = marketMaker.sell(collateralAmount, 0);
@@ -951,7 +919,7 @@ contract RiseTokenTest is DSTest {
         assertEq(address(marketMaker).balance, 0, "check eth balance before swap");
 
         // Sell the collateral
-        uint256 collateralAmount = wbtcRise.wtb();
+        uint256 collateralAmount = wtb(wbtcRise);
         hevm.setWBTCBalance(address(marketMaker), collateralAmount);
 
         marketMaker.sell(collateralAmount, 20 ether);
@@ -969,28 +937,6 @@ contract RiseTokenTest is DSTest {
 
         // Sell the collateral
         marketMaker.buy(0.1 ether, 2 * 1e8); // expect output 2 WBTC
-    }
-
-    function testFailOwnerCannotRescueCollateralToken() public {
-        wbtcRiseCached.rescue(wbtc);
-    }
-
-    function testFailOwnerCannotRescueDebtToken() public {
-        wbtcRiseCached.rescue(usdc);
-    }
-
-    function testFailOwnerCannotRescuefCollateralToken() public {
-        wbtcRiseCached.rescue(fwbtc);
-    }
-
-    function testFailOwnerCannotRescuefDebtToken() public {
-        wbtcRiseCached.rescue(fusdc);
-    }
-
-    function testOwnerCanRescueAirdroppedToken() public {
-        hevm.setGOHMBalance(address(wbtcRiseCached), 1 ether);
-        wbtcRiseCached.rescue(gohm);
-        assertEq(IERC20(gohm).balanceOf(address(this)), 1 ether);
     }
 
     receive() external payable {}

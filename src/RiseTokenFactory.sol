@@ -20,28 +20,15 @@ import { RariFusePriceOracleAdapter } from "./adapters/RariFusePriceOracleAdapte
 contract RiseTokenFactory is IRiseTokenFactory, Ownable {
     /// ███ Storages ███████████████████████████████████████████████████████████
 
-    /// @notice List of created tokens
     address[] public tokens;
-
-    /// @notice To make sure Rise Token only created once
     mapping(address => mapping(address => address)) public getToken;
-
-    /// @notice Fee recipient
     address public feeRecipient;
-
-    /// @notice Uniswap Adapter
-    UniswapAdapter public uniswapAdapter;
-
-    /// @notice Rari Fuse Price Oracle Adapter
-    RariFusePriceOracleAdapter public oracleAdapter;
 
 
     /// ███ Constructors ███████████████████████████████████████████████████████
 
-    constructor(address _feeRecipient, address _uniswapAdapter, address _oracleAdapter) {
+    constructor(address _feeRecipient) {
         feeRecipient = _feeRecipient;
-        uniswapAdapter = UniswapAdapter(_uniswapAdapter);
-        oracleAdapter = RariFusePriceOracleAdapter(_oracleAdapter);
     }
 
 
@@ -54,31 +41,16 @@ contract RiseTokenFactory is IRiseTokenFactory, Ownable {
     }
 
     /// @inheritdoc IRiseTokenFactory
-    function create(address _fCollateral, address _fDebt) external onlyOwner returns (address _token) {
-        /// ███ Checks
-
-        // Get the underlying assets
+    function create(address _fCollateral, address _fDebt, address _uniswapAdapter, address _oracleAdapter) external onlyOwner returns (address _token) {
         address collateral = IfERC20(_fCollateral).underlying();
         address debt = IfERC20(_fDebt).underlying();
-
-        // Check uniswap adapter
-        if (!uniswapAdapter.isConfigured(collateral)) revert UniswapAdapterNotConfigured(collateral);
-        if (!uniswapAdapter.isConfigured(debt)) revert UniswapAdapterNotConfigured(debt);
-
-        // Check price oracle
-        if (!oracleAdapter.isConfigured(collateral)) revert RariFusePriceOracleAdapterNotConfigured(collateral);
-        if (!oracleAdapter.isConfigured(debt)) revert RariFusePriceOracleAdapterNotConfigured(debt);
-
-        // Check existing token
         if (getToken[collateral][debt] != address(0)) revert TokenExists(getToken[collateral][debt]);
 
-
         /// ███ Contract deployment
-
         bytes memory creationCode = type(RiseToken).creationCode;
         string memory tokenName = string(abi.encodePacked(IERC20Metadata(collateral).symbol(), " 2x Long Risedle"));
         string memory tokenSymbol = string(abi.encodePacked(IERC20Metadata(collateral).symbol(), "RISE"));
-        bytes memory constructorArgs = abi.encode(tokenName, tokenSymbol, address(this), _fCollateral, _fDebt);
+        bytes memory constructorArgs = abi.encode(tokenName, tokenSymbol, address(this), _fCollateral, _fDebt, _uniswapAdapter, _oracleAdapter);
         bytes memory bytecode = abi.encodePacked(creationCode, constructorArgs);
         bytes32 salt = keccak256(abi.encodePacked(_fCollateral, _fDebt));
         assembly {
@@ -91,5 +63,4 @@ contract RiseTokenFactory is IRiseTokenFactory, Ownable {
 
         emit TokenCreated(_token, _fCollateral, _fDebt, tokens.length);
     }
-
 }

@@ -3,6 +3,7 @@ pragma solidity 0.8.11;
 pragma experimental ABIEncoderV2;
 
 import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { ERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title Rise Token
@@ -57,7 +58,7 @@ interface IRiseToken is IERC20 {
     struct BuyParams {
         address buyer;
         address recipient;
-        IERC20 tokenIn;
+        ERC20 tokenIn;
         uint256 collateralAmount;
         uint256 debtAmount;
         uint256 shares;
@@ -82,7 +83,7 @@ interface IRiseToken is IERC20 {
     struct SellParams {
         address seller;
         address recipient;
-        IERC20 tokenOut;
+        ERC20 tokenOut;
         uint256 collateralAmount;
         uint256 debtAmount;
         uint256 shares;
@@ -100,12 +101,6 @@ interface IRiseToken is IERC20 {
      */
     event Initialized(InitializeParams params);
 
-    /**
-     * @notice Event emitted when maxBuy is updated
-     * @param newMaxBuy The new maximum buy amount
-     */
-    event MaxBuyUpdated(uint256 newMaxBuy);
-
     /// @notice Event emitted when user buy the token
     event Buy(BuyParams params);
 
@@ -118,24 +113,15 @@ interface IRiseToken is IERC20 {
      * @param minLeverageRatio The minimum leverage ratio
      * @param step The rebalancing step
      * @param discount The incentives for the market makers
+     * @param maxBuy The maximum amount to buy in one transaction
      */
     event ParamsUpdated(
         uint256 maxLeverageRatio,
         uint256 minLeverageRatio,
         uint256 step,
-        uint256 discount
+        uint256 discount,
+        uint256 maxBuy
     );
-
-    /**
-     * @notice Rescue the airdropped tokens
-     * @param token The ERC20 address
-     * @param amount The amount of ERC20 withdrawn
-     */
-    event TokenRescued(
-        address token,
-        uint256 amount
-    );
-
 
     /// ███ Errors █████████████████████████████████████████████████████████████
 
@@ -143,34 +129,13 @@ interface IRiseToken is IERC20 {
     ///         not Uniswap Adapter contract
     error NotUniswapAdapter();
 
-    /// @notice Error is raised if flash swap borrow token is not collateral
-    error InvalidBorrowToken(address expected, address got);
-
-    /// @notice Error is raised if flash swap repay token is not debt
-    error InvalidRepayToken(address expected, address got);
-
-    /// @notice Error is raised if cannot add collateral to the Rari Fuse
-    error FuseAddCollateralFailed(uint256 code);
-
-    /// @notice Error is raised if cannot redeem collateral from Rari Fuse
-    error FuseRedeemCollateralFailed(uint256 code);
-
-    /// @notice Error is raised if cannot borrow from the Rari Fuse
-    error FuseBorrowFailed(uint256 code);
-
-    /// @notice Error is raised if cannot enter markets
-    error FuseFailedToEnterMarkets(uint256 collateralCode, uint256 debtCode);
-
-    /// @notice Error is raised if cannot repay the debt to Rari Fuse
-    error FuseRepayDebtFailed(uint256 code);
-
     /// @notice Error is raised if mint amount is invalid
     error InputAmountInvalid();
 
     /// @notice Error is raised if the owner run the initialize() twice
     error AlreadyInitialized();
 
-    /// @notice Error is raised if mint,redeem and rebalance is executed before the FLT is initialized
+    /// @notice Error is raised if buy & sell is executed before the FLT is initialized
     error NotInitialized();
 
     /// @notice Error is raised if slippage too high
@@ -180,19 +145,17 @@ interface IRiseToken is IERC20 {
     error FailedToSendETH(address to, uint256 amount);
 
     /// @notice Error is raised if rebalance is executed but leverage ratio is invalid
-    error NoNeedToRebalance(uint256 leverageRatio);
+    // error NoNeedToRebalance(uint256 leverageRatio);
+    error NoNeedToRebalance();
 
     /// @notice Error is raised if liqudity to buy or sell collateral is not enough
     error LiquidityIsNotEnough();
 
+    /// @notice Error is raised if something happen when interacting with Rari Fuse
+    error FuseError(uint256 code);
+
 
     /// ███ Owner actions ██████████████████████████████████████████████████████
-
-    /**
-     * @notice Set the maxBuy value
-     * @param _newMaxBuy New maximum mint amount
-     */
-    function setMaxBuy(uint256 _newMaxBuy) external;
 
     /**
      * @notice Update the Rise Token parameters
@@ -205,18 +168,13 @@ interface IRiseToken is IERC20 {
         uint256 _minLeverageRatio,
         uint256 _maxLeverageRatio,
         uint256 _step,
-        uint256 _discount
+        uint256 _discount,
+        uint256 _maxBuy
     ) external;
 
     /**
-     * @notice Rescue the airdropped tokens
-     * @param _token The token address
-     * @dev Cannot withdraw collateral or debt token
-     */
-    function rescue(address _token) external;
-
-    /**
      * @notice Initialize the Rise Token using ETH
+     * @param _params The initialization parameters
      */
     function initialize(InitializeParams memory _params) external payable;
 
@@ -238,20 +196,31 @@ interface IRiseToken is IERC20 {
     function debtPerShare() external view returns (uint256 _dps);
 
     /**
-     * @notice Gets the net-asset value of the Rise Token in ETH
-     * @return _nav The net-asset value of the Rise Token in 1e18 precision
+     * @notice Gets the value of the Rise Token in ETH
+     * @param _shares The amount of Rise Token
+     * @return _value The value of the Rise Token in 1e18 precision
      */
-    function nav() external view returns (uint256 _nav);
+    function value(uint256 _shares) external view returns (uint256 _value);
 
     /**
      * @notice Gets the net-asset value of the Rise Token in specified token
      * @dev This function may revert if _quote token is not configured in Rari
      *      Fuse Price Oracle
+     * @param _shares The amount of Rise Token
      * @param _quote The token address used as quote
-     * @return _nav The net-asset value of the Rise Token in token decimals
-     *         precision (ex: USDC is 1e6)
+     * @return _value The net-asset value of the Rise Token in token decimals
+     *                precision (ex: USDC is 1e6)
      */
-    function nav(address _quote) external view returns (uint256 _nav);
+    function value(
+        uint256 _shares,
+        address _quote
+    ) external view returns (uint256 _value);
+
+    /**
+     * @notice Gets the net-asset value of the Rise Token in ETH
+     * @return _nav The net-asset value of the Rise Token in 1e18 precision
+     */
+    function nav() external view returns (uint256 _nav);
 
     /**
      * @notice Gets the leverage ratio of the Rise Token
@@ -259,57 +228,8 @@ interface IRiseToken is IERC20 {
      */
     function leverageRatio() external view returns (uint256 _lr);
 
-    /**
-     * @notice Get the amount of ETH to buy _shares amount of Rise Token
-     * @param _shares The amount of Rise Token to buy
-     * @return _ethAmount The amount of ETH that will be used to buy the token
-     */
-    function previewBuy(uint256 _shares) external view returns (uint256 _ethAmount);
-
-    /**
-     * @notice Get the amount of tokenIn to buy _shares amount of Rise Token
-     * @dev The function may reverted if tokenIn is not configured in Rari Fuse
-     *      Price Oracle Adapter
-     * @param _shares The amount of Rise Token to buy
-     * @param _tokenIn The address of tokenIn
-     * @return _amountIn The amount of tokenIn
-     */
-    function previewBuy(
-        uint256 _shares,
-        address _tokenIn
-    ) external view returns (uint256 _amountIn);
-
-    /**
-     * @notice Get the amount of ETH for selling _shares of Rise Token
-     * @param _shares The amount of Rise Token to sell
-     * @return _ethAmount The amount of ETH that will be received by the user
-     */
-    function previewSell(uint256 _shares) external view returns (uint256 _ethAmount);
-
-    /**
-     * @notice Get the amount of tokenOut for selling _shares amount of Rise Token
-     * @dev The function may reverted if tokenIn is not configured in Rari Fuse Price Oracle Adapter
-     * @param _shares The amount of Rise Token to sell
-     * @param _tokenOut The address of tokenOut
-     * @return _amountOut The amount of tokenOut
-     */
-    function previewSell(
-        uint256 _shares,
-        address _tokenOut
-    ) external view returns (uint256 _amountOut);
-
 
     /// ███ User actions ███████████████████████████████████████████████████████
-
-    /**
-     * @notice Buy Rise Token with ETH. New Rise Token supply will be minted.
-     * @param _shares The amount of Rise Token to buy
-     * @param _recipient The recipient of the transaction
-     */
-    function buy(
-        uint256 _shares,
-        address _recipient
-    ) external payable;
 
     /**
      * @notice Buy Rise Token with tokenIn. New Rise Token supply will be minted.
@@ -322,18 +242,6 @@ interface IRiseToken is IERC20 {
         address _recipient,
         address _tokenIn,
         uint256 _amountInMax
-    ) external;
-
-    /**
-     * @notice Sell Rise Token for ETH. The _shares amount of Rise Token will be burned.
-     * @param _shares The amount of Rise Token to sell
-     * @param _recipient The recipient of the transaction. It should be able to receive ETH.
-     * @param _amountOutMin The minimum amount of ETH
-     */
-    function sell(
-        uint256 _shares,
-        address _recipient,
-        uint256 _amountOutMin
     ) external payable;
 
     /**
@@ -425,19 +333,5 @@ interface IRiseToken is IERC20 {
     function swapExactETHForCollateral(
         uint256 _amountOutMin
     ) external payable returns (uint256 _amountOut);
-
-    /**
-     * @notice Return how much collateral we want to buy in cdecimals precision
-     *         (ex: gOHM have 18 decimals so it's 1e18)
-     * @dev Better to allow ~1% room for swapExactCollateralForETH
-     */
-    function wtb() external returns (uint256 _amount);
-
-    /**
-     * @notice Returns how much collateral we want to sell in cdecimals precision
-     *         (ex: gOHM have 18 decimals so it's 1e18)
-     * @dev Better to allow ~1% room for swapExactETHForCollateral
-     */
-    function wts() external returns (uint256 _amount);
 
 }
