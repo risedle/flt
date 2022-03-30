@@ -112,6 +112,30 @@ interface IRiseToken is IERC20 {
     /// @notice Event emitted when user sell the token
     event Sell(SellParams params);
 
+    /**
+     * @notice Event emitted when params updated
+     * @param maxLeverageRatio The maximum leverage ratio
+     * @param minLeverageRatio The minimum leverage ratio
+     * @param step The rebalancing step
+     * @param discount The incentives for the market makers
+     */
+    event ParamsUpdated(
+        uint256 maxLeverageRatio,
+        uint256 minLeverageRatio,
+        uint256 step,
+        uint256 discount
+    );
+
+    /**
+     * @notice Rescue the airdropped tokens
+     * @param token The ERC20 address
+     * @param amount The amount of ERC20 withdrawn
+     */
+    event TokenRescued(
+        address token,
+        uint256 amount
+    );
+
 
     /// ███ Errors █████████████████████████████████████████████████████████████
 
@@ -169,6 +193,27 @@ interface IRiseToken is IERC20 {
      * @param _newMaxBuy New maximum mint amount
      */
     function setMaxBuy(uint256 _newMaxBuy) external;
+
+    /**
+     * @notice Update the Rise Token parameters
+     * @param _minLeverageRatio Minimum leverage ratio
+     * @param _maxLeverageRatio Maximum leverage ratio
+     * @param _step Rebalancing step
+     * @param _discount Discount for market makers to incentivize the rebalance
+     */
+    function setParams(
+        uint256 _minLeverageRatio,
+        uint256 _maxLeverageRatio,
+        uint256 _step,
+        uint256 _discount
+    ) external;
+
+    /**
+     * @notice Rescue the airdropped tokens
+     * @param _token The token address
+     * @dev Cannot withdraw collateral or debt token
+     */
+    function rescue(address _token) external;
 
     /**
      * @notice Initialize the Rise Token using ETH

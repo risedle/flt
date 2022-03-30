@@ -285,6 +285,27 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     }
 
     /// @inheritdoc IRiseToken
+    function setParams(uint256 _minLeverageRatio, uint256 _maxLeverageRatio, uint256 _step, uint256 _discount) external onlyOwner {
+        minLeverageRatio = _minLeverageRatio;
+        maxLeverageRatio = _maxLeverageRatio;
+        step = _step;
+        discount = _discount;
+        emit ParamsUpdated(minLeverageRatio, maxLeverageRatio, step, discount);
+    }
+
+    /// @inheritdoc IRiseToken
+    function rescue(address _token) external onlyOwner {
+        require(_token != address(collateral), "!WTF?");
+        require(_token != address(fCollateral), "!WTF?");
+        require(_token != address(debt), "!WTF?");
+        require(_token != address(fDebt), "!WTF?");
+        // Useful to rescue airdropped tokens
+        uint256 balance = IERC20(_token).balanceOf(address(this));
+        IERC20(_token).transfer(msg.sender, balance);
+        emit TokenRescued(_token, balance);
+    }
+
+    /// @inheritdoc IRiseToken
     function initialize(InitializeParams memory _params) external payable onlyOwner {
         if (isInitialized == true) revert AlreadyInitialized();
         if (msg.value == 0) revert InputAmountInvalid();

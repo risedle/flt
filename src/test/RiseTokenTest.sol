@@ -15,7 +15,7 @@ import { IRiseToken } from "../interfaces/IRiseToken.sol";
 import { IUniswapAdapter } from "../interfaces/IUniswapAdapter.sol";
 import { IfERC20 } from "../interfaces/IfERC20.sol";
 import { HEVM } from "./hevm/HEVM.sol";
-import { weth, usdc, wbtc } from "chain/Tokens.sol";
+import { weth, usdc, wbtc, gohm } from "chain/Tokens.sol";
 import { fusdc, fwbtc } from "chain/Tokens.sol";
 import { rariFuseUSDCPriceOracle, rariFuseWBTCPriceOracle } from "chain/Tokens.sol";
 import { uniswapV3USDCETHPool, uniswapV3Router, uniswapV3WBTCETHPool } from "chain/Tokens.sol";
@@ -969,6 +969,28 @@ contract RiseTokenTest is DSTest {
 
         // Sell the collateral
         marketMaker.buy(0.1 ether, 2 * 1e8); // expect output 2 WBTC
+    }
+
+    function testFailOwnerCannotRescueCollateralToken() public {
+        wbtcRiseCached.rescue(wbtc);
+    }
+
+    function testFailOwnerCannotRescueDebtToken() public {
+        wbtcRiseCached.rescue(usdc);
+    }
+
+    function testFailOwnerCannotRescuefCollateralToken() public {
+        wbtcRiseCached.rescue(fwbtc);
+    }
+
+    function testFailOwnerCannotRescuefDebtToken() public {
+        wbtcRiseCached.rescue(fusdc);
+    }
+
+    function testOwnerCanRescueAirdroppedToken() public {
+        hevm.setGOHMBalance(address(wbtcRiseCached), 1 ether);
+        wbtcRiseCached.rescue(gohm);
+        assertEq(IERC20(gohm).balanceOf(address(this)), 1 ether);
     }
 
     receive() external payable {}
