@@ -158,6 +158,9 @@ interface IRiseToken is IERC20 {
     /// @notice Error is raised if rebalance is executed but leverage ratio is invalid
     error NoNeedToRebalance(uint256 leverageRatio);
 
+    /// @notice Error is raised if liqudity to buy or sell collateral is not enough
+    error LiquidityIsNotEnough();
+
 
     /// ███ Owner actions ██████████████████████████████████████████████████████
 
@@ -371,24 +374,24 @@ interface IRiseToken is IERC20 {
      /**
       * @notice Swaps ETH for collateral
       * @dev Anyone can execute this if leverage ratio is below minimum.
-      * @param _amountOut The amount of collateral that will received by msg.sender
-      * @param _amountInMax The amount of ETH
-      * @return _amountIn The amount of ETH
+      * @param _amountOutMin The minimum amount of collateral
+      * @return _amountOut The amount of collateral
       */
-    function swapETHForExactCollateral(
-        uint256 _amountOut,
-        uint256 _amountInMax
-    ) external returns (uint256 _amountIn);
+    function swapExactETHForCollateral(
+        uint256 _amountOutMin
+    ) external payable returns (uint256 _amountOut);
 
     /**
      * @notice Return how much collateral we want to buy in cdecimals precision
      *         (ex: gOHM have 18 decimals so it's 1e18)
+     * @dev Better to allow ~1% room for swapExactCollateralForETH
      */
     function wtb() external returns (uint256 _amount);
 
     /**
      * @notice Returns how much collateral we want to sell in cdecimals precision
      *         (ex: gOHM have 18 decimals so it's 1e18)
+     * @dev Better to allow ~1% room for swapExactETHForCollateral
      */
     function wts() external returns (uint256 _amount);
 

@@ -75,6 +75,32 @@ contract User {
 }
 
 /**
+ * @title Rise Token Market Marker
+ * @author bayu <bayu@risedle.com> <https://github.com/pyk>
+ */
+contract MarketMaker {
+    using SafeERC20 for IERC20;
+
+    RiseToken private riseToken;
+
+    constructor(RiseToken _riseToken) {
+        riseToken = _riseToken;
+    }
+
+    receive() external payable {}
+
+    function sell(uint256 _collateralAmount, uint256 _amountOutMin) public returns (uint256 _amountOut) {
+        riseToken.collateral().safeIncreaseAllowance(address(riseToken), _collateralAmount);
+        _amountOut = riseToken.swapExactCollateralForETH(_collateralAmount, _amountOutMin);
+    }
+
+    function buy(uint256 _ethAmount, uint256 _amountOutMin) public payable returns (uint256 _amountOut) {
+        _amountOut = riseToken.swapExactETHForCollateral{value: _ethAmount}(_amountOutMin);
+    }
+
+}
+
+/**
  * @title Rise Token Test
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
  */
@@ -155,7 +181,7 @@ contract RiseTokenTest is DSTest {
         feeRecipient = hevm.addr(333);
 
         // Add supply to the Rari Fuse
-        uint256 supplyAmount = 100_000 * 1e6; // 100K USDC
+        uint256 supplyAmount = 100_000_000 * 1e6; // 100K USDC
         hevm.setUSDCBalance(address(this), supplyAmount);
         IERC20(usdc).safeIncreaseAllowance(fusdc, supplyAmount);
         IfERC20(fusdc).mint(supplyAmount);
@@ -185,6 +211,22 @@ contract RiseTokenTest is DSTest {
         params.ethAmount += (0.3 ether * params.ethAmount) / 1 ether;
         wbtcRiseCached.initialize{value: params.ethAmount}(params);
 
+    }
+
+    function initializeWithCustomLeverageRatio(uint256 _lr) internal returns (RiseToken _wbtcRise) {
+        // Create factory
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient, address(uniswapAdapterCached), address(oracleAdapterCached));
+
+        // Create new Rise token
+        _wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc)));
+
+        // Initialize WBTCRISE
+        uint256 nav = 400 * 1e6; // 400 UDSC
+        uint256 collateralAmount = 1 * 1e8;
+
+        IRiseToken.InitializeParams memory params = getInitializeParams(collateralAmount, nav, _lr, 8, _wbtcRise); // 8 decimals for WBTC
+        params.ethAmount += (0.5 ether * params.ethAmount) / 1 ether;
+        _wbtcRise.initialize{value: params.ethAmount}(params);
     }
 
     function testFailInitializeWBTCRISERevertIfSlippageTooHigh() public {
@@ -812,6 +854,122 @@ contract RiseTokenTest is DSTest {
         assertEq(wbtcRiseCached.leverageRatio(), lr, "check leverage ratio");
     }
 
+    function testWTBAndWTSReturnZeroIfLeverageRatioIsInRange() public {
+        assertGt(wbtcRiseCached.leverageRatio(), 1.7 ether);
+        assertLt(wbtcRiseCached.leverageRatio(), 2.5 ether);
+
+        assertEq(wbtcRiseCached.wtb(), 0);
+        assertEq(wbtcRiseCached.wts(), 0);
+    }
+
+    function testWTBReturnValueIfLeverageRatioBelowMinimum() public {
+        RiseToken wbtcRise = initializeWithCustomLeverageRatio(1.6 ether);
+        assertGt(wbtcRise.wtb(), 0);
+    }
+
+    function testWTSReturnValueIfLeverageRatioAboveMaximum() public {
+        RiseToken wbtcRise = initializeWithCustomLeverageRatio(2.5 ether);
+        assertGt(wbtcRise.wts(), 0);
+    }
+
+    function testFailSwapExactCollateralForETHRevertIfLeverageRatioInRrange() public {
+        wbtcRiseCached.swapExactCollateralForETH(1e8, 0);
+    }
+
+    function testFailSwapExactETHForCollateralRevertIfLeverageRatioInRrange() public {
+        wbtcRiseCached.swapExactETHForCollateral(0);
+    }
+
+    function testFailSwapExactCollateralForETHRevertIfAmountInIsTooLarge() public {
+        // Initialize Rise Token with 1.6x leverage ratio
+        RiseToken wbtcRise = initializeWithCustomLeverageRatio(1.6 ether);
+        wbtcRise.swapExactCollateralForETH(10*1e8, 0);
+    }
+
+    function testFailSwapExactETHForCollateralRevertIfAmountInIsTooLarge() public {
+        // Initialize Rise Token with 2.4x leverage ratio
+        RiseToken wbtcRise = initializeWithCustomLeverageRatio(2.4 ether);
+        wbtcRise.swapExactETHForCollateral{value: 100 ether}(0.0001 * 1e8);
+    }
+
+    function testSwapExactCollateralForETHReturnZeroIfInputIsZero() public {
+        RiseToken wbtcRise = initializeWithCustomLeverageRatio(1.6 ether);
+        assertEq(wbtcRise.swapExactCollateralForETH(0, 0), 0);
+    }
+
+    function testSwapExactETHForCollateralReturnZeroIfInputIsZero() public {
+        RiseToken wbtcRise = initializeWithCustomLeverageRatio(2.4 ether);
+        assertEq(wbtcRise.swapExactETHForCollateral(0), 0);
+    }
+
+    function testSwapExactCollateralForETH() public {
+        // Initialize Rise Token with 1.6x leverage ratio
+        RiseToken wbtcRise = initializeWithCustomLeverageRatio(1.6 ether);
+
+        // Create new market maker
+        MarketMaker marketMaker = new MarketMaker(wbtcRise);
+        assertEq(address(marketMaker).balance, 0, "check eth balance before swap");
+
+        // Sell the collateral
+        uint256 collateralAmount = wbtcRise.wtb();
+        hevm.setWBTCBalance(address(marketMaker), collateralAmount);
+
+        uint256 ethAmount = marketMaker.sell(collateralAmount, 0);
+
+        assertEq(address(marketMaker).balance, ethAmount, "check eth balance after swap");
+    }
+
+    function testSwapExactETHForCollateral() public {
+        // Initialize Rise Token with 2.4x leverage ratio
+        RiseToken wbtcRise = initializeWithCustomLeverageRatio(2.4 ether);
+
+        // Create new market maker
+        MarketMaker marketMaker = new MarketMaker(wbtcRise);
+        payable(address(marketMaker)).transfer(0.1 ether);
+
+        assertEq(address(marketMaker).balance, 0.1 ether, "check eth balance before swap");
+
+        // Sell the collateral
+        uint256 collateralAmount = marketMaker.buy(0.1 ether, 0);
+
+        // Get price
+        uint256 price = oracleAdapterCached.price(wbtc);
+        price -= (0.006 ether * price) / 1 ether;
+        uint256 expectedCollateralAmount = (0.1 ether * 1e8) / price;
+
+        assertEq(IERC20(wbtc).balanceOf(address(marketMaker)), collateralAmount, "check wbtc balance after swap");
+        assertEq(address(marketMaker).balance, 0.1 ether, "check eth balance after swap");
+        assertEq(collateralAmount, expectedCollateralAmount, "check collateral amount");
+    }
+
+    function testFailSwapExactCollateralForETHRevertIfAmountOutMinTooLarge() public {
+        // Initialize Rise Token with 1.6x leverage ratio
+        RiseToken wbtcRise = initializeWithCustomLeverageRatio(1.6 ether);
+
+        // Create new market maker
+        MarketMaker marketMaker = new MarketMaker(wbtcRise);
+        assertEq(address(marketMaker).balance, 0, "check eth balance before swap");
+
+        // Sell the collateral
+        uint256 collateralAmount = wbtcRise.wtb();
+        hevm.setWBTCBalance(address(marketMaker), collateralAmount);
+
+        marketMaker.sell(collateralAmount, 20 ether);
+    }
+
+    function testFailSwapExactETHForCollateralRevertIfAmountOutMinTooLarge() public {
+        // Initialize Rise Token with 2.4x leverage ratio
+        RiseToken wbtcRise = initializeWithCustomLeverageRatio(2.4 ether);
+
+        // Create new market maker
+        MarketMaker marketMaker = new MarketMaker(wbtcRise);
+        payable(address(marketMaker)).transfer(0.1 ether);
+
+        assertEq(address(marketMaker).balance, 0.1 ether, "check eth balance before swap");
+
+        // Sell the collateral
+        marketMaker.buy(0.1 ether, 2 * 1e8); // expect output 2 WBTC
+    }
 
     receive() external payable {}
 }
