@@ -5,9 +5,5 @@
     ".dapprc": "shellscript"
   },
   "editor.formatOnSave": true,
-  "editor.tabSize": 4,
-  "[solidity]": {
-    // "editor.defaultFormatter": "JuanBlanco.solidity"
-  },
-  "solidity.remappings": ["chain/=src/test/ethereum"]
+  "editor.tabSize": 4
 }
