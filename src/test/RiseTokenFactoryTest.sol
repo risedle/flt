@@ -2,8 +2,8 @@
 pragma solidity 0.8.11;
 pragma experimental ABIEncoderV2;
 
-import "lib/ds-test/src/test.sol";
-import { IERC20Metadata } from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "ds-test/test.sol";
+import { IERC20Metadata } from "openzeppelin/token/ERC20/extensions/IERC20Metadata.sol";
 
 import { IUniswapAdapter } from "../interfaces/IUniswapAdapter.sol";
 

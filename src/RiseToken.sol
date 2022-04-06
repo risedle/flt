@@ -2,9 +2,9 @@
 pragma solidity 0.8.11;
 pragma experimental ABIEncoderV2;
 
-import { ERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import { Ownable } from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import { ERC20 } from "openzeppelin/token/ERC20/ERC20.sol";
+import { Ownable } from "openzeppelin/access/Ownable.sol";
+import { SafeERC20 } from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
 import { IRiseToken } from "./interfaces/IRiseToken.sol";
 import { IfERC20 } from "./interfaces/IfERC20.sol";

@@ -2,9 +2,9 @@
 pragma solidity 0.8.11;
 pragma experimental ABIEncoderV2;
 
-import "lib/ds-test/src/test.sol";
-import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "ds-test/test.sol";
+import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
 import { weth, wbtc } from "chain/Tokens.sol";
 import { uniswapV3WBTCETHPool, uniswapV3Router } from "chain/Tokens.sol";

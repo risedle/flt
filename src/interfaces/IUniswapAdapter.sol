@@ -2,7 +2,8 @@
 pragma solidity 0.8.11;
 pragma experimental ABIEncoderV2;
 
-import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
 import { IUniswapV2Pair } from "../interfaces/IUniswapV2Pair.sol";
 import { IUniswapV3Pool } from "../interfaces/IUniswapV3Pool.sol";
@@ -14,6 +15,7 @@ import { IUniswapAdapterCaller } from "../interfaces/IUniswapAdapterCaller.sol";
  * @notice Utility contract to interact with Uniswap V2 & V3
  */
 interface IUniswapAdapter {
+
     /// ███ Types ██████████████████████████████████████████████████████████████
 
     /**

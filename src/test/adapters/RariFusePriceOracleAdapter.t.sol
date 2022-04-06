@@ -2,7 +2,7 @@
 pragma solidity 0.8.11;
 pragma experimental ABIEncoderV2;
 
-import "lib/ds-test/src/test.sol";
+import "ds-test/test.sol";
 
 import { HEVM } from "../hevm/HEVM.sol";
 import { RariFusePriceOracleAdapter } from "../../adapters/RariFusePriceOracleAdapter.sol";
