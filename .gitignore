@@ -2,3 +2,4 @@
 .dapprc
 .DS_Store
 hevm.libs.*
+cache/
