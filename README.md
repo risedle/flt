@@ -20,7 +20,7 @@ Requires [foundry](https://github.com/gakonst/foundry#installation).
 
 Run the following command to run the test:
 
-   forge test --rpc-url ALCHEMY_URL
+    forge test --rpc-url ALCHEMY_URL
 
 ## Code Editor
 
