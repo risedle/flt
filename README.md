@@ -2,9 +2,9 @@
 
 Leveraged Token powered by Rari Fuse.
 
-## Install
+## Setup
 
-Requires [dapptools](https://github.com/dapphub/dapptools#installation).
+Requires [foundry](https://github.com/gakonst/foundry#installation).
 
 1. Clone the repository
    ```
@@ -13,26 +13,18 @@ Requires [dapptools](https://github.com/dapphub/dapptools#installation).
    ```
 2. Download all the dependencies
    ```
-   dapp update
+   forge update
    ```
-3. Configure and run the test
 
-If you are using macOS M1, follow the [following instruction](https://mirror.xyz/pyk.eth/XWFgTnqGHlHgmVVE9RFiXoWYkSeP6Lvww54Z7VU0rDA)
-to install dapptools.
+## Testing
 
-## Configure
+Run the following command to run the test:
 
-Copy `.dapprc.example` to `.dapprc` and edit the `ETH_RPC_URL`.
+   forge test --rpc-url ALCHEMY_URL
 
-## Extensions
+## Code Editor
 
 If you are using Visual Studio Code, install the following extensions:
 
-1. [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
-   for code formatter.
-2. [Solidity](https://marketplace.visualstudio.com/items?itemName=JuanBlanco.solidity)
+1. [Solidity](https://marketplace.visualstudio.com/items?itemName=JuanBlanco.solidity)
    for code highlight and more.
-
-Then install the following packages:
-
-    npm install -g solhint prettier prettier-plugin-solidity
