@@ -57,16 +57,16 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         string memory _name,
         string memory _symbol,
         RiseTokenFactory _factory,
-        address _fCollateral,
-        address _fDebt,
+        IfERC20 _fCollateral,
+        IfERC20 _fDebt,
         address _uniswapAdapter,
         address _oracleAdapter
     ) ERC20(_name, _symbol) {
-        factory = RiseTokenFactory(_factory);
+        factory = _factory;
         uniswapAdapter = UniswapAdapter(_uniswapAdapter);
         oracleAdapter = RariFusePriceOracleAdapter(_oracleAdapter);
-        fCollateral = IfERC20(_fCollateral);
-        fDebt = IfERC20(_fDebt);
+        fCollateral = _fCollateral;
+        fDebt = _fDebt;
         collateral = ERC20(fCollateral.underlying());
         debt = ERC20(fDebt.underlying());
         weth = IWETH9(uniswapAdapter.weth());
