@@ -59,11 +59,11 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         RiseTokenFactory _factory,
         IfERC20 _fCollateral,
         IfERC20 _fDebt,
-        address _uniswapAdapter,
+        UniswapAdapter _uniswapAdapter,
         address _oracleAdapter
     ) ERC20(_name, _symbol) {
         factory = _factory;
-        uniswapAdapter = UniswapAdapter(_uniswapAdapter);
+        uniswapAdapter = _uniswapAdapter;
         oracleAdapter = RariFusePriceOracleAdapter(_oracleAdapter);
         fCollateral = _fCollateral;
         fDebt = _fDebt;
