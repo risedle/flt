@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-
+import { RiseToken } from "../RiseToken.sol";
+import { IfERC20 } from "./IfERC20.sol";
 import { UniswapAdapter } from "../adapters/UniswapAdapter.sol";
 import { RariFusePriceOracleAdapter } from "../adapters/RariFusePriceOracleAdapter.sol";
 
@@ -21,10 +22,10 @@ interface IRiseTokenFactory {
      * @param totalTokens The total tokens created by this factory
      */
     event TokenCreated(
-        address token,
-        address fCollateral,
-        address fDebt,
-        uint256 totalTokens
+        RiseToken token,
+        IfERC20   fCollateral,
+        IfERC20   fDebt,
+        uint256   totalTokens
     );
 
     /**
@@ -41,7 +42,7 @@ interface IRiseTokenFactory {
      * @param token The Rise Token that already exists with the same collateral
      *               and debt pair
      */
-    error TokenExists(address token);
+    error TokenExists(RiseToken token);
 
 
     /// ███ Owner actions ██████████████████████████████████████████████████████
@@ -59,10 +60,10 @@ interface IRiseTokenFactory {
      * @return _token The Rise Token address
      */
     function create(
-        address _fCollateral,
-        address _fDebt,
-        address _uniswapAdapter,
-        address _oracleAdapter
-    ) external returns (address _token);
+        IfERC20                    _fCollateral,
+        IfERC20                    _fDebt,
+        UniswapAdapter             _uniswapAdapter,
+        RariFusePriceOracleAdapter _oracleAdapter
+    ) external returns (RiseToken _token);
 
 }
