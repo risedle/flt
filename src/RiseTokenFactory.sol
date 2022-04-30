@@ -47,7 +47,8 @@ contract RiseTokenFactory is IRiseTokenFactory, Ownable {
         UniswapAdapter _uniswapAdapter,
         RariFusePriceOracleAdapter _oracleAdapter
     ) external onlyOwner returns (RiseToken _riseToken) {
-        if (address(getToken[_fCollateral][_fDebt]) != address(0)) revert TokenExists(getToken[_fCollateral][_fDebt]);
+        bool tokenExists = address(getToken[_fCollateral][_fDebt]) != address(0) || address(getToken[_fDebt][_fCollateral]) != address(0) ? true : false;
+        if (tokenExists) revert TokenExists(getToken[_fCollateral][_fDebt]);
 
         /// ███ Contract deployment
         string memory collateralSymbol = IERC20Metadata(_fCollateral.underlying()).symbol();
@@ -64,7 +65,6 @@ contract RiseTokenFactory is IRiseTokenFactory, Ownable {
         );
 
         getToken[_fCollateral][_fDebt] = _riseToken;
-        getToken[_fDebt][_fCollateral] = _riseToken; // populate mapping in the reverse direction
         tokens.push(_riseToken);
 
         emit TokenCreated(_riseToken, _fCollateral, _fDebt, tokens.length);
