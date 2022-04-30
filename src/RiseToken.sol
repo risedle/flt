@@ -28,15 +28,15 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
 
     /// ███ Storages ███████████████████████████████████████████████████████████
 
-    IWETH9                     public weth;
-    RiseTokenFactory           public factory;
-    UniswapAdapter             public uniswapAdapter;
-    RariFusePriceOracleAdapter public oracleAdapter;
+    IWETH9                     public immutable weth;
+    RiseTokenFactory           public immutable factory;
+    UniswapAdapter             public immutable uniswapAdapter;
+    RariFusePriceOracleAdapter public immutable oracleAdapter;
 
-    ERC20   public collateral;
-    ERC20   public debt;
-    IfERC20 public fCollateral;
-    IfERC20 public fDebt;
+    ERC20   public immutable collateral;
+    ERC20   public immutable debt;
+    IfERC20 public immutable fCollateral;
+    IfERC20 public immutable fDebt;
 
     uint256 public totalCollateral;
     uint256 public totalDebt;
@@ -48,8 +48,8 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     uint256 public discount = 0.006 ether; // 0.6%
     bool    public isInitialized;
 
-    uint8 private cdecimals;
-    uint8 private ddecimals;
+    uint8 private immutable cdecimals;
+    uint8 private immutable ddecimals;
 
 
     /// ███ Constructors ███████████████████████████████████████████████████████
