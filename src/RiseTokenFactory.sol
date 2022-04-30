@@ -50,11 +50,10 @@ contract RiseTokenFactory is IRiseTokenFactory, Ownable {
         if (address(getToken[_fCollateral][_fDebt]) != address(0)) revert TokenExists(getToken[_fCollateral][_fDebt]);
 
         /// ███ Contract deployment
-        bytes memory creationCode = type(RiseToken).creationCode;
         string memory collateralSymbol = IERC20Metadata(_fCollateral.underlying()).symbol();
         string memory tokenName = string(abi.encodePacked(collateralSymbol, " 2x Long Risedle"));
         string memory tokenSymbol = string(abi.encodePacked(collateralSymbol, "RISE"));
-        bytes memory constructorArgs = abi.encode(
+        _riseToken = new RiseToken(
             tokenName,
             tokenSymbol,
             address(this),
@@ -63,13 +62,6 @@ contract RiseTokenFactory is IRiseTokenFactory, Ownable {
             address(_uniswapAdapter),
             address(_oracleAdapter)
         );
-        bytes memory bytecode = abi.encodePacked(creationCode, constructorArgs);
-        bytes32 salt = keccak256(abi.encodePacked(_fCollateral, _fDebt));
-        address _token;
-        assembly {
-            _token := create2(0, add(bytecode, 32), mload(bytecode), salt)
-        }
-        _riseToken = RiseToken(payable(_token));
 
         getToken[_fCollateral][_fDebt] = _riseToken;
         getToken[_fDebt][_fCollateral] = _riseToken; // populate mapping in the reverse direction
