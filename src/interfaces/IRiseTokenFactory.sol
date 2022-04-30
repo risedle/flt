@@ -44,6 +44,11 @@ interface IRiseTokenFactory {
      */
     error TokenExists(RiseToken token);
 
+    /**
+     * @notice Error is raised when Fee recipient is similar with existing
+     */
+    error FeeRecipientNotChanged();
+
 
     /// ███ Owner actions ██████████████████████████████████████████████████████
 
