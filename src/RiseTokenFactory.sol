@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-
 import { Ownable } from "openzeppelin/access/Ownable.sol";
 import { IERC20Metadata } from "openzeppelin/token/ERC20/extensions/IERC20Metadata.sol";
 
@@ -20,7 +19,7 @@ import { RariFusePriceOracleAdapter } from "./adapters/RariFusePriceOracleAdapte
 contract RiseTokenFactory is IRiseTokenFactory, Ownable {
     /// ███ Storages ███████████████████████████████████████████████████████████
 
-    address[] public tokens;
+    RiseToken[] public tokens;
     mapping(address => mapping(address => address)) public getToken;
     address public feeRecipient;
 
@@ -59,7 +58,7 @@ contract RiseTokenFactory is IRiseTokenFactory, Ownable {
 
         getToken[_fCollateral][_fDebt] = _token;
         getToken[_fDebt][_fCollateral] = _token; // populate mapping in the reverse direction
-        tokens.push(_token);
+        tokens.push(RiseToken(payable(_token)));
 
         emit TokenCreated(_token, _fCollateral, _fDebt, tokens.length);
     }

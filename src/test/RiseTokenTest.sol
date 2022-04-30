@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-
 import "ds-test/test.sol";
 import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
 import { ERC20 } from "openzeppelin/token/ERC20/ERC20.sol";
@@ -771,20 +770,19 @@ contract RiseTokenTest is DSTest {
     }
 
     function testSellForUSDCWithCustomRecipient() public {
-        uint256 shares = 0.1 * 1e8;
-        uint256 usdcAmountInMax = previewBuy(wbtcRiseCached, shares, usdc);
-        usdcAmountInMax += (0.05 ether * usdcAmountInMax) / 1 ether; // Slippage tollerance 3%
-        uint256 usdcAmountOutMin = previewSell(wbtcRiseCached, shares, usdc);
-        usdcAmountOutMin -= (0.03 ether * usdcAmountOutMin) / 1 ether; // Slippage tollerance 3%
-
         // Create new user
         User user = new User(wbtcRiseCached);
 
         // User buy the token
+        uint256 shares = 0.1 * 1e8;
+        uint256 usdcAmountInMax = previewBuy(wbtcRiseCached, shares, usdc);
+        usdcAmountInMax += (0.05 ether * usdcAmountInMax) / 1 ether; // Slippage tollerance 5%
         hevm.setUSDCBalance(address(user), usdcAmountInMax);
         user.buy(shares, usdc, usdcAmountInMax);
 
         // User sell the token for USDC
+        uint256 usdcAmountOutMin = previewSell(wbtcRiseCached, shares, usdc);
+        usdcAmountOutMin -= (0.05 ether * usdcAmountOutMin) / 1 ether; // Slippage tollerance 5%
         address recipient = hevm.addr(17);
         user.sell(shares, usdc, usdcAmountOutMin, recipient);
 
