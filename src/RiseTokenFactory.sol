@@ -57,7 +57,7 @@ contract RiseTokenFactory is IRiseTokenFactory, Ownable {
         _riseToken = new RiseToken(
             tokenName,
             tokenSymbol,
-            address(this),
+            RiseTokenFactory(address(this)),
             address(_fCollateral),
             address(_fDebt),
             address(_uniswapAdapter),

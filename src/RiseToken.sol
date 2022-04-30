@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-
 import { ERC20 } from "openzeppelin/token/ERC20/ERC20.sol";
 import { Ownable } from "openzeppelin/access/Ownable.sol";
 import { SafeERC20 } from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
@@ -57,7 +56,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     constructor(
         string memory _name,
         string memory _symbol,
-        address _factory,
+        RiseTokenFactory _factory,
         address _fCollateral,
         address _fDebt,
         address _uniswapAdapter,
