@@ -11,6 +11,7 @@ import { HEVM } from "./hevm/HEVM.sol";
 import { RiseTokenFactory } from "../RiseTokenFactory.sol";
 import { UniswapAdapter } from "../adapters/UniswapAdapter.sol";
 import { RariFusePriceOracleAdapter } from "../adapters/RariFusePriceOracleAdapter.sol";
+
 import { weth, wbtc, usdc } from "chain/Tokens.sol";
 import { fusdc, fwbtc } from "chain/Tokens.sol";
 import { RiseToken } from "../RiseToken.sol";
@@ -77,7 +78,12 @@ contract RiseTokenFactoryTest is DSTest {
         factory.transferOwnership(newOwner);
 
         // Non-owner trying to set the fee recipient; It should be reverted
-        factory.create(fwbtc, fusdc, hevm.addr(3), hevm.addr(4));
+        factory.create(
+            fwbtc,
+            fusdc,
+            UniswapAdapter(hevm.addr(3)),
+            RariFusePriceOracleAdapter(hevm.addr(4))
+        );
     }
 
     /// @notice Owner can set fee recipient
@@ -89,18 +95,17 @@ contract RiseTokenFactoryTest is DSTest {
         // Create new token
         UniswapAdapter uniswapAdapter = new UniswapAdapter(weth);
         RariFusePriceOracleAdapter oracleAdapter = new RariFusePriceOracleAdapter();
-        address _token = factory.create(fwbtc, fusdc, address(uniswapAdapter), address(oracleAdapter));
-        RiseToken riseToken = RiseToken(payable(_token));
+        RiseToken riseToken = factory.create(fwbtc, fusdc, uniswapAdapter, oracleAdapter);
 
         // Check public properties
-        assertEq(IERC20Metadata(_token).name(), "WBTC 2x Long Risedle");
-        assertEq(IERC20Metadata(_token).symbol(), "WBTCRISE");
-        assertEq(IERC20Metadata(_token).decimals(), 8);
+        assertEq(riseToken.name(), "WBTC 2x Long Risedle");
+        assertEq(riseToken.symbol(), "WBTCRISE");
+        assertEq(riseToken.decimals(), 8);
         assertEq(address(riseToken.factory()), address(factory), "check factory");
         assertEq(address(riseToken.collateral()), wbtc, "check collateral");
         assertEq(address(riseToken.debt()), usdc, "check debt");
-        assertEq(address(riseToken.fCollateral()), fwbtc, "check ftoken collateral");
-        assertEq(address(riseToken.fDebt()), fusdc, "check ftoken debt");
+        assertEq(address(riseToken.fCollateral()), address(fwbtc), "check ftoken collateral");
+        assertEq(address(riseToken.fDebt()), address(fusdc), "check ftoken debt");
         assertEq(riseToken.owner(), address(this), "check owner");
         assertEq(address(riseToken.uniswapAdapter()), address(uniswapAdapter), "check uniswap adapter");
         assertEq(address(riseToken.oracleAdapter()), address(oracleAdapter), "check oracle adapter");

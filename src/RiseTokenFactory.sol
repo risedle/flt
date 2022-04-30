@@ -20,7 +20,7 @@ contract RiseTokenFactory is IRiseTokenFactory, Ownable {
     /// ███ Storages ███████████████████████████████████████████████████████████
 
     RiseToken[] public tokens;
-    mapping(address => mapping(address => address)) public getToken;
+    mapping(IfERC20 => mapping(IfERC20 => RiseToken)) public getToken;
     address public feeRecipient;
 
 
@@ -40,26 +40,40 @@ contract RiseTokenFactory is IRiseTokenFactory, Ownable {
     }
 
     /// @inheritdoc IRiseTokenFactory
-    function create(address _fCollateral, address _fDebt, address _uniswapAdapter, address _oracleAdapter) external onlyOwner returns (address _token) {
-        address collateral = IfERC20(_fCollateral).underlying();
-        address debt = IfERC20(_fDebt).underlying();
-        if (getToken[collateral][debt] != address(0)) revert TokenExists(getToken[collateral][debt]);
+    function create(
+        IfERC20 _fCollateral,
+        IfERC20 _fDebt,
+        UniswapAdapter _uniswapAdapter,
+        RariFusePriceOracleAdapter _oracleAdapter
+    ) external onlyOwner returns (RiseToken _riseToken) {
+        if (address(getToken[_fCollateral][_fDebt]) != address(0)) revert TokenExists(getToken[_fCollateral][_fDebt]);
 
         /// ███ Contract deployment
         bytes memory creationCode = type(RiseToken).creationCode;
-        string memory tokenName = string(abi.encodePacked(IERC20Metadata(collateral).symbol(), " 2x Long Risedle"));
-        string memory tokenSymbol = string(abi.encodePacked(IERC20Metadata(collateral).symbol(), "RISE"));
-        bytes memory constructorArgs = abi.encode(tokenName, tokenSymbol, address(this), _fCollateral, _fDebt, _uniswapAdapter, _oracleAdapter);
+        string memory collateralSymbol = IERC20Metadata(_fCollateral.underlying()).symbol();
+        string memory tokenName = string(abi.encodePacked(collateralSymbol, " 2x Long Risedle"));
+        string memory tokenSymbol = string(abi.encodePacked(collateralSymbol, "RISE"));
+        bytes memory constructorArgs = abi.encode(
+            tokenName,
+            tokenSymbol,
+            address(this),
+            address(_fCollateral),
+            address(_fDebt),
+            address(_uniswapAdapter),
+            address(_oracleAdapter)
+        );
         bytes memory bytecode = abi.encodePacked(creationCode, constructorArgs);
         bytes32 salt = keccak256(abi.encodePacked(_fCollateral, _fDebt));
+        address _token;
         assembly {
             _token := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
+        _riseToken = RiseToken(payable(_token));
 
-        getToken[_fCollateral][_fDebt] = _token;
-        getToken[_fDebt][_fCollateral] = _token; // populate mapping in the reverse direction
-        tokens.push(RiseToken(payable(_token)));
+        getToken[_fCollateral][_fDebt] = _riseToken;
+        getToken[_fDebt][_fCollateral] = _riseToken; // populate mapping in the reverse direction
+        tokens.push(_riseToken);
 
-        emit TokenCreated(_token, _fCollateral, _fDebt, tokens.length);
+        emit TokenCreated(_riseToken, _fCollateral, _fDebt, tokens.length);
     }
 }
