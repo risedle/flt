@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
+import { IfERC20 } from "../../interfaces/IfERC20.sol";
 
 // ERC20 addresses on Ethereum
 address constant weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
@@ -10,10 +11,10 @@ address constant wbtc = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 
 // fToken on Risedle Fuse Pools
 // https://rari.app/fuse/pool/177
-address constant fgohm = 0x720424E9cB93F46585C902512cC4DA2E8A06c86C;
-address constant fusdc = 0xDE35E22Ac73d088BB9e7Cf29F306C008B3Dc8a21;
-address constant feth  = 0x340d64fBf1EE1ffb3Fe022746fB97a598F3d92A9;
-address constant fwbtc = 0x2f17290A0C65e5d868427f473C38Ee9d13851e97;
+IfERC20 constant fgohm = IfERC20(0x720424E9cB93F46585C902512cC4DA2E8A06c86C);
+IfERC20 constant fusdc = IfERC20(0xDE35E22Ac73d088BB9e7Cf29F306C008B3Dc8a21);
+IfERC20 constant feth  = IfERC20(0x340d64fBf1EE1ffb3Fe022746fB97a598F3d92A9);
+IfERC20 constant fwbtc = IfERC20(0x2f17290A0C65e5d868427f473C38Ee9d13851e97);
 
 // Rari Fuse Price Oracles
 address constant rariFuseGOHMPriceOracle = 0x2111294D1A3889bC9d78bbEdC3Dbf5b6FA661612;

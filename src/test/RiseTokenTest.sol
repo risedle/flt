@@ -183,7 +183,7 @@ contract RiseTokenTest is DSTest {
         // Add supply to the Rari Fuse
         uint256 supplyAmount = 100_000_000 * 1e6; // 100K USDC
         hevm.setUSDCBalance(address(this), supplyAmount);
-        IERC20(usdc).safeIncreaseAllowance(fusdc, supplyAmount);
+        IERC20(usdc).safeIncreaseAllowance(address(fusdc), supplyAmount);
         IfERC20(fusdc).mint(supplyAmount);
 
         // Create new factory
@@ -199,7 +199,7 @@ contract RiseTokenTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        wbtcRiseCached = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
+        wbtcRiseCached = RiseToken(payable(factory.create(fwbtc, fusdc, uniswapAdapterCached, oracleAdapterCached)));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -218,7 +218,7 @@ contract RiseTokenTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        _wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
+        _wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, uniswapAdapterCached, oracleAdapterCached)));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -275,7 +275,7 @@ contract RiseTokenTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, uniswapAdapterCached, oracleAdapterCached)));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -293,7 +293,7 @@ contract RiseTokenTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, uniswapAdapterCached, oracleAdapterCached)));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -326,7 +326,7 @@ contract RiseTokenTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, uniswapAdapterCached, oracleAdapterCached)));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -355,7 +355,7 @@ contract RiseTokenTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, uniswapAdapterCached, oracleAdapterCached)));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -384,7 +384,7 @@ contract RiseTokenTest is DSTest {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new Rise token
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, uniswapAdapterCached, oracleAdapterCached)));
 
         // Initialize WBTCRISE
         uint256 nav = 400 * 1e6; // 400 UDSC
@@ -417,7 +417,7 @@ contract RiseTokenTest is DSTest {
 
     function testFailBuyRevertIfRiseTokenNotInitialized() public {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, uniswapAdapterCached, oracleAdapterCached)));
         uint256 shares = 0.1 * 1e8;
         uint256 ethAmount = previewBuy(wbtcRise, shares);
         ethAmount += (0.03 ether * ethAmount) / 1 ether; // slippage 3%
@@ -426,7 +426,7 @@ contract RiseTokenTest is DSTest {
 
     function testFailBuyRevertIfMoreThanMaxBuy() public {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, uniswapAdapterCached, oracleAdapterCached)));
         wbtcRise.setParams(wbtcRise.minLeverageRatio(), wbtcRise.maxLeverageRatio(), wbtcRise.step(), wbtcRise.discount(), 2 * 1e8);
 
         // Initialize WBTCRISE
@@ -607,7 +607,7 @@ contract RiseTokenTest is DSTest {
 
     function testFailSellWBTCRevertIfRiseTokenNotInitialized() public {
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
-        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, address(uniswapAdapterCached), address(oracleAdapterCached))));
+        RiseToken wbtcRise = RiseToken(payable(factory.create(fwbtc, fusdc, uniswapAdapterCached, oracleAdapterCached)));
         uint256 shares = 0.1 * 1e8;
         uint256 ethAmountOutMin = previewSell(wbtcRise, shares);
         ethAmountOutMin -= (0.03 ether * ethAmountOutMin) / 1 ether; // slippage tollerance 3%
@@ -722,12 +722,6 @@ contract RiseTokenTest is DSTest {
     }
 
     function testSellWBTCRISEForUSDC() public {
-        uint256 shares = 0.1 * 1e8;
-        uint256 usdcAmountInMax = previewBuy(wbtcRiseCached, shares, usdc);
-        usdcAmountInMax += (0.05 ether * usdcAmountInMax) / 1 ether; // Slippage tollerance 5%
-        uint256 usdcAmountOutMin = previewSell(wbtcRiseCached, shares, usdc);
-        usdcAmountOutMin -= (0.03 ether * usdcAmountOutMin) / 1 ether; // Slippage tollerance 3%
-
         // Make sure these are value doesn't not change
         uint256 cps = wbtcRiseCached.collateralPerShare();
         uint256 dps = wbtcRiseCached.debtPerShare();
@@ -742,11 +736,16 @@ contract RiseTokenTest is DSTest {
         User user = new User(wbtcRiseCached);
 
         // User buy the token
+        uint256 shares = 0.1 * 1e8;
+        uint256 usdcAmountInMax = previewBuy(wbtcRiseCached, shares, usdc);
+        usdcAmountInMax += (0.05 ether * usdcAmountInMax) / 1 ether; // Slippage tollerance 5%
         hevm.setUSDCBalance(address(user), usdcAmountInMax);
         user.buy(shares, usdc, usdcAmountInMax);
         assertGt(wbtcRiseCached.balanceOf(feeRecipient), prevFeeBalance, "check fee recipient balance after buy");
 
         // User sell the token for USDC
+        uint256 usdcAmountOutMin = previewSell(wbtcRiseCached, shares, usdc);
+        usdcAmountOutMin -= (0.05 ether * usdcAmountOutMin) / 1 ether; // Slippage tollerance 5%
         user.sell(shares, usdc, usdcAmountOutMin);
         assertGt(wbtcRiseCached.balanceOf(feeRecipient), prevFeeBalance, "check fee recipient balance after sell");
 
