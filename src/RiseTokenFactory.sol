@@ -58,8 +58,8 @@ contract RiseTokenFactory is IRiseTokenFactory, Ownable {
             tokenName,
             tokenSymbol,
             RiseTokenFactory(address(this)),
-            address(_fCollateral),
-            address(_fDebt),
+            _fCollateral,
+            _fDebt,
             address(_uniswapAdapter),
             address(_oracleAdapter)
         );
