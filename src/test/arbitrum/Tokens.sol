@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
+
 
 // ERC20 addresses on Arbitrum
 address constant weth = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;

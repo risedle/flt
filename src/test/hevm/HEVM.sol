@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
+
 
 import { usdc, usdcSlot } from "chain/Tokens.sol";
 import { gohm, gohmSlot } from "chain/Tokens.sol";
