@@ -35,6 +35,7 @@ contract RiseTokenFactory is IRiseTokenFactory, Ownable {
 
     /// @inheritdoc IRiseTokenFactory
     function setFeeRecipient(address _newRecipient) external onlyOwner {
+        if (_newRecipient == feeRecipient) revert FeeRecipientNotChanged();
         feeRecipient = _newRecipient;
         emit FeeRecipientUpdated(_newRecipient);
     }
