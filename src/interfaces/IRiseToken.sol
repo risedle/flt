@@ -310,6 +310,48 @@ interface IRiseToken is IERC20 {
      *
      * In this case, market price is determined using Rari Fuse Oracle Adapter.
      *
+     * ------------
+     * Maximum Swap Amount
+     *
+     * The maximum swap amount is determined by the rebalancing step.
+     *
+     * Lr : Leverage ratio after rebalancing
+     * L  : Current leverage ratio
+     * ΔL : The rebelancing step
+     *      ΔL > 0 leveraging up
+     *      ΔL < 0 leveraging down
+     * V  : Net asset value
+     * C  : Current collateral value
+     * Cr : Collateral value after rebalancing
+     * D  : Current debt value
+     * Dr : Debt value after rebalancing
+     *
+     * The rebalancing process is defined as below:
+     *
+     *     Lr = L + ΔL ................................................... (1)
+     *
+     * The leverage ratio is defined as below:
+     *
+     *     L  = C / V .................................................... (2)
+     *     Lr = Cr / Vr .................................................. (3)
+     *
+     * The net asset value is defined as below:
+     *
+     *     V  = C - D .................................................... (4)
+     *     Vr = Cr - Dr .................................................. (5)
+     *
+     * The net asset value before and after rebalancing should be equal.
+     *
+     *     V = Vr ........................................................ (6)
+     *
+     * Using equation above we got the debt value after rebalancing given ΔL:
+     *
+     *     Dr = C - D + Cr ............................................... (7)
+     *     Dr = D + (ΔL * V) ............................................. (8)
+     *
+     * So the maximum swap amount is ΔLV.
+     *     ΔL > 0 Supply collateral then borrow (swapCollateralForETH)
+     *     ΔL < 0 Repay debt and redeem collateral (swapETHForCollateral)
      */
 
      /**
