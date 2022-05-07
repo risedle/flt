@@ -50,7 +50,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     bool    public isInitialized;
 
 
-    /// ███ Constructors ███████████████████████████████████████████████████████
+    /// ███ Constructor ██████████████████████████████████████████████████████
 
     constructor(
         string memory _name,
@@ -107,7 +107,11 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         totalDebt = fDebt.borrowBalanceCurrent(address(this));
     }
 
-    function onInitialize(uint256 _wethAmount, uint256 _collateralAmount, bytes memory _data) internal {
+    function onInitialize(
+        uint256 _wethAmount,
+        uint256 _collateralAmount,
+        bytes memory _data
+    ) internal {
         isInitialized = true;
         (InitializeParams memory params) = abi.decode(_data, (InitializeParams));
 
@@ -115,14 +119,19 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         address[] memory markets = new address[](2);
         markets[0] = address(fCollateral);
         markets[1] = address(fDebt);
-        uint256[] memory marketStatus = IFuseComptroller(fCollateral.comptroller()).enterMarkets(markets);
-        if (marketStatus[0] != 0 && marketStatus[1] != 0) revert FuseError(marketStatus[0]);
+        IFuseComptroller troll = IFuseComptroller(fCollateral.comptroller());
+        uint256[] memory res = troll.enterMarkets(markets);
+        if (res[0] != 0 && res[1] != 0) revert FuseError(res[0]);
 
         supplyThenBorrow(_collateralAmount, params.borrowAmount);
 
         // Swap debt asset to WETH
         debt.safeIncreaseAllowance(address(uniswapAdapter), params.borrowAmount);
-        uint256 wethAmountFromBorrow = uniswapAdapter.swapExactTokensForWETH(address(debt)  , params.borrowAmount, 0);
+        uint256 wethAmountFromBorrow = uniswapAdapter.swapExactTokensForWETH(
+            address(debt),
+            params.borrowAmount,
+            0
+        );
 
         // Get owed WETH
         uint256 owedWETH = _wethAmount - wethAmountFromBorrow;
@@ -250,12 +259,22 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     }
 
     /// @inheritdoc IRiseToken
-    function initialize(InitializeParams memory _params) external payable onlyOwner {
+    function initialize(
+        InitializeParams memory _params
+    ) external payable onlyOwner {
         if (isInitialized == true) revert AlreadyInitialized();
         if (msg.value == 0) revert InputAmountInvalid();
         _params.ethAmount = msg.value;
-        bytes memory data = abi.encode(FlashSwapType.Initialize, abi.encode(_params));
-        uniswapAdapter.flashSwapWETHForExactTokens(address(collateral), _params.collateralAmount, data);
+        _params.initializer = msg.sender;
+        bytes memory data = abi.encode(
+            FlashSwapType.Initialize,
+            abi.encode(_params)
+        );
+        uniswapAdapter.flashSwapWETHForExactTokens(
+            address(collateral),
+            _params.collateralAmount,
+            data
+        );
     }
 
 
@@ -282,7 +301,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         }
     }
 
-    /// ███ Read-only functions ████████████████████████████████████████████████
+    /// ███ Read-only functions ██████████████████████████████████████████████
 
     /// @inheritdoc IRiseToken
     function collateralPerShare() public view returns (uint256 _cps) {
@@ -305,12 +324,15 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         uint256 cAmount = _shares.mulDivDown(totalCollateral, totalSupply());
         uint256 dAmount = _shares.mulDivDown(totalDebt, totalSupply());
 
-        // Get the price in ETH
-        uint256 cPrice = oracleAdapter.price(address(collateral));
-        uint256 dPrice = oracleAdapter.price(address(debt));
+        // Get the collateral value
+        uint256 cv = oracleAdapter.totalValue(
+            address(collateral),
+            address(debt),
+            cAmount
+        );
 
-        // Get total value in ETH
-        _value = cAmount.mulWadDown(cPrice) - dAmount.mulWadDown(dPrice);
+        // Get total value in terms of debt token
+        _value = cv - dAmount;
     }
 
     /// @inheritdoc IRiseToken
@@ -322,8 +344,12 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     /// @inheritdoc IRiseToken
     function leverageRatio() public view returns (uint256 _lr) {
         if (!isInitialized) return 0;
-        uint256 cPrice = oracleAdapter.price(address(collateral));
-        _lr = totalCollateral.mulWadDown(cPrice).divWadDown(value(totalSupply()));
+        uint256 cv = oracleAdapter.totalValue(
+            address(collateral),
+            address(debt),
+            totalCollateral
+        );
+        _lr = cv.divWadDown(cv - totalDebt);
     }
 
 
@@ -387,94 +413,56 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     /// ███ Market makers ██████████████████████████████████████████████████████
 
     /// @inheritdoc IRiseToken
-    function swapExactCollateralForETH(
-        uint256 _amountIn,
-        uint256 _amountOutMin
-    ) external returns (uint256 _amountOut) {
+    function push(uint256 _amountIn) external returns (uint256 _amountOut) {
         /// ███ Checks
         if (leverageRatio() > minLeverageRatio) revert NoNeedToRebalance();
         if (_amountIn == 0) return 0;
 
         // Discount the price
-        uint256 price = oracleAdapter.price(address(collateral));
-        price += discount.mulWadDown(price);
-        _amountOut = _amountIn.mulWadDown(price);
-        if (_amountOut < _amountOutMin) revert SwapAmountTooLarge();
+        uint256 amountInValue = oracleAdapter.totalValue(
+            address(collateral),
+            address(debt),
+            _amountIn
+        );
+        _amountOut = amountInValue + discount.mulWadDown(amountInValue);
 
         // Cap the swap amount
         // This is our buying power; can't buy collateral more than this
-        uint256 maxBorrowValue = step.mulWadDown(value(totalSupply()));
-        if (_amountOut >= maxBorrowValue) revert SwapAmountTooLarge();
+        uint256 maxBorrowAmount = step.mulWadDown(value(totalSupply()));
+        if (_amountOut > maxBorrowAmount) revert SwapAmountTooLarge();
 
         /// ███ Effects
 
-        // Transfer collateral to the contract
+        // Supply then borrow
         collateral.safeTransferFrom(msg.sender, address(this), _amountIn);
-
-        uint256 dPrice = oracleAdapter.price(address(debt));
-        uint256 maxBorrowAmount = maxBorrowValue.divWadDown(dPrice);
-        supplyThenBorrow(_amountIn, maxBorrowAmount);
-
-        // Swap some of debt token to WETH
-        debt.safeIncreaseAllowance(address(uniswapAdapter), maxBorrowAmount);
-        uint256 swapAmount = uniswapAdapter.swapTokensForExactWETH(
-            address(debt),
-            _amountOut,
-            maxBorrowAmount
-        );
-
-        // Send back the leftover to rari fuse
-        if (swapAmount < maxBorrowAmount) {
-            uint256 repayAmount = maxBorrowAmount - swapAmount;
-            debt.safeIncreaseAllowance(address(fDebt), repayAmount);
-            uint256 repayResponse = fDebt.repayBorrow(repayAmount);
-            if (repayResponse != 0) revert FuseError(repayResponse);
-            totalDebt = fDebt.borrowBalanceCurrent(address(this));
-        }
-
-        // Convert WETH to ETH
-        weth.safeIncreaseAllowance(address(weth), _amountOut);
-        weth.withdraw(_amountOut);
-
-        /// ███ Interactions
-        (bool sent, ) = msg.sender.call{value: _amountOut}("");
-        if (!sent) revert FailedToSendETH(msg.sender, _amountOut);
+        supplyThenBorrow(_amountIn, _amountOut);
+        debt.safeTransfer(msg.sender, _amountOut);
     }
 
     /// @inheritdoc IRiseToken
-    function swapExactETHForCollateral(
-        uint256 _amountOutMin
-    ) external payable returns (uint256 _amountOut) {
+    function pull(uint256 _amountOut) external returns (uint256 _amountIn) {
         /// ███ Checks
         if (leverageRatio() < maxLeverageRatio) revert NoNeedToRebalance();
-        if (msg.value == 0) return 0;
+        if (_amountOut == 0) return 0;
 
         // Discount the price
-        uint256 price = oracleAdapter.price(address(collateral));
-        price -= discount.mulWadDown(price);
-        _amountOut = msg.value.divWadDown(price);
-        if (_amountOut < _amountOutMin) revert SwapAmountTooLarge();
+        uint256 amountOutValue = oracleAdapter.totalValue(
+            address(collateral),
+            address(debt),
+            _amountOut
+        );
+        _amountIn = amountOutValue - discount.mulWadDown(amountOutValue);
 
         // Cap the swap amount
         // This is our selling power; can't sell collateral more than this
-        uint256 maxRepayValue = step.mulWadDown(value(totalSupply()));
-        if (msg.value >= maxRepayValue) revert SwapAmountTooLarge();
-
-        // Convert ETH to WETH
-        weth.deposit{value: msg.value}();
-
-        // Swap WETH to debt token
-        weth.safeIncreaseAllowance(address(uniswapAdapter), msg.value);
-        uint256 repayAmountFromETH = uniswapAdapter.swapExactWETHForTokens(
-            address(debt),
-            msg.value,
-            0
-        );
+        uint256 maxRepayAmount = step.mulWadDown(value(totalSupply()));
+        if (_amountIn > maxRepayAmount) revert SwapAmountTooLarge();
 
         /// ███ Effects
-        repayThenRedeem(repayAmountFromETH, _amountOut);
 
-        /// ███ Interactions
+        // Repay then redeem
+        debt.safeTransferFrom(msg.sender, address(this), _amountIn);
+        repayThenRedeem(_amountIn, _amountOut);
         collateral.safeTransfer(msg.sender, _amountOut);
     }
 
