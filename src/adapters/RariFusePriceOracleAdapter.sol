@@ -69,7 +69,7 @@ contract RariFusePriceOracleAdapter is IRariFusePriceOracleAdapter, Ownable {
     }
 
     /// @inheritdoc IRariFusePriceOracleAdapter
-    function value(
+    function totalValue(
         address _base,
         address _quote,
         uint256 _baseAmount

@@ -96,7 +96,7 @@ interface IRariFusePriceOracleAdapter {
      * @param _baseAmount The amount of base token (e.g. 100 gOHM)
      * @return _value The total value in quote decimals precision (e.g. USDC is 1e6)
      */
-    function value(
+    function totalValue(
         address _base,
         address _quote,
         uint256 _baseAmount
