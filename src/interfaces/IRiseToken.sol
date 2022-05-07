@@ -149,7 +149,7 @@ interface IRiseToken is IERC20 {
     error NoNeedToRebalance();
 
     /// @notice Error is raised if liqudity to buy or sell collateral is not enough
-    error LiquidityIsNotEnough();
+    error SwapAmountTooLarge();
 
     /// @notice Error is raised if something happen when interacting with Rari Fuse
     error FuseError(uint256 code);
@@ -196,35 +196,21 @@ interface IRiseToken is IERC20 {
     function debtPerShare() external view returns (uint256 _dps);
 
     /**
-     * @notice Gets the value of the Rise Token in ETH
+     * @notice Gets the value of the Rise Token in terms of debt token
      * @param _shares The amount of Rise Token
-     * @return _value The value of the Rise Token in 1e18 precision
+     * @return _value The value of the Rise Token is terms of debt token
      */
     function value(uint256 _shares) external view returns (uint256 _value);
 
     /**
-     * @notice Gets the net-asset value of the Rise Token in specified token
-     * @dev This function may revert if _quote token is not configured in Rari
-     *      Fuse Price Oracle
-     * @param _shares The amount of Rise Token
-     * @param _quote The token address used as quote
-     * @return _value The net-asset value of the Rise Token in token decimals
-     *                precision (ex: USDC is 1e6)
-     */
-    function value(
-        uint256 _shares,
-        address _quote
-    ) external view returns (uint256 _value);
-
-    /**
-     * @notice Gets the net-asset value of the Rise Token in ETH
-     * @return _nav The net-asset value of the Rise Token in 1e18 precision
+     * @notice Gets the net-asset value of the Rise Token in debt token
+     * @return _nav The net-asset value of the Rise Token
      */
     function nav() external view returns (uint256 _nav);
 
     /**
      * @notice Gets the leverage ratio of the Rise Token
-     * @return _lr Leverage ratio in 1e18 precision
+     * @return _lr Leverage ratio in 1e18 precision (e.g. 2x is 2*1e18)
      */
     function leverageRatio() external view returns (uint256 _lr);
 
@@ -279,8 +265,8 @@ interface IRiseToken is IERC20 {
      *     Rise Token want collateral (ex: gOHM)
      *     Rise Token have liquid asset (ex: USDC)
      *
-     * Market makers can swap collateral to ETH if leverage ratio below minimal
-     * Leverage ratio.
+     * Market makers can swap collateral (ex: gOHM) to the debt token
+     * (ex: USDC) if leverage ratio below minimal Leverage ratio.
      *
      * ===== Leveraging Down
      * When collateral (ex: gOHM) price is going down, the net-asset value of
@@ -294,19 +280,25 @@ interface IRiseToken is IERC20 {
      *     Rise Token want liquid asset (ex: USDC)
      *     Rise Token have collateral (ex: gOHM)
      *
-     * Market makers can swap ETH to collateral if leverage ratio above maximum
-     * Leverage ratio.
+     * Market makers can swap debt token (ex: USDC) to collateral token
+     * (ex: gOHM) if leverage ratio above maximum Leverage ratio.
      *
      * -----------
      *
      * In order to incentives the swap process, Rise Token will give specified
      * discount price 0.6%.
      *
-     * swapColleteralForETH -> Market Makers can sell collateral +0.6% above the
-     *                         market price
+     * push: Market Makers can sell collateral +0.6% above the market price.
+     *       For example: suppose the gOHM price is 2000 USDC, when Rise Token
+     *       need to increase the leverage ratio, anyone can send 1 gOHM to
+     *       Rise Token contract then they will receive 2000 USDC + 12 USDC in
+     *       exchange.
      *
-     * swapETHForCollateral -> Market Makers can buy collateral -0.6% below the
-     *                         market price
+     * pull: Market Makers can buy collateral -0.6% below the market price
+     *       For example: suppose the gOHM price is 2000 USDC, when Rise Token
+     *       need to decrease the leverage ratio, anyone can send 2000 USDC to
+     *       Rise Token contract then they will receive 1 gOHM + 0.006 gOHM in
+     *       exchange.
      *
      * In this case, market price is determined using Rari Fuse Oracle Adapter.
      *
@@ -355,25 +347,20 @@ interface IRiseToken is IERC20 {
      */
 
      /**
-      * @notice Swaps collateral for ETH
+      * @notice Swaps collateral token (ex: gOHM) for debt token (ex: USDC)
       * @dev Anyone can execute this if leverage ratio is below minimum.
       * @param _amountIn The amount of collateral
-      * @param _amountOutMin The minimum amount of ETH to be received
-      * @return _amountOut The amount of ETH that received by msg.sender
+      * @return _amountOut The amount of debt token that received by msg.sender
       */
-    function swapExactCollateralForETH(
-        uint256 _amountIn,
-        uint256 _amountOutMin
-    ) external returns (uint256 _amountOut);
+    function push(uint256 _amountIn) external returns (uint256 _amountOut);
 
      /**
-      * @notice Swaps ETH for collateral
+      * @notice Swaps debt token (ex: USDC) for collateral token (ex: gOHM)
       * @dev Anyone can execute this if leverage ratio is below minimum.
-      * @param _amountOutMin The minimum amount of collateral
-      * @return _amountOut The amount of collateral
+      * @param _amountOut The amount of collateral token that will received by
+      *        msg.sender
+      * @return _amountIn The amount of debt token send by msg.sender
       */
-    function swapExactETHForCollateral(
-        uint256 _amountOutMin
-    ) external payable returns (uint256 _amountOut);
+    function pull(uint256 _amountOut) external returns (uint256 _amountIn);
 
 }
