@@ -13,6 +13,7 @@ import { IRariFusePriceOracle } from "../interfaces/IRariFusePriceOracle.sol";
  * @notice Adapter for Rari Fuse Price Oracle
  */
 contract RariFusePriceOracleAdapter is IRariFusePriceOracleAdapter, Ownable {
+
     /// ███ Libraries ████████████████████████████████████████████████████████
 
     using FixedPointMathLib for uint256;
@@ -44,6 +45,7 @@ contract RariFusePriceOracleAdapter is IRariFusePriceOracleAdapter, Ownable {
 
     /// @inheritdoc IRariFusePriceOracleAdapter
     function isConfigured(address _token) external view returns (bool) {
+        if (_token == address(0)) return true;
         if (oracles[_token].precision == 0) return false;
         return true;
     }
@@ -53,6 +55,7 @@ contract RariFusePriceOracleAdapter is IRariFusePriceOracleAdapter, Ownable {
 
     /// @inheritdoc IRariFusePriceOracleAdapter
     function price(address _token) public view returns (uint256 _price) {
+        if (_token == address(0)) return 1 ether;
         if (oracles[_token].precision == 0) revert OracleNotExists(_token);
         _price = oracles[_token].oracle.price(_token);
     }
@@ -63,6 +66,7 @@ contract RariFusePriceOracleAdapter is IRariFusePriceOracleAdapter, Ownable {
         address _quote
     ) public view returns (uint256 _price) {
         uint256 basePriceInETH = price(_base);
+        if (_quote == address(0)) return basePriceInETH;
         uint256 quotePriceInETH = price(_quote);
         uint256 priceInETH = basePriceInETH.divWadDown(quotePriceInETH);
         _price = priceInETH.mulWadDown(oracles[_quote].precision);
@@ -75,6 +79,7 @@ contract RariFusePriceOracleAdapter is IRariFusePriceOracleAdapter, Ownable {
         uint256 _baseAmount
     ) external view returns (uint256 _value) {
         uint256 p = price(_base, _quote);
+        if(_base == address(0)) return _baseAmount.mulWadDown(p);
         _value = _baseAmount.mulDivDown(p, oracles[_base].precision);
     }
 }
