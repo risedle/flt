@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-
 import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
 import { ERC20 } from "openzeppelin/token/ERC20/ERC20.sol";
 
@@ -46,24 +45,21 @@ interface IRiseToken is IERC20 {
      * @notice Parameters that used to buy the Rise Token
      * @param buyer The msg.sender
      * @param recipient The address that will receive the Rise Token
-     * @param tokenIn The ERC20 that used to buy the Rise Token
      * @param collateralAmount The amount of token that will supplied to Rari Fuse
      * @param debtAmount The amount of token that will borrowed from Rari Fuse
      * @param shares The amount of Rise Token to be minted
      * @param fee The amount of Rise Token as fee
-     * @param amountInMax The maximum amount of tokenIn, useful for setting the
-     *                    slippage tolerance.
+     * @param wethAmount The WETH amount from tokenIn
      * @param nav The net-asset value of the Rise Token
      */
     struct BuyParams {
         address buyer;
         address recipient;
-        ERC20 tokenIn;
         uint256 collateralAmount;
         uint256 debtAmount;
         uint256 shares;
         uint256 fee;
-        uint256 amountInMax;
+        uint256 wethAmount;
         uint256 nav;
     }
 
@@ -71,24 +67,19 @@ interface IRiseToken is IERC20 {
      * @notice Parameters that used to buy the Rise Token
      * @param seller The msg.sender
      * @param recipient The address that will receive the tokenOut
-     * @param tokenOut The ERC20 that will received by recipient
      * @param collateralAmount The amount of token that will redeemed from Rari Fuse
      * @param debtAmount The amount of token that will repay to Rari Fuse
      * @param shares The amount of Rise Token to be burned
      * @param fee The amount of Rise Token as fee
-     * @param amountOutMin The minimum amount of tokenOut, useful for setting the
-     *                    slippage tolerance.
      * @param nav The net-asset value of the Rise Token
      */
     struct SellParams {
         address seller;
         address recipient;
-        ERC20 tokenOut;
         uint256 collateralAmount;
         uint256 debtAmount;
         uint256 shares;
         uint256 fee;
-        uint256 amountOutMin;
         uint256 nav;
     }
 
@@ -130,7 +121,7 @@ interface IRiseToken is IERC20 {
     error NotUniswapAdapter();
 
     /// @notice Error is raised if mint amount is invalid
-    error InputAmountInvalid();
+    error InitializeAmountInInvalid();
 
     /// @notice Error is raised if the owner run the initialize() twice
     error AlreadyInitialized();
@@ -222,13 +213,14 @@ interface IRiseToken is IERC20 {
      * @param _shares The amount of Rise Token to buy
      * @param _recipient The recipient of the transaction.
      * @param _tokenIn ERC20 used to buy the Rise Token
+     * @return _amountIn The amount of tokenIn used to mint Rise Token
      */
     function buy(
         uint256 _shares,
         address _recipient,
         address _tokenIn,
         uint256 _amountInMax
-    ) external payable;
+    ) external payable returns (uint256 _amountIn);
 
     /**
      * @notice Sell Rise Token for tokenOut. The _shares amount of Rise Token will be burned.
@@ -242,7 +234,7 @@ interface IRiseToken is IERC20 {
         address _recipient,
         address _tokenOut,
         uint256 _amountOutMin
-    ) external;
+    ) external returns (uint256 _amountOut);
 
 
     /// ███ Market makers ██████████████████████████████████████████████████████
