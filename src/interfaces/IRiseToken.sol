@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-
 import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
 import { ERC20 } from "openzeppelin/token/ERC20/ERC20.sol";
 
@@ -46,24 +45,21 @@ interface IRiseToken is IERC20 {
      * @notice Parameters that used to buy the Rise Token
      * @param buyer The msg.sender
      * @param recipient The address that will receive the Rise Token
-     * @param tokenIn The ERC20 that used to buy the Rise Token
      * @param collateralAmount The amount of token that will supplied to Rari Fuse
      * @param debtAmount The amount of token that will borrowed from Rari Fuse
      * @param shares The amount of Rise Token to be minted
      * @param fee The amount of Rise Token as fee
-     * @param amountInMax The maximum amount of tokenIn, useful for setting the
-     *                    slippage tolerance.
+     * @param wethAmount The WETH amount from tokenIn
      * @param nav The net-asset value of the Rise Token
      */
     struct BuyParams {
         address buyer;
         address recipient;
-        ERC20 tokenIn;
         uint256 collateralAmount;
         uint256 debtAmount;
         uint256 shares;
         uint256 fee;
-        uint256 amountInMax;
+        uint256 wethAmount;
         uint256 nav;
     }
 
@@ -71,24 +67,19 @@ interface IRiseToken is IERC20 {
      * @notice Parameters that used to buy the Rise Token
      * @param seller The msg.sender
      * @param recipient The address that will receive the tokenOut
-     * @param tokenOut The ERC20 that will received by recipient
      * @param collateralAmount The amount of token that will redeemed from Rari Fuse
      * @param debtAmount The amount of token that will repay to Rari Fuse
      * @param shares The amount of Rise Token to be burned
      * @param fee The amount of Rise Token as fee
-     * @param amountOutMin The minimum amount of tokenOut, useful for setting the
-     *                    slippage tolerance.
      * @param nav The net-asset value of the Rise Token
      */
     struct SellParams {
         address seller;
         address recipient;
-        ERC20 tokenOut;
         uint256 collateralAmount;
         uint256 debtAmount;
         uint256 shares;
         uint256 fee;
-        uint256 amountOutMin;
         uint256 nav;
     }
 
@@ -130,7 +121,7 @@ interface IRiseToken is IERC20 {
     error NotUniswapAdapter();
 
     /// @notice Error is raised if mint amount is invalid
-    error InputAmountInvalid();
+    error InitializeAmountInInvalid();
 
     /// @notice Error is raised if the owner run the initialize() twice
     error AlreadyInitialized();
@@ -149,7 +140,7 @@ interface IRiseToken is IERC20 {
     error NoNeedToRebalance();
 
     /// @notice Error is raised if liqudity to buy or sell collateral is not enough
-    error LiquidityIsNotEnough();
+    error SwapAmountTooLarge();
 
     /// @notice Error is raised if something happen when interacting with Rari Fuse
     error FuseError(uint256 code);
@@ -196,35 +187,21 @@ interface IRiseToken is IERC20 {
     function debtPerShare() external view returns (uint256 _dps);
 
     /**
-     * @notice Gets the value of the Rise Token in ETH
+     * @notice Gets the value of the Rise Token in terms of debt token
      * @param _shares The amount of Rise Token
-     * @return _value The value of the Rise Token in 1e18 precision
+     * @return _value The value of the Rise Token is terms of debt token
      */
     function value(uint256 _shares) external view returns (uint256 _value);
 
     /**
-     * @notice Gets the net-asset value of the Rise Token in specified token
-     * @dev This function may revert if _quote token is not configured in Rari
-     *      Fuse Price Oracle
-     * @param _shares The amount of Rise Token
-     * @param _quote The token address used as quote
-     * @return _value The net-asset value of the Rise Token in token decimals
-     *                precision (ex: USDC is 1e6)
-     */
-    function value(
-        uint256 _shares,
-        address _quote
-    ) external view returns (uint256 _value);
-
-    /**
-     * @notice Gets the net-asset value of the Rise Token in ETH
-     * @return _nav The net-asset value of the Rise Token in 1e18 precision
+     * @notice Gets the net-asset value of the Rise Token in debt token
+     * @return _nav The net-asset value of the Rise Token
      */
     function nav() external view returns (uint256 _nav);
 
     /**
      * @notice Gets the leverage ratio of the Rise Token
-     * @return _lr Leverage ratio in 1e18 precision
+     * @return _lr Leverage ratio in 1e18 precision (e.g. 2x is 2*1e18)
      */
     function leverageRatio() external view returns (uint256 _lr);
 
@@ -236,13 +213,14 @@ interface IRiseToken is IERC20 {
      * @param _shares The amount of Rise Token to buy
      * @param _recipient The recipient of the transaction.
      * @param _tokenIn ERC20 used to buy the Rise Token
+     * @return _amountIn The amount of tokenIn used to mint Rise Token
      */
     function buy(
         uint256 _shares,
         address _recipient,
         address _tokenIn,
         uint256 _amountInMax
-    ) external payable;
+    ) external payable returns (uint256 _amountIn);
 
     /**
      * @notice Sell Rise Token for tokenOut. The _shares amount of Rise Token will be burned.
@@ -256,7 +234,7 @@ interface IRiseToken is IERC20 {
         address _recipient,
         address _tokenOut,
         uint256 _amountOutMin
-    ) external;
+    ) external returns (uint256 _amountOut);
 
 
     /// ███ Market makers ██████████████████████████████████████████████████████
@@ -279,8 +257,8 @@ interface IRiseToken is IERC20 {
      *     Rise Token want collateral (ex: gOHM)
      *     Rise Token have liquid asset (ex: USDC)
      *
-     * Market makers can swap collateral to ETH if leverage ratio below minimal
-     * Leverage ratio.
+     * Market makers can swap collateral (ex: gOHM) to the debt token
+     * (ex: USDC) if leverage ratio below minimal Leverage ratio.
      *
      * ===== Leveraging Down
      * When collateral (ex: gOHM) price is going down, the net-asset value of
@@ -294,44 +272,87 @@ interface IRiseToken is IERC20 {
      *     Rise Token want liquid asset (ex: USDC)
      *     Rise Token have collateral (ex: gOHM)
      *
-     * Market makers can swap ETH to collateral if leverage ratio above maximum
-     * Leverage ratio.
+     * Market makers can swap debt token (ex: USDC) to collateral token
+     * (ex: gOHM) if leverage ratio above maximum Leverage ratio.
      *
      * -----------
      *
      * In order to incentives the swap process, Rise Token will give specified
      * discount price 0.6%.
      *
-     * swapColleteralForETH -> Market Makers can sell collateral +0.6% above the
-     *                         market price
+     * push: Market Makers can sell collateral +0.6% above the market price.
+     *       For example: suppose the gOHM price is 2000 USDC, when Rise Token
+     *       need to increase the leverage ratio, anyone can send 1 gOHM to
+     *       Rise Token contract then they will receive 2000 USDC + 12 USDC in
+     *       exchange.
      *
-     * swapETHForCollateral -> Market Makers can buy collateral -0.6% below the
-     *                         market price
+     * pull: Market Makers can buy collateral -0.6% below the market price
+     *       For example: suppose the gOHM price is 2000 USDC, when Rise Token
+     *       need to decrease the leverage ratio, anyone can send 2000 USDC to
+     *       Rise Token contract then they will receive 1 gOHM + 0.006 gOHM in
+     *       exchange.
      *
      * In this case, market price is determined using Rari Fuse Oracle Adapter.
      *
+     * ------------
+     * Maximum Swap Amount
+     *
+     * The maximum swap amount is determined by the rebalancing step.
+     *
+     * Lr : Leverage ratio after rebalancing
+     * L  : Current leverage ratio
+     * ΔL : The rebelancing step
+     *      ΔL > 0 leveraging up
+     *      ΔL < 0 leveraging down
+     * V  : Net asset value
+     * C  : Current collateral value
+     * Cr : Collateral value after rebalancing
+     * D  : Current debt value
+     * Dr : Debt value after rebalancing
+     *
+     * The rebalancing process is defined as below:
+     *
+     *     Lr = L + ΔL ................................................... (1)
+     *
+     * The leverage ratio is defined as below:
+     *
+     *     L  = C / V .................................................... (2)
+     *     Lr = Cr / Vr .................................................. (3)
+     *
+     * The net asset value is defined as below:
+     *
+     *     V  = C - D .................................................... (4)
+     *     Vr = Cr - Dr .................................................. (5)
+     *
+     * The net asset value before and after rebalancing should be equal.
+     *
+     *     V = Vr ........................................................ (6)
+     *
+     * Using equation above we got the debt value after rebalancing given ΔL:
+     *
+     *     Dr = C - D + Cr ............................................... (7)
+     *     Dr = D + (ΔL * V) ............................................. (8)
+     *
+     * So the maximum swap amount is ΔLV.
+     *     ΔL > 0 Supply collateral then borrow (swapCollateralForETH)
+     *     ΔL < 0 Repay debt and redeem collateral (swapETHForCollateral)
      */
 
      /**
-      * @notice Swaps collateral for ETH
+      * @notice Swaps collateral token (ex: gOHM) for debt token (ex: USDC)
       * @dev Anyone can execute this if leverage ratio is below minimum.
       * @param _amountIn The amount of collateral
-      * @param _amountOutMin The minimum amount of ETH to be received
-      * @return _amountOut The amount of ETH that received by msg.sender
+      * @return _amountOut The amount of debt token that received by msg.sender
       */
-    function swapExactCollateralForETH(
-        uint256 _amountIn,
-        uint256 _amountOutMin
-    ) external returns (uint256 _amountOut);
+    function push(uint256 _amountIn) external returns (uint256 _amountOut);
 
      /**
-      * @notice Swaps ETH for collateral
+      * @notice Swaps debt token (ex: USDC) for collateral token (ex: gOHM)
       * @dev Anyone can execute this if leverage ratio is below minimum.
-      * @param _amountOutMin The minimum amount of collateral
-      * @return _amountOut The amount of collateral
+      * @param _amountOut The amount of collateral token that will received by
+      *        msg.sender
+      * @return _amountIn The amount of debt token send by msg.sender
       */
-    function swapExactETHForCollateral(
-        uint256 _amountOutMin
-    ) external payable returns (uint256 _amountOut);
+    function pull(uint256 _amountOut) external returns (uint256 _amountIn);
 
 }

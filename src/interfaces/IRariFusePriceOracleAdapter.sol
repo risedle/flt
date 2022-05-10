@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-
 import { IRariFusePriceOracle } from "./IRariFusePriceOracle.sol";
 
 /**
@@ -10,20 +9,20 @@ import { IRariFusePriceOracle } from "./IRariFusePriceOracle.sol";
  * @notice Adapter for Rari Fuse Price Oracle
  */
 interface IRariFusePriceOracleAdapter {
-    /// ███ Types ██████████████████████████████████████████████████████████████
+    /// ███ Types ████████████████████████████████████████████████████████████
 
     /**
      * @notice Oracle metadata
      * @param oracle The Rari Fuse oracle
-     * @param decimals The token decimals
+     * @param precision The token precision (e.g. USDC is 1e6)
      */
     struct OracleMetadata {
         IRariFusePriceOracle oracle;
-        uint8 decimals;
+        uint256 precision;
     }
 
 
-    /// ███ Events █████████████████████████████████████████████████████████████
+    /// ███ Events ███████████████████████████████████████████████████████████
 
     /**
      * @notice Event emitted when oracle data is updated
@@ -36,26 +35,28 @@ interface IRariFusePriceOracleAdapter {
     );
 
 
-    /// ███ Errors █████████████████████████████████████████████████████████████
+    /// ███ Errors ███████████████████████████████████████████████████████████
 
     /// @notice Error is raised when base or quote token oracle is not exists
     error OracleNotExists(address token);
 
 
-    /// ███ Owner actions ██████████████████████████████████████████████████████
+    /// ███ Owner actions ████████████████████████████████████████████████████
 
     /**
      * @notice Configure oracle for token
      * @param _token The ERC20 token
-     * @param _rariFusePriceOracle Contract that conform IRariFusePriceOracle interface
+     * @param _rariFusePriceOracle Contract that conform IRariFusePriceOracle
+     * @param _decimals The ERC20 token decimals
      */
     function configure(
         address _token,
-        address _rariFusePriceOracle
+        address _rariFusePriceOracle,
+        uint8 _decimals
     ) external;
 
 
-    /// ███ Read-only functions ████████████████████████████████████████████████
+    /// ███ Read-only functions ██████████████████████████████████████████████
 
     /**
      * @notice Returns true if oracle for the `_token` is configured
@@ -64,7 +65,7 @@ interface IRariFusePriceOracleAdapter {
     function isConfigured(address _token) external view returns (bool);
 
 
-    /// ███ Adapters ███████████████████████████████████████████████████████████
+    /// ███ Adapters █████████████████████████████████████████████████████████
 
     /**
      * @notice Gets the price of `_token` in terms of ETH (1e18 precision)
@@ -85,5 +86,20 @@ interface IRariFusePriceOracleAdapter {
         address _base,
         address _quote
     ) external view returns (uint256 _price);
+
+    /**
+     * @notice Gets the total value of `_baseAmount` in terms of `_quote`.
+     *         For example 100 gOHM/USDC will return current price of 10 gOHM
+     *         in USDC (1e6 precision).
+     * @param _base Base token address (e.g. gOHM/XXX)
+     * @param _quote Quote token address (e.g. XXX/USDC)
+     * @param _baseAmount The amount of base token (e.g. 100 gOHM)
+     * @return _value The total value in quote decimals precision (e.g. USDC is 1e6)
+     */
+    function totalValue(
+        address _base,
+        address _quote,
+        uint256 _baseAmount
+    ) external view returns (uint256 _value);
 
 }
