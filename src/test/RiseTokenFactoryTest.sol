@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
+import { IVM } from "./IVM.sol";
 
-import "ds-test/test.sol";
-import { IERC20Metadata } from "openzeppelin/token/ERC20/extensions/IERC20Metadata.sol";
-
-import { IUniswapAdapter } from "../interfaces/IUniswapAdapter.sol";
-
-import { HEVM } from "./hevm/HEVM.sol";
 import { RiseTokenFactory } from "../RiseTokenFactory.sol";
+import { IRiseTokenFactory } from "../interfaces/IRiseTokenFactory.sol";
 import { UniswapAdapter } from "../adapters/UniswapAdapter.sol";
+import { IUniswapAdapter } from "../interfaces/IUniswapAdapter.sol";
 import { RariFusePriceOracleAdapter } from "../adapters/RariFusePriceOracleAdapter.sol";
 
 import { weth, wbtc, usdc } from "chain/Tokens.sol";
@@ -20,76 +17,89 @@ import { RiseToken } from "../RiseToken.sol";
  * @title Rise Token Factory Test
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
  */
-contract RiseTokenFactoryTest is DSTest {
+contract RiseTokenFactoryTest {
 
-    HEVM private hevm;
+    /// ███ Storages █████████████████████████████████████████████████████████
 
-    function setUp() public {
-        hevm = new HEVM();
-    }
+    IVM private immutable vm = IVM(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
 
     /// @notice Test default state
     function testDefaultStorages() public {
         // Create new factory
-        address feeRecipient = hevm.addr(2);
+        address feeRecipient = vm.addr(2);
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Check
-        assertEq(factory.feeRecipient(), feeRecipient, "check fee recipient");
+        require(factory.feeRecipient() == feeRecipient, "invalid fee recipient");
     }
 
+
+    /// ███ setFeeRecipient ██████████████████████████████████████████████████
+
     /// @notice Non-owner cannot set fee recipient
-    function testFailNonOwnerCannotSetFeeRecipient() public {
+    function testSetFeeRecipientAsNonOwnerRevert() public {
         // Create new factory
-        address feeRecipient = hevm.addr(2);
+        address feeRecipient = vm.addr(2);
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Transfer ownership
-        address newOwner = hevm.addr(2);
+        address newOwner = vm.addr(2);
         factory.transferOwnership(newOwner);
 
         // Non-owner trying to set the fee recipient; It should be reverted
-        address recipient = hevm.addr(3);
+        address recipient = vm.addr(3);
+        vm.expectRevert("Ownable: caller is not the owner");
         factory.setFeeRecipient(recipient);
     }
 
     /// @notice Owner can set fee recipient
-    function testOwnerCanSetFeeRecipient() public {
+    function testSetFeeRecipientAsOwner() public {
         // Create new factory
-        address feeRecipient = hevm.addr(1);
+        address feeRecipient = vm.addr(1);
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Non-owner trying to set the fee recipient; It should be reverted
-        address recipient = hevm.addr(2);
+        address recipient = vm.addr(2);
         factory.setFeeRecipient(recipient);
 
         // Check
-        assertEq(factory.feeRecipient(), recipient);
+        require(factory.feeRecipient() == recipient, "invalid recipient");
     }
 
+
+    /// ███ create ███████████████████████████████████████████████████████████
+
     /// @notice Non-owner cannot create token
-    function testFailNonOwnerCannotCreateRiseToken() public {
+    function testCreateAsNonOwnerRevert() public {
         // Create new factory
-        address feeRecipient = hevm.addr(1);
+        address feeRecipient = vm.addr(1);
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Transfer ownership
-        address newOwner = hevm.addr(2);
+        address newOwner = vm.addr(2);
         factory.transferOwnership(newOwner);
 
         // Non-owner trying to set the fee recipient; It should be reverted
+        vm.expectRevert("Ownable: caller is not the owner");
         factory.create(
             fwbtc,
             fusdc,
-            UniswapAdapter(hevm.addr(3)),
-            RariFusePriceOracleAdapter(hevm.addr(4))
+            UniswapAdapter(vm.addr(3)),
+            RariFusePriceOracleAdapter(vm.addr(4))
         );
     }
 
+    function eq(
+        string memory a,
+        string memory b
+    ) internal pure returns (bool) {
+        return keccak256(bytes(a)) == keccak256(bytes(b));
+    }
+
     /// @notice Owner can set fee recipient
-    function testOwnerCanCreateRiseToken() public {
+    function testCreateAsOwner() public {
         // Create new factory
-        address feeRecipient = hevm.addr(1);
+        address feeRecipient = vm.addr(1);
         RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
 
         // Create new token
@@ -98,17 +108,26 @@ contract RiseTokenFactoryTest is DSTest {
         RiseToken riseToken = factory.create(fwbtc, fusdc, uniswapAdapter, oracleAdapter);
 
         // Check public properties
-        assertEq(riseToken.name(), "WBTC 2x Long Risedle");
-        assertEq(riseToken.symbol(), "WBTCRISE");
-        assertEq(riseToken.decimals(), 8);
-        assertEq(address(riseToken.factory()), address(factory), "check factory");
-        assertEq(address(riseToken.collateral()), wbtc, "check collateral");
-        assertEq(address(riseToken.debt()), usdc, "check debt");
-        assertEq(address(riseToken.fCollateral()), address(fwbtc), "check ftoken collateral");
-        assertEq(address(riseToken.fDebt()), address(fusdc), "check ftoken debt");
-        assertEq(riseToken.owner(), address(this), "check owner");
-        assertEq(address(riseToken.uniswapAdapter()), address(uniswapAdapter), "check uniswap adapter");
-        assertEq(address(riseToken.oracleAdapter()), address(oracleAdapter), "check oracle adapter");
+        string memory name = "WBTC 2x Long Risedle";
+        string memory symbol = "WBTCRISE";
+        require(eq(riseToken.name(), name), "invalid name");
+        require(eq(riseToken.symbol(), symbol), "invalid symbol");
+        require(riseToken.decimals() == 18, "invalid decimals");
+
+        require(address(riseToken.factory()) == address(factory), "invalid factory");
+        require(address(riseToken.collateral()) == wbtc, "invalid collateral");
+        require(address(riseToken.debt()) == usdc, "invalid debt");
+        require(address(riseToken.fCollateral()) == address(fwbtc), "invalid fCollateral");
+        require(address(riseToken.fDebt()) == address(fusdc), "invalid fDebt");
+        require(riseToken.owner() == address(this), "invalid owner");
+        require(
+            address(riseToken.uniswapAdapter()) == address(uniswapAdapter),
+            "invalid uniswap adapter"
+        );
+        require(
+            address(riseToken.oracleAdapter()) == address(oracleAdapter),
+            "check oracle adapter"
+        );
     }
 
 }

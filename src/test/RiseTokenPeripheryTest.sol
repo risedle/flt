@@ -13,7 +13,6 @@ import { RiseTokenFactory } from "../RiseTokenFactory.sol";
 import { UniswapAdapter } from "../adapters/UniswapAdapter.sol";
 import { IUniswapAdapter } from "../interfaces/IUniswapAdapter.sol";
 import { RariFusePriceOracleAdapter } from "../adapters/RariFusePriceOracleAdapter.sol";
-import { IfERC20 } from "../interfaces/IfERC20.sol";
 
 import { weth, usdc, wbtc } from "chain/Tokens.sol";
 import { fusdc, fwbtc } from "chain/Tokens.sol";
