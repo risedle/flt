@@ -17,21 +17,22 @@ import { RariFusePriceOracleAdapter } from "./adapters/RariFusePriceOracleAdapte
  * @notice Factory contract to create new Rise Token
  */
 contract RiseTokenFactory is IRiseTokenFactory, Ownable {
-    /// ███ Storages ███████████████████████████████████████████████████████████
+
+    /// ███ Storages █████████████████████████████████████████████████████████
 
     RiseToken[] public tokens;
     mapping(IfERC20 => mapping(IfERC20 => RiseToken)) public getToken;
     address public feeRecipient;
 
 
-    /// ███ Constructors ███████████████████████████████████████████████████████
+    /// ███ Constructors █████████████████████████████████████████████████████
 
     constructor(address _feeRecipient) {
         feeRecipient = _feeRecipient;
     }
 
 
-    /// ███ Owner actions ██████████████████████████████████████████████████████
+    /// ███ Owner actions ████████████████████████████████████████████████████
 
     /// @inheritdoc IRiseTokenFactory
     function setFeeRecipient(address _newRecipient) external onlyOwner {
