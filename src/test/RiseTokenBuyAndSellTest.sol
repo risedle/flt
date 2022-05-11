@@ -278,7 +278,7 @@ contract RiseTokenBuyAndSellTest {
             wbtcRise.factory().feeRecipient()
         );
 
-        // Buy WBTCRISE with ETH
+        // Buy WBTCRISE with WBTC
         uint256 amountInMax = periphery.previewBuy(
             wbtcRise,
             address(wbtcRise.collateral()),
