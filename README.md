@@ -20,7 +20,9 @@ Requires [foundry](https://github.com/gakonst/foundry#installation).
 
 Run the following command to run the test:
 
-    forge test --rpc-url ALCHEMY_URL
+    forge test --fork-url ALCHEMY_URL --fork-block-number BLOCK_NUMBER
+
+Use blocknumber `14615745` to test before Rari Fuse hack.
 
 ## Code Editor
 
