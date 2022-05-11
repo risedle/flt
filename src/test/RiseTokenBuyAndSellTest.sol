@@ -47,7 +47,6 @@ contract RiseTokenBuyAndSellTest {
 
     /// @notice Receives ETH either refund from buy or from sell
     receive() external payable {}
-    fallback() external payable {}
 
 
     /// ███ Buy ██████████████████████████████████████████████████████████████
@@ -189,8 +188,6 @@ contract RiseTokenBuyAndSellTest {
         );
         wbtcRise.buy(shares, recipient, tokenIn, amountIn);
     }
-
-    event Debug(string key, uint256 value);
 
     /// @notice Make sure Rise Token have correct states after buy with ETH
     function testBuyUsingETH() public {
