@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-
 import { Ownable } from "openzeppelin/access/Ownable.sol";
 import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
@@ -21,12 +20,13 @@ import { IWETH9 } from "../interfaces/IWETH9.sol";
  * @notice Utility contract to interact with Uniswap V2 & V3
  */
 contract UniswapAdapter is IUniswapAdapter, Ownable {
-    /// ███ Libraries ██████████████████████████████████████████████████████████
+
+    /// ███ Libraries ████████████████████████████████████████████████████████
 
     using SafeERC20 for IERC20;
     using SafeERC20 for IWETH9;
 
-    /// ███ Storages ███████████████████████████████████████████████████████████
+    /// ███ Storages █████████████████████████████████████████████████████████
 
     /// @notice WETH address
     IWETH9 public weth;
@@ -38,17 +38,22 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
     mapping(address => bool) private isValidCallbackCaller;
 
 
-    /// ███ Constuctors ████████████████████████████████████████████████████████
+    /// ███ Constuctors ██████████████████████████████████████████████████████
 
     constructor(address _weth) {
         weth = IWETH9(_weth);
     }
 
 
-    /// ███ Owner actions ██████████████████████████████████████████████████████
+    /// ███ Owner actions ████████████████████████████████████████████████████
 
     /// @inheritdoc IUniswapAdapter
-    function configure(address _token, UniswapVersion _version, address _pairOrPool, address _router) external onlyOwner {
+    function configure(
+        address _token,
+        UniswapVersion _version,
+        address _pairOrPool,
+        address _router
+    ) external onlyOwner {
         isValidCallbackCaller[_pairOrPool] = true;
         liquidities[_token] = LiquidityData({
             version: _version,
@@ -60,16 +65,26 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
     }
 
 
-    /// ███ Internal functions █████████████████████████████████████████████████
+    /// ███ Internal functions ███████████████████████████████████████████████
 
     /// @notice Executed when flashSwapWETHForExactTokens is triggered
-    function onFlashSwapWETHForExactTokens(FlashSwapWETHForExactTokensParams memory _params, bytes memory _data) internal {
+    function onFlashSwapWETHForExactTokens(
+        FlashSwapWETHForExactTokensParams memory _params,
+        bytes memory _data
+    ) internal {
         // Transfer the tokenOut to caller
-        _params.tokenOut.safeTransfer(address(_params.caller), _params.amountOut);
+        _params.tokenOut.safeTransfer(
+            address(_params.caller),
+            _params.amountOut
+        );
 
         // Execute the callback
         uint256 prevBalance = weth.balanceOf(address(this));
-        _params.caller.onFlashSwapWETHForExactTokens(_params.wethAmount, _params.amountOut, _data);
+        _params.caller.onFlashSwapWETHForExactTokens(
+            _params.wethAmount,
+            _params.amountOut,
+            _data
+        );
         uint256 balance = weth.balanceOf(address(this));
 
         // Check the balance
@@ -77,18 +92,29 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
 
         // Transfer the WETH to the Uniswap V2 pair or pool
         if (_params.liquidityData.version == UniswapVersion.UniswapV2) {
-            weth.safeTransfer(address(_params.liquidityData.pair), _params.wethAmount);
+            weth.safeTransfer(
+                address(_params.liquidityData.pair),
+                _params.wethAmount
+            );
         } else {
-            weth.safeTransfer(address(_params.liquidityData.pool), _params.wethAmount);
+            weth.safeTransfer(
+                address(_params.liquidityData.pool),
+                _params.wethAmount
+            );
         }
 
         emit FlashSwapped(_params);
     }
 
 
-    /// ███ Callbacks ██████████████████████████████████████████████████████████
+    /// ███ Callbacks ████████████████████████████████████████████████████████
 
-    function uniswapV2Call(address _sender, uint256 _amount0, uint256 _amount1, bytes memory _data) external {
+    function uniswapV2Call(
+        address _sender,
+        uint256 _amount0,
+        uint256 _amount1,
+        bytes memory _data
+    ) external {
         /// ███ Checks
 
         // Check caller
@@ -98,27 +124,44 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
         /// ███ Interactions
 
         // Get the data
-        (FlashSwapType flashSwapType, bytes memory data) = abi.decode(_data, (FlashSwapType, bytes));
+        (FlashSwapType flashSwapType, bytes memory data) = abi.decode(
+            _data,
+            (FlashSwapType, bytes)
+        );
 
         // Continue execute the function based on the flash swap type
         if (flashSwapType == FlashSwapType.FlashSwapWETHForExactTokens) {
-            (FlashSwapWETHForExactTokensParams memory params, bytes memory callData) = abi.decode(data, (FlashSwapWETHForExactTokensParams,bytes));
+            (
+                FlashSwapWETHForExactTokensParams memory params,
+                bytes memory callData
+            ) = abi.decode(data, (FlashSwapWETHForExactTokensParams,bytes));
+
             // Check the amount out
             uint256 amountOut = _amount0 == 0 ? _amount1 : _amount0;
-            if (params.amountOut != amountOut) revert FlashSwapReceivedAmountInvalid(params.amountOut, amountOut);
+            if (params.amountOut != amountOut)  {
+                revert FlashSwapReceivedAmountInvalid(
+                    params.amountOut,
+                    amountOut
+                );
+            }
 
             // Calculate the WETH amount
             address[] memory path = new address[](2);
             path[0] = address(weth);
             path[1] = address(params.tokenOut);
-            params.wethAmount = IUniswapV2Router02(params.liquidityData.router).getAmountsIn(params.amountOut, path)[0];
+            IUniswapV2Router02 router = IUniswapV2Router02(params.liquidityData.router);
+            params.wethAmount = router.getAmountsIn(params.amountOut, path)[0];
 
             onFlashSwapWETHForExactTokens(params, callData);
             return;
         }
     }
 
-    function uniswapV3SwapCallback(int256 _amount0Delta, int256 _amount1Delta, bytes memory _data) external {
+    function uniswapV3SwapCallback(
+        int256 _amount0Delta,
+        int256 _amount1Delta,
+        bytes memory _data
+    ) external {
         /// ███ Checks
 
         // Check caller
@@ -127,18 +170,36 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
         /// ███ Interactions
 
         // Get the data
-        (FlashSwapType flashSwapType, bytes memory data) = abi.decode(_data, (FlashSwapType, bytes));
+        (
+            FlashSwapType flashSwapType,
+            bytes memory data
+        ) = abi.decode(_data, (FlashSwapType, bytes));
 
         // Continue execute the function based on the flash swap type
         if (flashSwapType == FlashSwapType.FlashSwapWETHForExactTokens) {
-            (FlashSwapWETHForExactTokensParams memory params, bytes memory callData) = abi.decode(data, (FlashSwapWETHForExactTokensParams,bytes));
+            (
+                FlashSwapWETHForExactTokensParams memory params,
+                bytes memory callData
+            ) = abi.decode(data, (FlashSwapWETHForExactTokensParams,bytes));
 
-            // if amount negative then it must be the amountOut, otherwise it's weth amount
-            uint256 amountOut = _amount0Delta < 0 ?  uint256(-1 * _amount0Delta) : uint256(-1 * _amount1Delta);
-            params.wethAmount = _amount0Delta > 0 ? uint256(_amount0Delta) : uint256(_amount1Delta);
+            // if amount negative then it must be the amountOut,
+            // otherwise it's weth amount
+            uint256 amountOut;
+            if (_amount0Delta < 0) {
+                amountOut = uint256(-1 * _amount0Delta);
+                params.wethAmount = uint256(_amount1Delta);
+            } else {
+                amountOut = uint256(-1 * _amount1Delta);
+                params.wethAmount = uint256(_amount0Delta);
+            }
 
             // Check the amount out
-            if (params.amountOut != amountOut) revert FlashSwapReceivedAmountInvalid(params.amountOut, amountOut);
+            if (params.amountOut != amountOut) {
+                revert FlashSwapReceivedAmountInvalid(
+                    params.amountOut,
+                    amountOut
+                );
+            }
 
             onFlashSwapWETHForExactTokens(params, callData);
             return;
@@ -146,7 +207,7 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
     }
 
 
-    /// ███ Read-only functions ████████████████████████████████████████████████
+    /// ███ Read-only functions ██████████████████████████████████████████████
 
     /// @inheritdoc IUniswapAdapter
     function isConfigured(address _token) public view returns (bool) {
@@ -154,10 +215,15 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
         return true;
     }
 
-    /// ███ Adapters ███████████████████████████████████████████████████████████
+
+    /// ███ Adapters █████████████████████████████████████████████████████████
 
     /// @inheritdoc IUniswapAdapter
-    function flashSwapWETHForExactTokens(address _tokenOut, uint256 _amountOut, bytes memory _data) external {
+    function flashSwapWETHForExactTokens(
+        address _tokenOut,
+        uint256 _amountOut,
+        bytes memory _data
+    ) external {
         /// ███ Checks
         if (_amountOut == 0) revert InvalidAmount(0);
         if (!isConfigured(_tokenOut)) revert TokenNotConfigured(_tokenOut);
@@ -175,7 +241,10 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
             liquidityData: metadata,
             wethAmount: 0 // Initialize as zero; It will be updated in the callback
         });
-        bytes memory data = abi.encode(FlashSwapType.FlashSwapWETHForExactTokens, abi.encode(params, _data));
+        bytes memory data = abi.encode(
+            FlashSwapType.FlashSwapWETHForExactTokens,
+            abi.encode(params, _data)
+        );
 
         // Flash swap Uniswap V2; The pair address will call uniswapV2Callback function
         if (metadata.version == UniswapVersion.UniswapV2) {
@@ -197,13 +266,23 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
             uint160 sqrtPriceLimitX96 = (zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341);
 
             // Perform swap
-            metadata.pool.swap(address(this), zeroForOne, amountSpecified, sqrtPriceLimitX96, data);
+            metadata.pool.swap(
+                address(this),
+                zeroForOne,
+                amountSpecified,
+                sqrtPriceLimitX96,
+                data
+            );
             return;
         }
     }
 
     /// @inheritdoc IUniswapAdapter
-    function swapExactTokensForWETH(address _tokenIn, uint256 _amountIn, uint256 _amountOutMin) external returns (uint256 _amountOut) {
+    function swapExactTokensForWETH(
+        address _tokenIn,
+        uint256 _amountIn,
+        uint256 _amountOutMin
+    ) external returns (uint256 _amountOut) {
         /// ███ Checks
         if (!isConfigured(_tokenIn)) revert TokenNotConfigured(_tokenIn);
 
@@ -217,7 +296,13 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
             address[] memory path = new address[](2);
             path[0] = _tokenIn;
             path[1] = address(weth);
-            _amountOut = IUniswapV2Router02(metadata.router).swapExactTokensForTokens(_amountIn, _amountOutMin, path, msg.sender, block.timestamp)[1];
+            _amountOut = IUniswapV2Router02(metadata.router).swapExactTokensForTokens(
+                _amountIn,
+                _amountOutMin,
+                path,
+                msg.sender,
+                block.timestamp
+            )[1];
         }
 
         if (metadata.version == UniswapVersion.UniswapV3) {
@@ -239,7 +324,11 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
     }
 
     /// @inheritdoc IUniswapAdapter
-    function swapTokensForExactWETH(address _tokenIn, uint256 _wethAmount, uint256 _amountInMax) external returns (uint256 _amountIn) {
+    function swapTokensForExactWETH(
+        address _tokenIn,
+        uint256 _wethAmount,
+        uint256 _amountInMax
+    ) external returns (uint256 _amountIn) {
         /// ███ Checks
         if (!isConfigured(_tokenIn)) revert TokenNotConfigured(_tokenIn);
 
@@ -253,7 +342,13 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
             address[] memory path = new address[](2);
             path[0] = _tokenIn;
             path[1] = address(weth);
-            _amountIn = IUniswapV2Router02(metadata.router).swapTokensForExactTokens(_wethAmount, _amountInMax, path, msg.sender, block.timestamp)[1];
+            _amountIn = IUniswapV2Router02(metadata.router).swapTokensForExactTokens(
+                _wethAmount,
+                _amountInMax,
+                path,
+                msg.sender,
+                block.timestamp
+            )[1];
         }
 
         if (metadata.version == UniswapVersion.UniswapV3) {
@@ -279,13 +374,21 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
     }
 
     /// @inheritdoc IUniswapAdapter
-    function swapExactWETHForTokens(address _tokenOut, uint256 _wethAmount, uint256 _amountOutMin) external returns (uint256 _amountOut) {
+    function swapExactWETHForTokens(
+        address _tokenOut,
+        uint256 _wethAmount,
+        uint256 _amountOutMin
+    ) external returns (uint256 _amountOut) {
         /// ███ Checks
         if (!isConfigured(_tokenOut)) revert TokenNotConfigured(_tokenOut);
 
         /// ███ Interactions
         LiquidityData memory metadata = liquidities[_tokenOut];
-        IERC20(address(weth)).safeTransferFrom(msg.sender, address(this), _wethAmount);
+        IERC20(address(weth)).safeTransferFrom(
+            msg.sender,
+            address(this),
+            _wethAmount
+        );
         weth.safeIncreaseAllowance(metadata.router, _wethAmount);
 
         if (metadata.version == UniswapVersion.UniswapV2) {
@@ -293,7 +396,13 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
             address[] memory path = new address[](2);
             path[0] = address(weth);
             path[1] = _tokenOut;
-            _amountOut = IUniswapV2Router02(metadata.router).swapExactTokensForTokens(_wethAmount, _amountOutMin, path, msg.sender, block.timestamp)[1];
+            _amountOut = IUniswapV2Router02(metadata.router).swapExactTokensForTokens(
+                _wethAmount,
+                _amountOutMin,
+                path,
+                msg.sender,
+                block.timestamp
+            )[1];
         }
 
         if (metadata.version == UniswapVersion.UniswapV3) {
