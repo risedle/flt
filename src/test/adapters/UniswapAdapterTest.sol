@@ -77,6 +77,43 @@ contract UniswapAdapterTest {
         // Check router
         require(router == uniswapV3Router, "invalid router");
     }
+
+
+    /// ███ uniswapV2Call ████████████████████████████████████████████████████
+
+    /// @notice Make sure the uniswapV2Callback revert if caller not authorized
+    function testUniswapV2CallbackRevertIfCallerNotAuthorized() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // This contract is not authorized to call the callback
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IUniswapAdapter.CallerNotAuthorized.selector
+            )
+        );
+        adapter.uniswapV2Call(address(this), 0, 0, bytes(""));
+    }
+
+
+    /// ███ uniswapV3SwapCallback ████████████████████████████████████████████
+
+    /// @notice Make sure the uniswapV3SwapCallback revert if caller is not
+    ///         authorized
+    function testUniswapV3SwapCallbackRevertIfCallerNotAuthorized() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // This contract is not authorized to call the callback
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IUniswapAdapter.CallerNotAuthorized.selector
+            )
+        );
+        adapter.uniswapV3SwapCallback(0, 0, bytes(""));
+    }
+
+
 //
 //    /// @notice Make sure isConfigured returns correct value
 //    function testIsConfigured() public {
@@ -173,23 +210,7 @@ contract UniswapAdapterTest {
 //        }
 //    }
 //
-//    /// @notice Make sure the uniswapV2Callback cannot be called by random dude
-//    function testFailUniswapV2CallbackCannotBeCalledByRandomDude() public {
-//        // Create new Uniswap Adapter
-//        UniswapAdapter adapter = new UniswapAdapter(weth);
 //
-//        // Random dude try to execute the UniswapV2Callback; should be failed
-//        adapter.uniswapV2Call(address(this), 0, 0, bytes(""));
-//    }
-//
-//    /// @notice Make sure the uniswapV3SwapCallback cannot be called by random dude
-//    function testFailUniswapV3SwapCallbackCannotBeCalledByRandomDude() public {
-//        // Create new Uniswap Adapter
-//        UniswapAdapter adapter = new UniswapAdapter(weth);
-//
-//        // Random dude try to execute the UniswapV2Callback; should be failed
-//        adapter.uniswapV3SwapCallback(0, 0, bytes(""));
-//    }
 //
 //    /// @notice Make sure flashSwapWETHForExactTokens revert if the token is not configured
 //    function testFailFlashSwapETHForExactTokensRevertIfTokenIsNotConfigured() public {
