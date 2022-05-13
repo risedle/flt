@@ -38,7 +38,7 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
     mapping(address => bool) private isValidCallbackCaller;
 
 
-    /// ███ Constuctors ██████████████████████████████████████████████████████
+    /// ███ Constuctor ███████████████████████████████████████████████████████
 
     constructor(address _weth) {
         weth = IWETH9(_weth);
