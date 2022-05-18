@@ -114,28 +114,40 @@ contract UniswapAdapterTest {
     }
 
 
-//
-//    /// @notice Make sure isConfigured returns correct value
-//    function testIsConfigured() public {
-//        // Create new Uniswap Adapter
-//        UniswapAdapter adapter = new UniswapAdapter(weth);
-//
-//        // Owner set metadata
-//        address token1 = hevm.addr(1);
-//        address token2 = hevm.addr(2);
-//        address token3 = hevm.addr(3);
-//        address pairOrPool = hevm.addr(4);
-//        address router = hevm.addr(5);
-//
-//        adapter.configure(token1, IUniswapAdapter.UniswapVersion.UniswapV3, pairOrPool, router);
-//        adapter.configure(token2, IUniswapAdapter.UniswapVersion.UniswapV2, pairOrPool, router);
-//
-//        // Check configured value
-//        assertTrue(adapter.isConfigured(token1), "token1");
-//        assertTrue(adapter.isConfigured(token2), "token2");
-//        assertTrue(!adapter.isConfigured(token3), "token3");
-//    }
-//
+    /// ███ isConfigured █████████████████████████████████████████████████████
+
+    /// @notice Make sure isConfigured returns correct value
+    function testIsConfigured() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata
+        address token1 = vm.addr(1);
+        address token2 = vm.addr(2);
+        address token3 = vm.addr(3);
+        address pairOrPool = vm.addr(4);
+        address router = vm.addr(5);
+
+        // Configure token1 and token2
+        adapter.configure(
+            token1,
+            IUniswapAdapter.UniswapVersion.UniswapV3,
+            pairOrPool,
+            router
+        );
+        adapter.configure(
+            token2,
+            IUniswapAdapter.UniswapVersion.UniswapV2,
+            pairOrPool,
+            router
+        );
+
+        // Check configured value
+        require(adapter.isConfigured(token1), "invalid token1");
+        require(adapter.isConfigured(token2), "invalid token2");
+        require(!adapter.isConfigured(token3), "invalid token3");
+    }
+
 //    enum TestType { CallerRepay, CallerNotRepay }
 //
 //    /// @notice Make sure flashSwapWETHForExactTokens is working on Uniswap V2
