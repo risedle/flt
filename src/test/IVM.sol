@@ -12,5 +12,8 @@ interface IVM {
     function roll(uint256 x) external;
     function store(address c, bytes32 loc, bytes32 val) external;
     function expectRevert(bytes calldata) external;
+    function startPrank(address sender) external;
+    function prank(address sender) external;
+    function stopPrank() external;
 }
 

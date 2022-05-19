@@ -1,11 +1,12 @@
 [default]
-src = 'src'
-out = 'out'
-libs = ['lib']
+src = "src"
+out = "out"
+libs = ["lib"]
+solc = "0.8.14"
 remappings = [
-    'chain/=src/test/ethereum/',
-    'ds-test/=lib/ds-test/src/',
-    'openzeppelin/=lib/openzeppelin-contracts/contracts/',
+    "chain/=src/test/ethereum/",
+    "ds-test/=lib/ds-test/src/",
+    "openzeppelin/=lib/openzeppelin-contracts/contracts/",
 ]
 
 # See more config options https://github.com/gakonst/foundry/tree/master/config
