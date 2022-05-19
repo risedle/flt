@@ -331,6 +331,7 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
         uint256 _amountInMax
     ) external returns (uint256 _amountIn) {
         /// ███ Checks
+        if (_wethAmount == 0) revert InvalidAmount(0);
         if (!isConfigured(_tokenIn)) revert TokenNotConfigured(_tokenIn);
 
         /// ███ Interactions
@@ -349,7 +350,7 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
                 path,
                 msg.sender,
                 block.timestamp
-            )[1];
+            )[0];
         }
 
         if (metadata.version == UniswapVersion.UniswapV3) {
