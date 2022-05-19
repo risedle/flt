@@ -382,6 +382,7 @@ contract UniswapAdapter is IUniswapAdapter, Ownable {
         uint256 _amountOutMin
     ) external returns (uint256 _amountOut) {
         /// ███ Checks
+        if (_wethAmount == 0) revert InvalidAmount(0);
         if (!isConfigured(_tokenOut)) revert TokenNotConfigured(_tokenOut);
 
         /// ███ Interactions
