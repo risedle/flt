@@ -570,72 +570,137 @@ contract UniswapAdapterTest {
     }
 
 
+    /// ███ swapExactWETHForTokens ███████████████████████████████████████████
 
-//
-//    function testFailSwapExactWETHForTokensRevertIfTokenIsNotConfigured() public {
-//        UniswapAdapter adapter = new UniswapAdapter(weth);
-//        adapter.swapExactWETHForTokens(hevm.addr(1), 1 ether, 1 ether);
-//    }
-//
-//    function testUniswapV2SwapExactWETHForTokens() public {
-//        // Create new Uniswap Adapter
-//        UniswapAdapter adapter = new UniswapAdapter(weth);
-//
-//        // Owner set metadata for wbtc
-//        adapter.configure(wbtc, IUniswapAdapter.UniswapVersion.UniswapV2, sushiWBTCETHPair, sushiRouter);
-//
-//        // Swap the WETH
-//        hevm.setWETHBalance(address(this), 1 ether);
-//        IERC20(weth).approve(address(adapter), 1 ether);
-//        uint256 wbtcAmount = adapter.swapExactWETHForTokens(wbtc, 1 ether, 0);
-//        IERC20(weth).approve(address(adapter), 0);
-//
-//        // Check
-//        assertEq(IERC20(wbtc).balanceOf(address(this)), wbtcAmount);
-//        assertEq(IERC20(weth).balanceOf(address(this)), 0);
-//    }
-//
-//    function testUniswapV3SwapExactWETHForTokens() public {
-//        // Create new Uniswap Adapter
-//        UniswapAdapter adapter = new UniswapAdapter(weth);
-//
-//        // Owner set metadata for wbtc
-//        adapter.configure(wbtc, IUniswapAdapter.UniswapVersion.UniswapV3, uniswapV3WBTCETHPool, uniswapV3Router);
-//
-//        // Swap the WETH
-//        hevm.setWETHBalance(address(this), 1 ether);
-//        IERC20(weth).approve(address(adapter), 1 ether);
-//        uint256 wbtcAmount = adapter.swapExactWETHForTokens(wbtc, 1 ether, 0);
-//        IERC20(wbtc).approve(address(adapter), 0);
-//
-//        // Check
-//        assertEq(IERC20(wbtc).balanceOf(address(this)), wbtcAmount);
-//        assertEq(IERC20(weth).balanceOf(address(this)), 0);
-//    }
-//
-//    function testFailUniswapV2SwapExactWETHForTokensAmountOutMin() public {
-//        // Create new Uniswap Adapter
-//        UniswapAdapter adapter = new UniswapAdapter(weth);
-//
-//        // Owner set metadata for wbtc
-//        adapter.configure(wbtc, IUniswapAdapter.UniswapVersion.UniswapV2, sushiWBTCETHPair, sushiRouter);
-//
-//        // Swap the WETH
-//        hevm.setWETHBalance(address(this), 1 ether);
-//        IERC20(weth).approve(address(adapter), 1 ether);
-//        adapter.swapExactTokensForWETH(wbtc, 1 ether, 10 * 1e8); // This should be reverted
-//    }
-//
-//    function testFailUniswapV3SwapExactWETHForTokensAmountOutMin() public {
-//        // Create new Uniswap Adapter
-//        UniswapAdapter adapter = new UniswapAdapter(weth);
-//
-//        // Owner set metadata for wbtc
-//        adapter.configure(wbtc, IUniswapAdapter.UniswapVersion.UniswapV3, uniswapV3WBTCETHPool, uniswapV3Router);
-//
-//        // Swap the WETH
-//        hevm.setWETHBalance(address(this), 1 ether);
-//        IERC20(weth).approve(address(adapter), 1 ether);
-//        adapter.swapExactTokensForWETH(wbtc, 1 ether, 10 * 1e8); // This should be reverted
-//    }
+    /// @notice Make sure it reverts if _wethAmount is zero
+    function testSwapExactWETHForTokensRevertIfWETHAmountZero() public {
+        // Create adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Expect call to revert
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IUniswapAdapter.InvalidAmount.selector,
+                0
+            )
+        );
+        adapter.swapExactWETHForTokens(
+            wbtc,
+            0,
+            0
+        );
+    }
+
+    /// @notice Make sure it reverts if _tokenOut is not supported
+    function testSwapExactWETHForTokensRevertIfTokenOutNotSupported() public {
+        // Create adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Expect call to revert
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IUniswapAdapter.TokenNotConfigured.selector,
+                wbtc
+            )
+        );
+        adapter.swapExactWETHForTokens(
+            wbtc,
+            1e18, // 1 WETH
+            0
+        );
+    }
+
+    /// @notice Make sure the its revert when _amountOutMin too large
+    function testSwapExactWETHForTokensUniV2RevertIfAmountOutMinTooLarge() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.configure(
+            wbtc,
+            IUniswapAdapter.UniswapVersion.UniswapV2,
+            sushiWBTCETHPair,
+            sushiRouter
+        );
+
+        // Swap the WETH
+        utils.setWETHBalance(address(this), 1e18);
+        IERC20(weth).approve(address(adapter), 1e18);
+        vm.expectRevert("UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT");
+        adapter.swapExactWETHForTokens(wbtc, 1e18, 1e8);
+    }
+
+    /// @notice Make sure the its revert when _amountOutMin too large
+    function testSwapExactWETHForTokensUniV3RevertIfAmountOutMinTooLarge() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.configure(
+            wbtc,
+            IUniswapAdapter.UniswapVersion.UniswapV3,
+            uniswapV3WBTCETHPool,
+            uniswapV3Router
+        );
+
+        // Swap the WETH
+        utils.setWETHBalance(address(this), 1e18);
+        IERC20(weth).approve(address(adapter), 1e18);
+        vm.expectRevert("Too little received");
+        adapter.swapExactWETHForTokens(wbtc, 1e18, 1e8);
+    }
+
+    /// @notice Make sure the its working properly on Uniswap V2
+    function testSwapExactWETHForTokensUniV2() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.configure(
+            wbtc,
+            IUniswapAdapter.UniswapVersion.UniswapV2,
+            sushiWBTCETHPair,
+            sushiRouter
+        );
+
+        // Swap the WETH
+        utils.setWETHBalance(address(this), 1e18);
+        IERC20(weth).approve(address(adapter), 1e18);
+        uint256 amountOut = adapter.swapExactWETHForTokens(wbtc, 1e18, 0);
+        IERC20(wbtc).approve(address(adapter), 0);
+
+        // Check balance
+        uint256 wbtcBalance = IERC20(wbtc).balanceOf(address(this));
+        uint256 wethBalance = IERC20(weth).balanceOf(address(this));
+
+        require(wbtcBalance == amountOut, "invalid wbtc balance");
+        require(wethBalance == 0, "invalid weth balance");
+    }
+
+    /// @notice Make sure the its working properly on Uniswap V3
+    function testSwapExactWETHForTokensUniV3() public {
+        // Create new Uniswap Adapter
+        UniswapAdapter adapter = new UniswapAdapter(weth);
+
+        // Owner set metadata for wbtc
+        adapter.configure(
+            wbtc,
+            IUniswapAdapter.UniswapVersion.UniswapV3,
+            uniswapV3WBTCETHPool,
+            uniswapV3Router
+        );
+
+        // Swap the WETH
+        utils.setWETHBalance(address(this), 1e18);
+        IERC20(weth).approve(address(adapter), 1e18);
+        uint256 amountOut = adapter.swapExactWETHForTokens(wbtc, 1e18, 0);
+        IERC20(weth).approve(address(adapter), 0);
+
+        // Check balance
+        uint256 wbtcBalance = IERC20(wbtc).balanceOf(address(this));
+        uint256 wethBalance = IERC20(weth).balanceOf(address(this));
+
+        require(wbtcBalance == amountOut, "invalid wbtc balance");
+        require(wethBalance == 0, "invalid weth balance");
+    }
 }
