@@ -28,9 +28,9 @@ contract RiseTokenUtils {
     IVM private immutable vm = IVM(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
 
     VMUtils                    private utils;
-    UniswapAdapter             private uniswapAdapter;
-    RariFusePriceOracleAdapter private oracleAdapter;
     RiseTokenPeriphery         private periphery;
+    UniswapAdapter             public  uniswapAdapter;
+    RariFusePriceOracleAdapter public  oracleAdapter;
 
 
     /// ███ ETH Transfer █████████████████████████████████████████████████████
