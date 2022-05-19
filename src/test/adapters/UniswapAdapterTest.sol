@@ -10,7 +10,6 @@ import { weth, wbtc } from "chain/Tokens.sol";
 import { uniswapV3WBTCETHPool, uniswapV3Router } from "chain/Tokens.sol";
 import { sushiRouter, sushiWBTCETHPair } from "chain/Tokens.sol";
 import { UniswapAdapter } from "../../adapters/UniswapAdapter.sol";
-import { HEVM } from "../hevm/HEVM.sol";
 import { IUniswapV2Pair } from "../../interfaces/IUniswapV2Pair.sol";
 import { IUniswapV3Pool } from "../../interfaces/IUniswapV3Pool.sol";
 import { IUniswapAdapter } from "../../interfaces/IUniswapAdapter.sol";
