@@ -290,21 +290,21 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         if (msg.sender != address(uniswapAdapter)) revert NotUniswapAdapter();
 
         // Continue execution based on the type
-        (FlashSwapType flashSwapType, bytes memory data) = abi.decode(_data, (FlashSwapType,bytes));
+        (
+            FlashSwapType flashSwapType,
+            bytes memory data
+        ) = abi.decode(_data, (FlashSwapType,bytes));
+
         if (flashSwapType == FlashSwapType.Initialize) {
             onInitialize(_wethAmount, _amountOut, data);
             return;
-        }
-
-        if (flashSwapType == FlashSwapType.Buy) {
+        } else if (flashSwapType == FlashSwapType.Buy) {
             onBuy(_wethAmount, _amountOut, data);
             return;
-        }
-
-        if (flashSwapType == FlashSwapType.Sell) {
+        } else if (flashSwapType == FlashSwapType.Sell) {
             onSell(_wethAmount, _amountOut, data);
             return;
-        }
+        } else revert InvalidFlashSwapType();
     }
 
     function increaseAllowance() public {
