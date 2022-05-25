@@ -361,8 +361,8 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     }
 
     /// @inheritdoc IRiseToken
-    function nav() public view whenInitialized returns (uint256 _nav) {
-        _nav = value(1 ether);
+    function price() public view whenInitialized returns (uint256 _price) {
+        _price = value(1 ether);
     }
 
     /// @inheritdoc IRiseToken
@@ -420,7 +420,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
             collateralAmount: newShares.mulDivDown(totalCollateral, totalSupply()),
             debtAmount: newShares.mulDivDown(totalDebt, totalSupply()),
             fee: fee,
-            nav: nav()
+            price: price()
         });
 
         bytes memory data = abi.encode(FlashSwapType.Buy, abi.encode(params));
@@ -470,7 +470,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
             collateralAmount: newShares.mulDivDown(totalCollateral, totalSupply()),
             debtAmount: newShares.mulDivDown(totalDebt, totalSupply()),
             fee: fee,
-            nav: nav()
+            price: price()
         });
 
         // Perform the flash swap
