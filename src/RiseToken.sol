@@ -580,5 +580,6 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         collateral.safeTransfer(msg.sender, _amountOut);
     }
 
+    /// @notice Receives ETH when interacting with Uniswap or Fuse
     receive() external payable {}
 }
