@@ -356,7 +356,7 @@ contract RiseTokenPeripheryTest {
         // This should be reverted
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.NotInitialized.selector
+                IRiseToken.TokenNotInitialized.selector
             )
         );
         periphery.previewBuy(
@@ -498,7 +498,7 @@ contract RiseTokenPeripheryTest {
         // This should be reverted
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.NotInitialized.selector
+                IRiseToken.TokenNotInitialized.selector
             )
         );
         periphery.previewSell(
