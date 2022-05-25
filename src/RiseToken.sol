@@ -120,7 +120,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         markets[1] = address(fDebt);
         IFuseComptroller troll = IFuseComptroller(fCollateral.comptroller());
         uint256[] memory res = troll.enterMarkets(markets);
-        if (res[0] != 0 && res[1] != 0) revert FuseError(res[0]);
+        if (res[0] != 0 || res[1] != 0) revert FuseError(res[0]);
 
         supplyThenBorrow(_collateralAmount, params.borrowAmount);
 
