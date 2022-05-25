@@ -245,8 +245,10 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         }
         // plus or minus 0.5x leverage in once rebalance is too much
         if (_step > 0.5 ether || _step < 0.1 ether) revert InvalidRebalancingStep();
-        // 5% discount too much
-        if (_discount > 0.05 ether || _discount < 0.01 ether) revert InvalidDiscount();
+        // 5% discount too much; 0.1% discount too low
+        if (_discount > 0.05 ether || _discount < 0.001 ether)  {
+            revert InvalidDiscount();
+        }
 
         // Effects
         minLeverageRatio = _minLeverageRatio;
