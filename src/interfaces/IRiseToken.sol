@@ -154,6 +154,9 @@ interface IRiseToken is IERC20 {
     /// @notice Error is raised if discount invalid
     error InvalidDiscount();
 
+    /// @notice Error is raised if flash swap type invalid
+    error InvalidFlashSwapType();
+
 
     /// ███ Owner actions ████████████████████████████████████████████████████
 

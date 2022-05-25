@@ -166,7 +166,7 @@ contract RiseTokenSetParamsTest {
             1.2 ether,
             2.3 ether,
             0.2 ether,
-            0.001 ether,
+            0.0001 ether,
             type(uint256).max
         );
     }

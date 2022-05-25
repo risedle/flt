@@ -245,8 +245,10 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         }
         // plus or minus 0.5x leverage in once rebalance is too much
         if (_step > 0.5 ether || _step < 0.1 ether) revert InvalidRebalancingStep();
-        // 5% discount too much
-        if (_discount > 0.05 ether || _discount < 0.01 ether) revert InvalidDiscount();
+        // 5% discount too much; 0.1% discount too low
+        if (_discount > 0.05 ether || _discount < 0.001 ether)  {
+            revert InvalidDiscount();
+        }
 
         // Effects
         minLeverageRatio = _minLeverageRatio;
@@ -288,21 +290,21 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         if (msg.sender != address(uniswapAdapter)) revert NotUniswapAdapter();
 
         // Continue execution based on the type
-        (FlashSwapType flashSwapType, bytes memory data) = abi.decode(_data, (FlashSwapType,bytes));
+        (
+            FlashSwapType flashSwapType,
+            bytes memory data
+        ) = abi.decode(_data, (FlashSwapType,bytes));
+
         if (flashSwapType == FlashSwapType.Initialize) {
             onInitialize(_wethAmount, _amountOut, data);
             return;
-        }
-
-        if (flashSwapType == FlashSwapType.Buy) {
+        } else if (flashSwapType == FlashSwapType.Buy) {
             onBuy(_wethAmount, _amountOut, data);
             return;
-        }
-
-        if (flashSwapType == FlashSwapType.Sell) {
+        } else if (flashSwapType == FlashSwapType.Sell) {
             onSell(_wethAmount, _amountOut, data);
             return;
-        }
+        } else revert InvalidFlashSwapType();
     }
 
     function increaseAllowance() public {
