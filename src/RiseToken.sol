@@ -131,18 +131,33 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
             0
         );
 
-        // Get owed WETH
-        uint256 owedWETH = _wethAmount - wethAmountFromBorrow;
-        if (owedWETH > params.ethAmount) revert SlippageTooHigh();
+        // Refund excess WETH or get more WETH from initializer
+        if (wethAmountFromBorrow > _wethAmount) {
+            // refund to initializer
+            uint256 excessWETH = wethAmountFromBorrow - _wethAmount;
+            if (excessWETH > 0) {
+                weth.safeTransfer(params.initializer, excessWETH);
+            }
+        } else {
+            // Get WETH from initializer
+            uint256 owedWETH = _wethAmount - wethAmountFromBorrow;
+            if (owedWETH > params.ethAmount) revert SlippageTooHigh();
+            if (owedWETH > 0) {
+                weth.deposit{ value: owedWETH }(); // Wrap the ETH to WETH
+            }
 
-        // Transfer excess ETH back to the initializer
-        uint256 excessETH = params.ethAmount - owedWETH;
-        (bool sent, ) = params.initializer.call{value: excessETH}("");
-        if (!sent) revert FailedToSendETH(params.initializer, excessETH);
+            // Transfer excess ETH back to the initializer
+            uint256 excessETH = params.ethAmount - owedWETH;
+            if (excessETH > 0) {
+                (bool sent, ) = params.initializer.call{value: excessETH}("");
+                if (!sent) revert FailedToSendETH(params.initializer, excessETH);
+            }
+        }
 
         // Send back WETH to uniswap adapter
-        weth.deposit{ value: owedWETH }(); // Wrap the ETH to WETH
-        weth.safeTransfer(address(uniswapAdapter), _wethAmount);
+        if (_wethAmount > 0) {
+            weth.safeTransfer(address(uniswapAdapter), _wethAmount);
+        }
 
         // Mint the Rise Token to the initializer
         _mint(params.initializer, params.shares);
