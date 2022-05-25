@@ -11,7 +11,7 @@ import { ERC20 } from "openzeppelin/token/ERC20/ERC20.sol";
  */
 interface IRiseToken is IERC20 {
 
-    /// ███ Types █████████████████████████████████████████████████████████████
+    /// ███ Types ████████████████████████████████████████████████████████████
 
     /// @notice Flashswap types
     enum FlashSwapType {
@@ -84,7 +84,7 @@ interface IRiseToken is IERC20 {
     }
 
 
-    /// ███ Events █████████████████████████████████████████████████████████████
+    /// ███ Events ███████████████████████████████████████████████████████████
 
     /**
      * @notice Event emitted when the Rise Token is initialized
@@ -114,7 +114,7 @@ interface IRiseToken is IERC20 {
         uint256 maxBuy
     );
 
-    /// ███ Errors █████████████████████████████████████████████████████████████
+    /// ███ Errors ███████████████████████████████████████████████████████████
 
     /// @notice Error is raised if the caller of onFlashSwapWETHForExactTokens is
     ///         not Uniswap Adapter contract
@@ -146,7 +146,7 @@ interface IRiseToken is IERC20 {
     error FuseError(uint256 code);
 
 
-    /// ███ Owner actions ██████████████████████████████████████████████████████
+    /// ███ Owner actions ████████████████████████████████████████████████████
 
     /**
      * @notice Update the Rise Token parameters
@@ -170,7 +170,7 @@ interface IRiseToken is IERC20 {
     function initialize(InitializeParams memory _params) external payable;
 
 
-    /// ███ Read-only functions ████████████████████████████████████████████████
+    /// ███ Read-only functions ██████████████████████████████████████████████
 
     /**
      * @notice Gets the total collateral per share
@@ -206,7 +206,15 @@ interface IRiseToken is IERC20 {
     function leverageRatio() external view returns (uint256 _lr);
 
 
-    /// ███ User actions ███████████████████████████████████████████████████████
+    /// ███ External functions ███████████████████████████████████████████████
+
+    /**
+     * @notice Increase allowance at once
+     */
+    function increaseAllowance() external;
+
+
+    /// ███ User actions █████████████████████████████████████████████████████
 
     /**
      * @notice Buy Rise Token with tokenIn. New Rise Token supply will be minted.
@@ -237,7 +245,7 @@ interface IRiseToken is IERC20 {
     ) external returns (uint256 _amountOut);
 
 
-    /// ███ Market makers ██████████████████████████████████████████████████████
+    /// ███ Market makers ████████████████████████████████████████████████████
 
     /**
      * Rise Token is designed in such way that users get protection against
