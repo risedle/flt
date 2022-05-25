@@ -101,7 +101,7 @@ contract RiseTokenRebalancingTest {
         // Storages before push
         uint256 tc = wbtcRise.totalCollateral();
         uint256 td = wbtcRise.totalDebt();
-        uint256 p = wbtcRise.nav();
+        uint256 p = wbtcRise.price();
         uint256 cps = wbtcRise.collateralPerShare();
         uint256 dps = wbtcRise.debtPerShare();
 
@@ -123,8 +123,8 @@ contract RiseTokenRebalancingTest {
         require(wbtcRise.debtPerShare() > dps, "invalid dps");
 
         // Price sillpage shouldn't too high
-        require(wbtcRise.nav() > (p - 1e6), "invalid price");
-        require(wbtcRise.nav() < (p + 1e6), "invalid price");
+        require(wbtcRise.price() > (p - 1e6), "invalid price");
+        require(wbtcRise.price() < (p + 1e6), "invalid price");
     }
 
     /// @notice Make sure it can swap if pushed amount is max
@@ -146,7 +146,7 @@ contract RiseTokenRebalancingTest {
         uint256 lr = wbtcRise.leverageRatio();
         uint256 tc = wbtcRise.totalCollateral();
         uint256 td = wbtcRise.totalDebt();
-        uint256 p = wbtcRise.nav();
+        uint256 p = wbtcRise.price();
         uint256 cps = wbtcRise.collateralPerShare();
         uint256 dps = wbtcRise.debtPerShare();
 
@@ -164,14 +164,14 @@ contract RiseTokenRebalancingTest {
         require(wbtcRise.debtPerShare() > dps, "invalid dps");
 
         // Price slippage shouldn't be too high
-        require(wbtcRise.nav() > (p - 1e6), "invalid price");
-        require(wbtcRise.nav() < (p + 1e6), "invalid price");
+        require(wbtcRise.price() > (p - 1e6), "invalid price");
+        require(wbtcRise.price() < (p + 1e6), "invalid price");
 
         // Push for second time
         lr = wbtcRise.leverageRatio();
         tc = wbtcRise.totalCollateral();
         td = wbtcRise.totalDebt();
-        p = wbtcRise.nav();
+        p = wbtcRise.price();
         cps = wbtcRise.collateralPerShare();
         dps = wbtcRise.debtPerShare();
 
@@ -189,8 +189,8 @@ contract RiseTokenRebalancingTest {
         require(wbtcRise.debtPerShare() > dps, "2nd invalid dps");
 
         // Price slippage shouldn't be too high
-        require(wbtcRise.nav() > (p - 1e6), "2nd invalid price");
-        require(wbtcRise.nav() < (p + 1e6), "2nd invalid price");
+        require(wbtcRise.price() > (p - 1e6), "2nd invalid price");
+        require(wbtcRise.price() < (p + 1e6), "2nd invalid price");
     }
 
 
@@ -247,7 +247,7 @@ contract RiseTokenRebalancingTest {
         // Storages before push
         uint256 tc = wbtcRise.totalCollateral();
         uint256 td = wbtcRise.totalDebt();
-        uint256 p = wbtcRise.nav();
+        uint256 p = wbtcRise.price();
         uint256 cps = wbtcRise.collateralPerShare();
         uint256 dps = wbtcRise.debtPerShare();
 
@@ -269,8 +269,8 @@ contract RiseTokenRebalancingTest {
         require(wbtcRise.debtPerShare() < dps, "invalid dps");
 
         // Make sure the price slippage is not too high
-        require(wbtcRise.nav() > (p - 1e6), "invalid price");
-        require(wbtcRise.nav() < (p + 1e6), "invalid price");
+        require(wbtcRise.price() > (p - 1e6), "invalid price");
+        require(wbtcRise.price() < (p + 1e6), "invalid price");
     }
 
     /// @notice Make sure it can be pulled twice
@@ -293,7 +293,7 @@ contract RiseTokenRebalancingTest {
         uint256 lr = wbtcRise.leverageRatio();
         uint256 tc = wbtcRise.totalCollateral();
         uint256 td = wbtcRise.totalDebt();
-        uint256 p = wbtcRise.nav();
+        uint256 p = wbtcRise.price();
         uint256 cps = wbtcRise.collateralPerShare();
         uint256 dps = wbtcRise.debtPerShare();
 
@@ -315,14 +315,14 @@ contract RiseTokenRebalancingTest {
         require(wbtcRise.debtPerShare() < dps, "invalid dps");
 
         // Make sure price slippage is not too high
-        require(wbtcRise.nav() > (p - 1e6), "invalid price");
-        require(wbtcRise.nav() < (p + 1e6), "invalid price");
+        require(wbtcRise.price() > (p - 1e6), "invalid price");
+        require(wbtcRise.price() < (p + 1e6), "invalid price");
 
         // Pull for the second time
         lr = wbtcRise.leverageRatio();
         tc = wbtcRise.totalCollateral();
         td = wbtcRise.totalDebt();
-        p = wbtcRise.nav();
+        p = wbtcRise.price();
         cps = wbtcRise.collateralPerShare();
         dps = wbtcRise.debtPerShare();
 
@@ -348,8 +348,8 @@ contract RiseTokenRebalancingTest {
         require(wbtcRise.debtPerShare() < dps, "invalid dps");
 
         // Make sure price slippage is not too high
-        require(wbtcRise.nav() > (p - 1e6), "invalid price");
-        require(wbtcRise.nav() < (p + 1e6), "invalid price");
+        require(wbtcRise.price() > (p - 1e6), "invalid price");
+        require(wbtcRise.price() < (p + 1e6), "invalid price");
     }
 
 }

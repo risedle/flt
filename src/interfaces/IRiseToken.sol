@@ -26,7 +26,7 @@ interface IRiseToken is IERC20 {
      * @param collateralAmount The target collateral amount
      * @param shares The target initial supply of the Rise Token
      * @param leverageRatio The target leverage ratio of the Rise Token
-     * @param nav The net-asset value of the Rise Token
+     * @param price The initial price of the Rise Token
      * @param ethAmount The maximum amount of ETH that used to initialize the
      *                  total collateral and total debt
      * @param initialize The initialize() executor
@@ -36,7 +36,7 @@ interface IRiseToken is IERC20 {
         uint256 collateralAmount;
         uint256 shares;
         uint256 leverageRatio;
-        uint256 nav;
+        uint256 price;
         uint256 ethAmount;
         address initializer;
     }
@@ -50,7 +50,7 @@ interface IRiseToken is IERC20 {
      * @param shares The amount of Rise Token to be minted
      * @param fee The amount of Rise Token as fee
      * @param wethAmount The WETH amount from tokenIn
-     * @param nav The net-asset value of the Rise Token
+     * @param price The price of the Rise Token
      */
     struct BuyParams {
         address buyer;
@@ -60,7 +60,7 @@ interface IRiseToken is IERC20 {
         uint256 shares;
         uint256 fee;
         uint256 wethAmount;
-        uint256 nav;
+        uint256 price;
     }
 
     /**
@@ -71,7 +71,7 @@ interface IRiseToken is IERC20 {
      * @param debtAmount The amount of token that will repay to Rari Fuse
      * @param shares The amount of Rise Token to be burned
      * @param fee The amount of Rise Token as fee
-     * @param nav The net-asset value of the Rise Token
+     * @param price The price of the Rise Token
      */
     struct SellParams {
         address seller;
@@ -80,7 +80,7 @@ interface IRiseToken is IERC20 {
         uint256 debtAmount;
         uint256 shares;
         uint256 fee;
-        uint256 nav;
+        uint256 price;
     }
 
 
@@ -206,10 +206,10 @@ interface IRiseToken is IERC20 {
     function value(uint256 _shares) external view returns (uint256 _value);
 
     /**
-     * @notice Gets the net-asset value of the Rise Token in debt token
-     * @return _nav The net-asset value of the Rise Token
+     * @notice Gets the latest price of the Rise Token in debt token base units
+     * @return _price The latest price of the Rise Token
      */
-    function nav() external view returns (uint256 _nav);
+    function price() external view returns (uint256 _price);
 
     /**
      * @notice Gets the leverage ratio of the Rise Token
