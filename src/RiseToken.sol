@@ -482,9 +482,11 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
             if (_tokenOut == address(0)) {
                 _amountOut = wethOut;
                 if (_amountOutMin > _amountOut) revert SlippageTooHigh();
-                weth.withdraw(_amountOut);
-                (bool sent, ) = _recipient.call{value: _amountOut}("");
-                if (!sent) revert FailedToSendETH(_recipient, _amountOut);
+                if (_amountOut > 0) {
+                    weth.withdraw(_amountOut);
+                    (bool sent, ) = _recipient.call{value: _amountOut}("");
+                    if (!sent) revert FailedToSendETH(_recipient, _amountOut);
+                }
             } else {
                 // Swap WETH to tokenOut
                 _amountOut = uniswapAdapter.swapExactWETHForTokens(
@@ -493,7 +495,9 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
                     0
                 );
                 if (_amountOutMin > _amountOut) revert SlippageTooHigh();
-                ERC20(_tokenOut).safeTransfer(_recipient, _amountOut);
+                if (_amountOut > 0) {
+                    ERC20(_tokenOut).safeTransfer(_recipient, _amountOut);
+                }
             }
         }
         emit Sell(params);
