@@ -145,6 +145,15 @@ interface IRiseToken is IERC20 {
     /// @notice Error is raised if something happen when interacting with Rari Fuse
     error FuseError(uint256 code);
 
+    /// @notice Error is raised if leverage ratio invalid
+    error InvalidLeverageRatio();
+
+    /// @notice Error is raised if rebalancing step invalid
+    error InvalidRebalancingStep();
+
+    /// @notice Error is raised if discount invalid
+    error InvalidDiscount();
+
 
     /// ███ Owner actions ████████████████████████████████████████████████████
 
