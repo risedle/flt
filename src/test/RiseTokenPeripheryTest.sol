@@ -152,8 +152,8 @@ contract RiseTokenPeripheryTest {
         require(wbtcRise.leverageRatio() < (lr + 0.001 ether), "invalid leverage ratio");
         require(wbtcRise.totalCollateral() == collateralAmount, "invalid total collateral");
         require(wbtcRise.totalDebt() == params.borrowAmount, "invalid borrow amount");
-        require(wbtcRise.nav() > price - (0.1*1e6), "invalid price");
-        require(wbtcRise.nav() < price + (0.1*1e6), "invalid price");
+        require(wbtcRise.price() > price - (0.1*1e6), "invalid price");
+        require(wbtcRise.price() < price + (0.1*1e6), "invalid price");
     }
 
     /// @notice Test to get 1.6x initialization params
@@ -176,8 +176,8 @@ contract RiseTokenPeripheryTest {
         require(wbtcRise.leverageRatio() < (lr + 0.001 ether), "invalid leverage ratio");
         require(wbtcRise.totalCollateral() < collateralAmount, "invalid total collateral");
         require(wbtcRise.totalDebt() == params.borrowAmount, "invalid borrow amount");
-        require(wbtcRise.nav() > price - (0.1*1e6), "invalid price");
-        require(wbtcRise.nav() < price + (0.1*1e6), "invalid price");
+        require(wbtcRise.price() > price - (0.1*1e6), "invalid price");
+        require(wbtcRise.price() < price + (0.1*1e6), "invalid price");
     }
 
     /// @notice Test to get 2.5x initialization params
@@ -200,8 +200,8 @@ contract RiseTokenPeripheryTest {
         require(wbtcRise.leverageRatio() < (lr + 0.001 ether), "invalid leverage ratio");
         require(wbtcRise.totalCollateral() > collateralAmount, "invalid total collateral");
         require(wbtcRise.totalDebt() == params.borrowAmount, "invalid borrow amount");
-        require(wbtcRise.nav() > price - (0.1*1e6), "invalid price");
-        require(wbtcRise.nav() < price + (0.1*1e6), "invalid price");
+        require(wbtcRise.price() > price - (0.1*1e6), "invalid price");
+        require(wbtcRise.price() < price + (0.1*1e6), "invalid price");
     }
 
 
@@ -411,7 +411,7 @@ contract RiseTokenPeripheryTest {
         uint256 priceInETH = wbtcRise.oracleAdapter().totalValue(
             address(wbtcRise.debt()),
             address(0),
-            wbtcRise.nav()
+            wbtcRise.price()
         );
         uint256 minAmountIn = priceInETH.mulWadDown(2 ether);
         uint256 maxAmountIn = priceInETH.mulWadDown(2.1 ether);
@@ -443,7 +443,7 @@ contract RiseTokenPeripheryTest {
         uint256 priceInWBTC = wbtcRise.oracleAdapter().totalValue(
             address(wbtcRise.debt()),
             address(wbtcRise.collateral()),
-            wbtcRise.nav()
+            wbtcRise.price()
         );
         uint256 minAmountIn = priceInWBTC.mulWadDown(2 ether);
         uint256 maxAmountIn = priceInWBTC.mulWadDown(2.1 ether);
@@ -472,8 +472,8 @@ contract RiseTokenPeripheryTest {
 
         // amountIn should greater than 2x price in USDC and less than 2.1x
         // price in USDC
-        uint256 minAmountIn = wbtcRise.nav().mulWadDown(2 ether);
-        uint256 maxAmountIn = wbtcRise.nav().mulWadDown(2.1 ether);
+        uint256 minAmountIn = wbtcRise.price().mulWadDown(2 ether);
+        uint256 maxAmountIn = wbtcRise.price().mulWadDown(2.1 ether);
         require(amountIn > minAmountIn, "amountIn too low");
         require(amountIn < maxAmountIn, "amountIn too high");
     }
@@ -553,7 +553,7 @@ contract RiseTokenPeripheryTest {
         uint256 priceInETH = wbtcRise.oracleAdapter().totalValue(
             address(wbtcRise.debt()),
             address(0),
-            wbtcRise.nav()
+            wbtcRise.price()
         );
         uint256 minAmountOut = priceInETH.mulWadDown(1.9 ether);
         uint256 maxAmountOut = priceInETH.mulWadDown(2 ether);
@@ -585,7 +585,7 @@ contract RiseTokenPeripheryTest {
         uint256 priceInWBTC = wbtcRise.oracleAdapter().totalValue(
             address(wbtcRise.debt()),
             address(wbtcRise.collateral()),
-            wbtcRise.nav()
+            wbtcRise.price()
         );
         uint256 minAmountOut = priceInWBTC.mulWadDown(1.9 ether);
         uint256 maxAmountOut = priceInWBTC.mulWadDown(2 ether);
@@ -614,8 +614,8 @@ contract RiseTokenPeripheryTest {
 
         // amountOut should greater than 1.9x price in USDC and less than 2x
         // price in USDC
-        uint256 minAmountOut = wbtcRise.nav().mulWadDown(1.9 ether);
-        uint256 maxAmountOut = wbtcRise.nav().mulWadDown(2 ether);
+        uint256 minAmountOut = wbtcRise.price().mulWadDown(1.9 ether);
+        uint256 maxAmountOut = wbtcRise.price().mulWadDown(2 ether);
         require(amountOut > minAmountOut, "amountOut too low");
         require(amountOut < maxAmountOut, "amountOut too high");
     }

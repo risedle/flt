@@ -113,7 +113,7 @@ contract RiseTokenInitializationTest {
         require(balance == totalSupply, "invalid balance");
 
         // Check price
-        uint256 price = wbtcRise.nav();
+        uint256 price = wbtcRise.price();
         require(price > 400*1e6 - 1e6, "price too low");
         require(price < 400*1e6 + 1e6, "price too high");
 
@@ -157,7 +157,7 @@ contract RiseTokenInitializationTest {
         require(balance == totalSupply, "invalid balance");
 
         // Check price
-        uint256 price = wbtcRise.nav();
+        uint256 price = wbtcRise.price();
         require(price > 400*1e6 - 1e6, "price too low");
         require(price < 400*1e6 + 1e6, "price too high");
 
@@ -200,7 +200,7 @@ contract RiseTokenInitializationTest {
         require(balance == totalSupply, "invalid balance");
 
         // Check price
-        uint256 price = wbtcRise.nav();
+        uint256 price = wbtcRise.price();
         require(price > 400*1e6 - 1e6, "price too low");
         require(price < 400*1e6 + 1e6, "price too high");
 

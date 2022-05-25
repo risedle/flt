@@ -49,7 +49,7 @@ contract RiseTokenPeriphery is IRiseTokenPeriphery {
             collateralAmount: _collateralAmount,
             shares: shares,
             leverageRatio: 2 ether,
-            nav: _price,
+            price: _price,
             initializer: address(this),
             ethAmount: 0
         });

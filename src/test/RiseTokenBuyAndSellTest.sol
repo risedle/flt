@@ -198,7 +198,7 @@ contract RiseTokenBuyAndSellTest {
         // Make sure these values does not change after buy
         uint256 cps = wbtcRise.collateralPerShare();
         uint256 dps = wbtcRise.debtPerShare();
-        uint256 price = wbtcRise.nav();
+        uint256 price = wbtcRise.price();
         uint256 lr  = wbtcRise.leverageRatio();
 
         // Make sure these values is increased after buy
@@ -235,7 +235,7 @@ contract RiseTokenBuyAndSellTest {
         // Check the values
         require(wbtcRise.collateralPerShare() == cps, "invalid cps");
         require(wbtcRise.debtPerShare() == dps, "invalid dps");
-        require(wbtcRise.nav() == price, "invalid price");
+        require(wbtcRise.price() == price, "invalid price");
 
         require(wbtcRise.leverageRatio() < lr + 0.000001 ether, "invalid lr");
         require(wbtcRise.leverageRatio() > lr - 0.000001 ether, "invalid lr");
@@ -269,7 +269,7 @@ contract RiseTokenBuyAndSellTest {
         // Make sure these values does not change after buy
         uint256 cps = wbtcRise.collateralPerShare();
         uint256 dps = wbtcRise.debtPerShare();
-        uint256 price = wbtcRise.nav();
+        uint256 price = wbtcRise.price();
         uint256 lr  = wbtcRise.leverageRatio();
 
         // Make sure these values is increased after buy
@@ -306,7 +306,7 @@ contract RiseTokenBuyAndSellTest {
         // Check the values
         require(wbtcRise.collateralPerShare() == cps, "invalid cps");
         require(wbtcRise.debtPerShare() == dps, "invalid dps");
-        require(wbtcRise.nav() == price, "invalid price");
+        require(wbtcRise.price() == price, "invalid price");
 
         require(wbtcRise.leverageRatio() < lr + 0.000001 ether, "invalid lr");
         require(wbtcRise.leverageRatio() > lr - 0.000001 ether, "invalid lr");
@@ -340,7 +340,7 @@ contract RiseTokenBuyAndSellTest {
         // Make sure these values does not change after buy
         uint256 cps = wbtcRise.collateralPerShare();
         uint256 dps = wbtcRise.debtPerShare();
-        uint256 price = wbtcRise.nav();
+        uint256 price = wbtcRise.price();
         uint256 lr  = wbtcRise.leverageRatio();
 
         // Make sure these values is increased after buy
@@ -377,7 +377,7 @@ contract RiseTokenBuyAndSellTest {
         // Check the values
         require(wbtcRise.collateralPerShare() == cps, "invalid cps");
         require(wbtcRise.debtPerShare() == dps, "invalid dps");
-        require(wbtcRise.nav() == price, "invalid price");
+        require(wbtcRise.price() == price, "invalid price");
 
         require(wbtcRise.leverageRatio() < lr + 0.000001 ether, "invalid lr");
         require(wbtcRise.leverageRatio() > lr - 0.000001 ether, "invalid lr");
@@ -582,7 +582,7 @@ contract RiseTokenBuyAndSellTest {
         // Make sure these values does not change after sell
         uint256 cps = wbtcRise.collateralPerShare();
         uint256 dps = wbtcRise.debtPerShare();
-        uint256 price = wbtcRise.nav();
+        uint256 price = wbtcRise.price();
         uint256 lr  = wbtcRise.leverageRatio();
 
         // Make sure these values is decreased after sell
@@ -618,7 +618,7 @@ contract RiseTokenBuyAndSellTest {
         // Check the values
         require(wbtcRise.collateralPerShare() == cps, "invalid cps");
         require(wbtcRise.debtPerShare() == dps, "invalid dps");
-        require(wbtcRise.nav() == price, "invalid price");
+        require(wbtcRise.price() == price, "invalid price");
 
         require(wbtcRise.leverageRatio() < lr + 0.000001 ether, "invalid lr");
         require(wbtcRise.leverageRatio() > lr - 0.000001 ether, "invalid lr");
@@ -668,7 +668,7 @@ contract RiseTokenBuyAndSellTest {
         // Make sure these values does not change after sell
         uint256 cps = wbtcRise.collateralPerShare();
         uint256 dps = wbtcRise.debtPerShare();
-        uint256 price = wbtcRise.nav();
+        uint256 price = wbtcRise.price();
         uint256 lr  = wbtcRise.leverageRatio();
 
         // Make sure these values is decreased after sell
@@ -704,7 +704,7 @@ contract RiseTokenBuyAndSellTest {
         // Check the values
         require(wbtcRise.collateralPerShare() == cps, "invalid cps");
         require(wbtcRise.debtPerShare() == dps, "invalid dps");
-        require(wbtcRise.nav() == price, "invalid price");
+        require(wbtcRise.price() == price, "invalid price");
 
         require(wbtcRise.leverageRatio() < lr + 0.000001 ether, "invalid lr");
         require(wbtcRise.leverageRatio() > lr - 0.000001 ether, "invalid lr");
@@ -754,7 +754,7 @@ contract RiseTokenBuyAndSellTest {
         // Make sure these values does not change after sell
         uint256 cps = wbtcRise.collateralPerShare();
         uint256 dps = wbtcRise.debtPerShare();
-        uint256 price = wbtcRise.nav();
+        uint256 price = wbtcRise.price();
         uint256 lr  = wbtcRise.leverageRatio();
 
         // Make sure these values is decreased after sell
@@ -790,7 +790,7 @@ contract RiseTokenBuyAndSellTest {
         // Check the values
         require(wbtcRise.collateralPerShare() == cps, "invalid cps");
         require(wbtcRise.debtPerShare() == dps, "invalid dps");
-        require(wbtcRise.nav() == price, "invalid price");
+        require(wbtcRise.price() == price, "invalid price");
 
         require(wbtcRise.leverageRatio() < lr + 0.000001 ether, "invalid lr");
         require(wbtcRise.leverageRatio() > lr - 0.000001 ether, "invalid lr");
