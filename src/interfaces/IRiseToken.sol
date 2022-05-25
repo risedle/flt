@@ -124,10 +124,10 @@ interface IRiseToken is IERC20 {
     error InitializeAmountInInvalid();
 
     /// @notice Error is raised if the owner run the initialize() twice
-    error AlreadyInitialized();
+    error TokenInitialized();
 
     /// @notice Error is raised if buy & sell is executed before the FLT is initialized
-    error NotInitialized();
+    error TokenNotInitialized();
 
     /// @notice Error is raised if slippage too high
     error SlippageTooHigh();

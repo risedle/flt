@@ -28,6 +28,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     using SafeERC20 for IWETH9;
     using FixedPointMathLib for uint256;
 
+
     /// ███ Storages █████████████████████████████████████████████████████████
 
     IWETH9                     public immutable weth;
@@ -49,6 +50,14 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     uint256 public step = 0.2 ether;
     uint256 public discount = 0.006 ether; // 0.6%
     bool    public isInitialized;
+
+
+    /// ███ Modifiers ████████████████████████████████████████████████████████
+
+    modifier whenInitialized() {
+        if (!isInitialized) revert TokenNotInitialized();
+        _;
+    }
 
 
     /// ███ Constructor ██████████████████████████████████████████████████████
@@ -264,7 +273,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     function initialize(
         InitializeParams memory _params
     ) external payable onlyOwner {
-        if (isInitialized) revert AlreadyInitialized();
+        if (isInitialized) revert TokenInitialized();
         if (msg.value == 0) revert InitializeAmountInInvalid();
         _params.ethAmount = msg.value;
         _params.initializer = msg.sender;
@@ -321,20 +330,19 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     /// ███ Read-only functions ██████████████████████████████████████████████
 
     /// @inheritdoc IRiseToken
-    function collateralPerShare() public view returns (uint256 _cps) {
-        if (!isInitialized) return 0;
+    function collateralPerShare() public view whenInitialized returns (uint256 _cps) {
         _cps = totalCollateral.divWadUp(totalSupply());
     }
 
     /// @inheritdoc IRiseToken
-    function debtPerShare() public view returns (uint256 _dps) {
-        if (!isInitialized) return 0;
+    function debtPerShare() public view whenInitialized returns (uint256 _dps) {
         _dps = totalDebt.divWadUp(totalSupply());
     }
 
     /// @inheritdoc IRiseToken
-    function value(uint256 _shares) public view returns (uint256 _value) {
-        if (!isInitialized) return 0;
+    function value(
+        uint256 _shares
+    ) public view whenInitialized returns (uint256 _value) {
         if (_shares == 0) return 0;
 
         // Get the collateral & debt amount
@@ -353,14 +361,12 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     }
 
     /// @inheritdoc IRiseToken
-    function nav() public view returns (uint256 _nav) {
-        if (!isInitialized) return 0;
+    function nav() public view whenInitialized returns (uint256 _nav) {
         _nav = value(1 ether);
     }
 
     /// @inheritdoc IRiseToken
-    function leverageRatio() public view returns (uint256 _lr) {
-        if (!isInitialized) return 0;
+    function leverageRatio() public whenInitialized view returns (uint256 _lr) {
         uint256 cv = oracleAdapter.totalValue(
             address(collateral),
             address(debt),
@@ -378,9 +384,8 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         address _recipient,
         address _tokenIn,
         uint256 _amountInMax
-    ) external payable returns (uint256 _amountIn) {
+    ) external payable whenInitialized returns (uint256 _amountIn) {
         /// ███ Checks
-        if (!isInitialized) revert NotInitialized();
         if (_shares > maxBuy) revert SwapAmountTooLarge();
 
         /// ███ Effects
@@ -455,9 +460,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         address _recipient,
         address _tokenOut,
         uint256 _amountOutMin
-    ) external returns (uint256 _amountOut) {
-        if (!isInitialized) revert NotInitialized();
-
+    ) external whenInitialized returns (uint256 _amountOut) {
         uint256 fee = fees.mulWadDown(_shares);
         uint256 newShares = _shares - fee;
         SellParams memory params = SellParams({
@@ -520,7 +523,9 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     /// ███ Market makers ██████████████████████████████████████████████████████
 
     /// @inheritdoc IRiseToken
-    function push(uint256 _amountIn) external returns (uint256 _amountOut) {
+    function push(
+        uint256 _amountIn
+    ) external whenInitialized returns (uint256 _amountOut) {
         /// ███ Checks
         if (leverageRatio() > minLeverageRatio) revert NoNeedToRebalance();
         if (_amountIn == 0) return 0;
@@ -547,7 +552,9 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     }
 
     /// @inheritdoc IRiseToken
-    function pull(uint256 _amountOut) external returns (uint256 _amountIn) {
+    function pull(
+        uint256 _amountOut
+    ) external whenInitialized returns (uint256 _amountIn) {
         /// ███ Checks
         if (leverageRatio() < maxLeverageRatio) revert NoNeedToRebalance();
         if (_amountOut == 0) return 0;
