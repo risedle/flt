@@ -202,7 +202,7 @@ contract RiseTokenPeriphery is IRiseTokenPeriphery {
         address _tokenIn,
         uint256 _shares
     ) external view returns (uint256 _amountIn) {
-        if (!_riseToken.isInitialized()) revert IRiseToken.NotInitialized();
+        if (!_riseToken.isInitialized()) revert IRiseToken.TokenNotInitialized();
         if (_shares == 0) return 0;
         uint256 fee = _riseToken.fees().mulWadDown(_shares);
         uint256 newShares = _shares + fee;
@@ -220,7 +220,7 @@ contract RiseTokenPeriphery is IRiseTokenPeriphery {
         address _tokenOut,
         uint256 _shares
     ) external view returns (uint256 _amountOut) {
-        if (!_riseToken.isInitialized()) revert IRiseToken.NotInitialized();
+        if (!_riseToken.isInitialized()) revert IRiseToken.TokenNotInitialized();
         if (_shares == 0) return 0;
         uint256 fee = _riseToken.fees().mulWadDown(_shares);
         uint256 newShares = _shares - fee;

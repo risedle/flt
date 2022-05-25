@@ -64,7 +64,7 @@ contract RiseTokenBuyAndSellTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.NotInitialized.selector
+                IRiseToken.TokenNotInitialized.selector
             )
         );
         wbtcRise.buy{value: ethAmount}(
@@ -419,7 +419,7 @@ contract RiseTokenBuyAndSellTest {
         wbtcRise.approve(address(wbtcRise), shares);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.NotInitialized.selector
+                IRiseToken.TokenNotInitialized.selector
             )
         );
         wbtcRise.sell(shares, recipient, tokenIn, ethAmount);
