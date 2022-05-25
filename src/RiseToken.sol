@@ -262,7 +262,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     function initialize(
         InitializeParams memory _params
     ) external payable onlyOwner {
-        if (isInitialized == true) revert AlreadyInitialized();
+        if (isInitialized) revert AlreadyInitialized();
         if (msg.value == 0) revert InitializeAmountInInvalid();
         _params.ethAmount = msg.value;
         _params.initializer = msg.sender;
