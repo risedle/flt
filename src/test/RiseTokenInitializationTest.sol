@@ -43,6 +43,48 @@ contract RiseTokenInitializationTest {
 
     /// ███ initialize ███████████████████████████████████████████████████████
 
+    /// @notice Make sure the transaction revert if non-owner execute
+    function testInitializeRevertIfNonOwnerExecute() public {
+        // Create factory
+        address feeRecipient = vm.addr(1);
+        RiseTokenFactory factory = new RiseTokenFactory(feeRecipient);
+
+        // Create new Rise token
+        RiseToken wbtcRise = factory.create(
+            fwbtc,
+            fusdc,
+            riseTokenUtils.uniswapAdapter(),
+            riseTokenUtils.oracleAdapter()
+        );
+
+        // Add supply to the Rari Fuse
+        uint256 supplyAmount = 100_000_000 * 1e6; // 100M USDC
+        utils.setUSDCBalance(address(this), supplyAmount);
+        wbtcRise.debt().approve(address(fusdc), supplyAmount);
+        fusdc.mint(supplyAmount);
+
+        // Initialize WBTCRISE
+        uint256 price = 400 * 1e6; // 400 UDSC
+        uint256 collateralAmount = 1 * 1e8; // 1 WBTC
+        uint256 lr = 2 ether; // 2x
+
+        IRiseToken.InitializeParams memory params;
+        params = periphery.getInitializationParams(
+            wbtcRise,
+            collateralAmount,
+            price,
+            lr
+        );
+
+        // Transfer ownership
+        address newOwner = vm.addr(2);
+        wbtcRise.transferOwnership(newOwner);
+
+        // Initialize as non owner, this should revert
+        vm.expectRevert("Ownable: caller is not the owner");
+        wbtcRise.initialize{value: 1000 ether}(params);
+    }
+
     /// @notice Make sure the transaction revert if slippage too high
     function testInitializeRevertIfSlippageTooHigh() public {
         // Create factory
