@@ -530,6 +530,12 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         if (leverageRatio() > minLeverageRatio) revert NoNeedToRebalance();
         if (_amountIn == 0) return 0;
 
+        // Prev states
+        uint256 prevLeverageRatio = leverageRatio();
+        uint256 prevTotalCollateral = totalCollateral;
+        uint256 prevTotalDebt = totalDebt;
+        uint256 prevPrice = price();
+
         // Discount the price
         uint256 amountInValue = oracleAdapter.totalValue(
             address(collateral),
@@ -549,6 +555,19 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         collateral.safeTransferFrom(msg.sender, address(this), _amountIn);
         supplyThenBorrow(_amountIn, _amountOut);
         debt.safeTransfer(msg.sender, _amountOut);
+
+        // Emit event
+        emit Rebalanced(
+            msg.sender,
+            prevLeverageRatio,
+            leverageRatio(),
+            prevTotalCollateral,
+            totalCollateral,
+            prevTotalDebt,
+            totalDebt,
+            prevPrice,
+            price()
+        );
     }
 
     /// @inheritdoc IRiseToken
@@ -558,6 +577,12 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         /// ███ Checks
         if (leverageRatio() < maxLeverageRatio) revert NoNeedToRebalance();
         if (_amountOut == 0) return 0;
+
+        // Prev states
+        uint256 prevLeverageRatio = leverageRatio();
+        uint256 prevTotalCollateral = totalCollateral;
+        uint256 prevTotalDebt = totalDebt;
+        uint256 prevPrice = price();
 
         // Discount the price
         uint256 amountOutValue = oracleAdapter.totalValue(
@@ -578,6 +603,19 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         debt.safeTransferFrom(msg.sender, address(this), _amountIn);
         repayThenRedeem(_amountIn, _amountOut);
         collateral.safeTransfer(msg.sender, _amountOut);
+
+        // Emit event
+        emit Rebalanced(
+            msg.sender,
+            prevLeverageRatio,
+            leverageRatio(),
+            prevTotalCollateral,
+            totalCollateral,
+            prevTotalDebt,
+            totalDebt,
+            prevPrice,
+            price()
+        );
     }
 
     /// @notice Receives ETH when interacting with Uniswap or Fuse
