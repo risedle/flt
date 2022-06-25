@@ -114,6 +114,30 @@ interface IRiseToken is IERC20 {
         uint256 maxBuy
     );
 
+    /**
+     * @notice Event emitted when the Rise Token is rebalanced
+     * @param executor The address who execute the rebalance
+     * @param prevLeverageRatio Previous leverage ratio
+     * @param leverageRatio Current leverage ratio
+     * @param prevTotalCollateral Previous total collateral
+     * @param totalCollateral Current total collateral
+     * @param prevTotalDebt Previoes total debt
+     * @param totalDebt Current total debt
+     * @param prevPrice Previous price
+     * @param price Current price
+     */
+    event Rebalanced(
+        address executor,
+        uint256 prevLeverageRatio,
+        uint256 leverageRatio,
+        uint256 prevTotalCollateral,
+        uint256 totalCollateral,
+        uint256 prevTotalDebt,
+        uint256 totalDebt,
+        uint256 prevPrice,
+        uint256 price
+    );
+
     /// ███ Errors ███████████████████████████████████████████████████████████
 
     /// @notice Error is raised if the caller of onFlashSwapWETHForExactTokens is
