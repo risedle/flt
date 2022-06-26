@@ -16,87 +16,33 @@ interface IRiseToken is IERC20 {
     /// @notice Flashswap types
     enum FlashSwapType {
         Initialize,
-        Buy,
-        Sell
+        Mint,
+        Burn
     }
-
-    /**
-     * @notice Parameters that used to initialize the Rise Token
-     * @param borrowAmount The target borrow amount
-     * @param collateralAmount The target collateral amount
-     * @param shares The target initial supply of the Rise Token
-     * @param leverageRatio The target leverage ratio of the Rise Token
-     * @param price The initial price of the Rise Token
-     * @param ethAmount The maximum amount of ETH that used to initialize the
-     *                  total collateral and total debt
-     * @param initialize The initialize() executor
-     */
-    struct InitializeParams {
-        uint256 borrowAmount;
-        uint256 collateralAmount;
-        uint256 shares;
-        uint256 leverageRatio;
-        uint256 price;
-        uint256 ethAmount;
-        address initializer;
-    }
-
-    /**
-     * @notice Parameters that used to buy the Rise Token
-     * @param buyer The msg.sender
-     * @param recipient The address that will receive the Rise Token
-     * @param collateralAmount The amount of token that will supplied to Rari Fuse
-     * @param debtAmount The amount of token that will borrowed from Rari Fuse
-     * @param shares The amount of Rise Token to be minted
-     * @param fee The amount of Rise Token as fee
-     * @param wethAmount The WETH amount from tokenIn
-     * @param price The price of the Rise Token
-     */
-    struct BuyParams {
-        address buyer;
-        address recipient;
-        uint256 collateralAmount;
-        uint256 debtAmount;
-        uint256 shares;
-        uint256 fee;
-        uint256 wethAmount;
-        uint256 price;
-    }
-
-    /**
-     * @notice Parameters that used to buy the Rise Token
-     * @param seller The msg.sender
-     * @param recipient The address that will receive the tokenOut
-     * @param collateralAmount The amount of token that will redeemed from Rari Fuse
-     * @param debtAmount The amount of token that will repay to Rari Fuse
-     * @param shares The amount of Rise Token to be burned
-     * @param fee The amount of Rise Token as fee
-     * @param price The price of the Rise Token
-     */
-    struct SellParams {
-        address seller;
-        address recipient;
-        uint256 collateralAmount;
-        uint256 debtAmount;
-        uint256 shares;
-        uint256 fee;
-        uint256 price;
-    }
-
 
     /// ███ Events ███████████████████████████████████████████████████████████
 
     /**
      * @notice Event emitted when the Rise Token is initialized
-     * @param params The initialization parameters
+     * @param sender The initializer wallet address
+     * @param totalCollateral The initial total collateral
+     * @param totalDebt The initial total debt
+     * @param totalSupply The initial total supply
      */
-    event Initialized(InitializeParams params);
+    event Initialized(
+        address sender,
+        uint256 totalCollateral,
+        uint256 totalDebt,
+        uint256 totalSupply
+    );
 
-    /// @notice Event emitted when user buy the token
-    event Buy(BuyParams params);
-
-    /// @notice Event emitted when user sell the token
-    event Sell(SellParams params);
+    /// @notice Event emitted when new supply is minted
+    event RiseTokenMinted(
+        address indexed recipient,
+        uint256 shares,
+        address indexed tokenIn,
+        uint256 amountIn
+    );
 
     /**
      * @notice Event emitted when params updated
@@ -144,6 +90,9 @@ interface IRiseToken is IERC20 {
     ///         not Uniswap Adapter contract
     error NotUniswapAdapter();
 
+    /// @notice Error is raised if the caller is unauthorized
+    error Unauthorized();
+
     /// @notice Error is raised if mint amount is invalid
     error InitializeAmountInInvalid();
 
@@ -181,6 +130,12 @@ interface IRiseToken is IERC20 {
     /// @notice Error is raised if flash swap type invalid
     error InvalidFlashSwapType();
 
+    /// @notice Error is raised if the contract receive invalid amount
+    error InvalidFlashSwapAmount(uint256 expected, uint256 got);
+
+    /// @notice Error is raised if minting is invalid
+    error InvalidBalance();
+
 
     /// ███ Owner actions ████████████████████████████████████████████████████
 
@@ -200,13 +155,50 @@ interface IRiseToken is IERC20 {
     ) external;
 
     /**
-     * @notice Initialize the Rise Token using ETH
-     * @param _params The initialization parameters
+     * @notice Initialize the Rise Token using debt token
+     * @dev Owner must send enough debt token in order to initialize the Rise
+     *      Token.
+     *      Required amount is defined below:
+     *
+     *          Given:
+     *            - lr: Leverage Ratio
+     *            - ca: Collateral Amount
+     *            - p : Initial Price
+     *
+     *          Steps:
+     *            1. Get `amountIn` to swap `ca` amount of collateral via
+     *               uniswap v2 router.
+     *            2. tcv = ca * collateral price (via oracle.totalValue)
+     *            3. td = ((lr*tcv)-tcv)/lr
+     *            4. amountSend = amountIn - td
+     *            5. shares = amountSend / initialPrice
+     *
+     *          Outputs: td (Total debt), amountSend & shares
+     *
+     * @param _lr Initital leverage ratio
+     * @param _ca Initial total collateral
+     * @param _da Initial total debt
+     * @param _shares Initial supply of Rise Token
      */
-    function initialize(InitializeParams memory _params) external payable;
+    function initialize(
+        uint256 _lr,
+        uint256 _ca,
+        uint256 _da,
+        uint256 _shares
+    ) external;
 
 
     /// ███ Read-only functions ██████████████████████████████████████████████
+
+    /**
+     * @notice Gets the collateral and debt amount give the shares amount
+     * @param _amount The shares amount
+     * @return _ca Collateral amount (ex: gOHM is 1e18 precision)
+     * @return _da Debt amount (ex: USDC is 1e6 precision)
+     */
+    function sharesToUnderlying(
+        uint256 _amount
+    ) external view returns (uint256 _ca, uint256 _da);
 
     /**
      * @notice Gets the total collateral per share
@@ -253,32 +245,29 @@ interface IRiseToken is IERC20 {
     /// ███ User actions █████████████████████████████████████████████████████
 
     /**
-     * @notice Buy Rise Token with tokenIn. New Rise Token supply will be minted.
-     * @param _shares The amount of Rise Token to buy
-     * @param _recipient The recipient of the transaction.
-     * @param _tokenIn ERC20 used to buy the Rise Token
-     * @return _amountIn The amount of tokenIn used to mint Rise Token
+     * @notice Mint Rise Token
+     * @dev This is low-level call for minting new supply of Rise Token.
+     *      This function only expect the exact amount of debt token available
+     *      owned by this contract at the time of minting. Otherwise the
+     *      minting process should be failed.
+     *
+     *      This function should be called via high-level conctract such as
+     *      router that dealing with swaping any token to exact amount
+     *      of debt token.
+     * @param _shares The amount of Rise Token to mint
+     * @param _recipient The recipient of Rise Token
      */
-    function buy(
+    function mint(
         uint256 _shares,
         address _recipient,
         address _tokenIn,
-        uint256 _amountInMax
-    ) external payable returns (uint256 _amountIn);
+        address _amountIn
+    ) external;
 
     /**
-     * @notice Sell Rise Token for tokenOut. The _shares amount of Rise Token will be burned.
-     * @param _shares The amount of Rise Token to sell
-     * @param _recipient The recipient of the transaction
-     * @param _tokenOut The output token
-     * @param _amountOutMin The minimum amount of output token
+     * @notice Burn Rise Token
      */
-    function sell(
-        uint256 _shares,
-        address _recipient,
-        address _tokenOut,
-        uint256 _amountOutMin
-    ) external returns (uint256 _amountOut);
+    function burn() external;
 
 
     /// ███ Market makers ████████████████████████████████████████████████████

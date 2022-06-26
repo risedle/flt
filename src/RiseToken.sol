@@ -10,6 +10,8 @@ import { IRiseToken } from "./interfaces/IRiseToken.sol";
 import { IfERC20 } from "./interfaces/IfERC20.sol";
 import { IFuseComptroller } from "./interfaces/IFuseComptroller.sol";
 import { IWETH9 } from "./interfaces/IWETH9.sol";
+import { IUniswapV2Pair } from "./interfaces/IUniswapV2Pair.sol";
+import { IUniswapV2Router02 } from "./interfaces/IUniswapV2Router02.sol";
 
 import { RiseTokenFactory } from "./RiseTokenFactory.sol";
 import { UniswapAdapter } from "./adapters/UniswapAdapter.sol";
@@ -31,10 +33,10 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
 
     /// ███ Storages █████████████████████████████████████████████████████████
 
-    IWETH9                     public immutable weth;
     RiseTokenFactory           public immutable factory;
-    UniswapAdapter             public immutable uniswapAdapter;
     RariFusePriceOracleAdapter public immutable oracleAdapter;
+    IUniswapV2Pair             public immutable pair;
+    IUniswapV2Router02         public immutable router;
 
     ERC20   public immutable collateral;
     ERC20   public immutable debt;
@@ -68,17 +70,18 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         RiseTokenFactory _factory,
         IfERC20 _fCollateral,
         IfERC20 _fDebt,
-        UniswapAdapter _uniswapAdapter,
-        RariFusePriceOracleAdapter _oracleAdapter
+        RariFusePriceOracleAdapter _oracleAdapter,
+        IUniswapV2Pair _pair,
+        IUniswapV2Router02 _router
     ) ERC20(_name, _symbol) {
         factory = _factory;
-        uniswapAdapter = _uniswapAdapter;
-        oracleAdapter = _oracleAdapter;
         fCollateral = _fCollateral;
-        fDebt = _fDebt;
         collateral = ERC20(fCollateral.underlying());
+        fDebt = _fDebt;
         debt = ERC20(fDebt.underlying());
-        weth = IWETH9(uniswapAdapter.weth());
+        oracleAdapter = _oracleAdapter;
+        pair = _pair;
+        router = _router;
 
         increaseAllowance();
         transferOwnership(factory.owner());
@@ -116,125 +119,49 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     }
 
     function onInitialize(
-        uint256 _wethAmount,
-        uint256 _collateralAmount,
-        bytes memory _data
+        address _sender,
+        uint256 _lr,
+        uint256 _ca,
+        uint256 _da,
+        uint256 _shares
     ) internal {
-        isInitialized = true;
-        (InitializeParams memory params) = abi.decode(_data, (InitializeParams));
-
-        // Enter Rari Fuse Markets
-        address[] memory markets = new address[](2);
-        markets[0] = address(fCollateral);
-        markets[1] = address(fDebt);
-        IFuseComptroller troll = IFuseComptroller(fCollateral.comptroller());
-        uint256[] memory res = troll.enterMarkets(markets);
-        if (res[0] != 0 || res[1] != 0) revert FuseError(res[0]);
-
-        supplyThenBorrow(_collateralAmount, params.borrowAmount);
-
-        // Swap debt asset to WETH
-        uint256 wethAmountFromBorrow = uniswapAdapter.swapExactTokensForWETH(
-            address(debt),
-            params.borrowAmount,
-            0
-        );
-
-        // Refund excess WETH or get more WETH from initializer
-        if (wethAmountFromBorrow > _wethAmount) {
-            // refund to initializer
-            uint256 excessWETH = wethAmountFromBorrow - _wethAmount;
-            if (excessWETH > 0) {
-                weth.safeTransfer(params.initializer, excessWETH);
-            }
-        } else {
-            // Get WETH from initializer
-            uint256 owedWETH = _wethAmount - wethAmountFromBorrow;
-            if (owedWETH > params.ethAmount) revert SlippageTooHigh();
-            if (owedWETH > 0) {
-                weth.deposit{ value: owedWETH }(); // Wrap the ETH to WETH
-            }
-
-            // Transfer excess ETH back to the initializer
-            uint256 excessETH = params.ethAmount - owedWETH;
-            if (excessETH > 0) {
-                (bool sent, ) = params.initializer.call{value: excessETH}("");
-                if (!sent) revert FailedToSendETH(params.initializer, excessETH);
-            }
-        }
-
-        // Send back WETH to uniswap adapter
-        if (_wethAmount > 0) {
-            weth.safeTransfer(address(uniswapAdapter), _wethAmount);
-        }
-
-        // Mint the Rise Token to the initializer
-        _mint(params.initializer, params.shares);
-
-        emit Initialized(params);
+        uint256 amountIn = debt.balanceOf(address(this));
+        onMint(_sender, _shares, _ca, _da, address(debt), amountIn);
+        emit Initialized(_sender, totalCollateral, totalDebt, totalSupply());
     }
 
-    /// @notice We need this in order to allow user buy using any token
-    uint256 private wethLeftAfterFlashSwap;
-
-    function onBuy(
-        uint256 _wethRepayAmount,
-        uint256 _collateralAmount,
-        bytes memory _data
+    function onMint(
+        address _recipient,
+        uint256 _shares,
+        uint256 _ca,
+        uint256 _da,
+        address _tokenIn,
+        uint256 _amountIn
     ) internal {
-        // Parse the data from buy function
-        BuyParams memory params = abi.decode(_data, (BuyParams));
+        /// ███ Effects
+        supplyThenBorrow(_ca, _da);
 
-        // Supply then borrow in Rari Fuse
-        supplyThenBorrow(_collateralAmount, params.debtAmount);
+        address[] memory path = new address[](2);
+        path[0] = address(debt);
+        path[1] = address(collateral);
+        uint256 requiredAmount = router.getAmountsIn(_ca, path)[0];
+        if(debt.balanceOf(address(this)) < requiredAmount) {
+            revert InvalidBalance();
+        }
+        debt.safeTransfer(address(pair), requiredAmount);
 
-        // Swap debt asset to WETH
-        uint256 wethAmountFromBorrow = uniswapAdapter.swapExactTokensForWETH(
-            address(debt),
-            params.debtAmount,
-            0
-        );
+        // Mint the shares
+        _mint(_recipient, _shares);
 
-        uint256 wethAmountIn = params.wethAmount + wethAmountFromBorrow;
-        if (_wethRepayAmount > wethAmountIn) revert SlippageTooHigh();
-        wethLeftAfterFlashSwap = wethAmountIn - _wethRepayAmount;
-
-        // Transfer WETH to Uniswap Adapter to repay the flash swap
-        weth.safeTransfer(address(uniswapAdapter), _wethRepayAmount);
-
-        // Mint the Rise Token to the buyer
-        _mint(params.recipient, params.shares);
-        _mint(factory.feeRecipient(), params.fee);
+        // Emit
+        emit RiseTokenMinted(_recipient, _shares, _tokenIn, _amountIn);
     }
 
-    /// @notice We need this in order to allow user selling to any token
-    uint256 private collateralLeftAfterFlashSwap;
-
-    function onSell(
+    function onBurn(
         uint256 _wethRepayAmount,
         uint256 _debtAmount,
         bytes memory _data
     ) internal {
-        // Parse the data from sell function
-        (SellParams memory params) = abi.decode(_data, (SellParams));
-
-        // Transfer fee and burn the Rise Token
-        _transfer(params.seller, factory.feeRecipient(), params.fee);
-        _burn(params.seller, params.shares - params.fee);
-
-        // Repay then redeem
-        repayThenRedeem(_debtAmount, params.collateralAmount);
-
-        // Swap collateral token to WETH
-        uint256 collateralSold = uniswapAdapter.swapTokensForExactWETH(
-            address(collateral),
-            _wethRepayAmount,
-            params.collateralAmount
-        );
-        collateralLeftAfterFlashSwap = params.collateralAmount - collateralSold;
-
-        // Repay the flash swap
-        weth.safeTransfer(address(uniswapAdapter), _wethRepayAmount);
     }
 
 
@@ -271,32 +198,38 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
 
     /// @inheritdoc IRiseToken
     function initialize(
-        InitializeParams memory _params
-    ) external payable onlyOwner {
+        uint256 _lr,
+        uint256 _ca,
+        uint256 _da,
+        uint256 _shares
+    ) external onlyOwner {
         if (isInitialized) revert TokenInitialized();
-        if (msg.value == 0) revert InitializeAmountInInvalid();
-        _params.ethAmount = msg.value;
-        _params.initializer = msg.sender;
+
+        // Borrow collateral from pair for instant leverage
+        address c = address(collateral);
+        uint256 amount0Out = c == pair.token0() ? _ca : 0;
+        uint256 amount1Out = c == pair.token1() ? _ca : 0;
         bytes memory data = abi.encode(
             FlashSwapType.Initialize,
-            abi.encode(_params)
+            abi.encode(msg.sender,_lr,_ca,_da,_shares)
         );
-        uniswapAdapter.flashSwapWETHForExactTokens(
-            address(collateral),
-            _params.collateralAmount,
-            data
-        );
+        pair.swap(amount0Out, amount1Out, address(this), data);
     }
 
 
     /// ███ External functions ███████████████████████████████████████████████
 
-    function onFlashSwapWETHForExactTokens(
-        uint256 _wethAmount,
-        uint256 _amountOut,
-        bytes calldata _data
+    function uniswapV2Call(
+        address _sender,
+        uint256 _amount0,
+        uint256 _amount1,
+        bytes memory _data
     ) external {
-        if (msg.sender != address(uniswapAdapter)) revert NotUniswapAdapter();
+        /// ███ Checks
+        if (msg.sender != address(pair)) revert Unauthorized();
+        if (_sender != address(this)) revert Unauthorized();
+        // Check collateral amount received from flash swap
+        uint256 r = _amount0 == 0 ? _amount1 : _amount0;
 
         // Continue execution based on the type
         (
@@ -305,38 +238,65 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         ) = abi.decode(_data, (FlashSwapType,bytes));
 
         if (flashSwapType == FlashSwapType.Initialize) {
-            onInitialize(_wethAmount, _amountOut, data);
+            (
+                address sender,
+                uint256 lr,
+                uint256 ca,
+                uint256 da,
+                uint256 shares
+            ) = abi.decode(
+                data,
+                (address,uint256,uint256,uint256,uint256)
+            );
+            if (r != ca) revert InvalidFlashSwapAmount(ca, r);
+            onInitialize(sender, lr, ca, da, shares);
             return;
-        } else if (flashSwapType == FlashSwapType.Buy) {
-            onBuy(_wethAmount, _amountOut, data);
+        } else if (flashSwapType == FlashSwapType.Mint) {
+            (
+                address recipient,
+                uint256 shares,
+                uint256 ca,
+                uint256 da,
+                address tokenIn,
+                uint256 amountIn
+            ) = abi.decode(
+                data,
+                (address,uint256,uint256,uint256,address,uint256)
+            );
+            onMint(recipient, shares, ca, da, tokenIn, amountIn);
             return;
-        } else if (flashSwapType == FlashSwapType.Sell) {
-            onSell(_wethAmount, _amountOut, data);
+        } else if (flashSwapType == FlashSwapType.Burn) {
+            // onBurn(data);
             return;
         } else revert InvalidFlashSwapType();
+
     }
 
     function increaseAllowance() public {
         uint256 max = type(uint256).max;
         collateral.safeIncreaseAllowance(address(fCollateral), max);
         debt.safeIncreaseAllowance(address(fDebt), max);
-        debt.safeIncreaseAllowance(address(uniswapAdapter), max);
-        collateral.safeIncreaseAllowance(address(uniswapAdapter), max);
-        weth.safeIncreaseAllowance(address(weth), max);
-        weth.safeIncreaseAllowance(address(uniswapAdapter), max);
     }
 
 
     /// ███ Read-only functions ██████████████████████████████████████████████
 
     /// @inheritdoc IRiseToken
+    function sharesToUnderlying(
+        uint256 _amount
+    ) public view whenInitialized returns (uint256 _ca, uint256 _da) {
+        _ca = _amount.mulDivDown(totalCollateral, totalSupply());
+        _da = _amount.mulDivDown(totalDebt, totalSupply());
+    }
+
+    /// @inheritdoc IRiseToken
     function collateralPerShare() public view whenInitialized returns (uint256 _cps) {
-        _cps = totalCollateral.divWadUp(totalSupply());
+        (_cps, ) = sharesToUnderlying(1 ether);
     }
 
     /// @inheritdoc IRiseToken
     function debtPerShare() public view whenInitialized returns (uint256 _dps) {
-        _dps = totalDebt.divWadUp(totalSupply());
+        ( ,_dps) = sharesToUnderlying(1 ether);
     }
 
     /// @inheritdoc IRiseToken
@@ -346,18 +306,17 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         if (_shares == 0) return 0;
 
         // Get the collateral & debt amount
-        uint256 cAmount = _shares.mulDivDown(totalCollateral, totalSupply());
-        uint256 dAmount = _shares.mulDivDown(totalDebt, totalSupply());
+        (uint256 ca, uint256 da) = sharesToUnderlying(_shares);
 
         // Get the collateral value
         uint256 cv = oracleAdapter.totalValue(
             address(collateral),
             address(debt),
-            cAmount
+            ca
         );
 
         // Get total value in terms of debt token
-        _value = cv - dAmount;
+        _value = cv - da;
     }
 
     /// @inheritdoc IRiseToken
@@ -379,144 +338,35 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     /// ███ User actions █████████████████████████████████████████████████████
 
     /// @inheritdoc IRiseToken
-    function buy(
+    function mint(
         uint256 _shares,
         address _recipient,
         address _tokenIn,
-        uint256 _amountInMax
-    ) external payable whenInitialized returns (uint256 _amountIn) {
+        address _amountIn
+    ) external whenInitialized {
         /// ███ Checks
         if (_shares > maxBuy) revert SwapAmountTooLarge();
+        (uint256 ca, uint256 da) = sharesToUnderlying(_shares);
 
-        /// ███ Effects
+        // Borrow collateral from pair
+        address c = address(collateral);
+        uint256 amount0Out = c == pair.token0() ? ca : 0;
+        uint256 amount1Out = c == pair.token1() ? ca : 0;
 
-        // Convert tokenIn to WETH to repay flash swap; We do it here coz
-        // we can't re-enter the pool if tokenIn is collateral token
-        uint256 wethAmount = msg.value;
-        if (_tokenIn == address(0)) {
-            weth.deposit{ value: msg.value}();
-        } else {
-            ERC20(_tokenIn).safeTransferFrom(msg.sender, address(this), _amountInMax);
-            if (_tokenIn != address(collateral) && _tokenIn != address(debt)) {
-                ERC20(_tokenIn).safeIncreaseAllowance(
-                    address(uniswapAdapter),
-                    _amountInMax
-                );
-            }
-            wethAmount = uniswapAdapter.swapExactTokensForWETH(
-                _tokenIn,
-                _amountInMax,
-                0
-            );
-        }
-
-        uint256 fee = fees.mulWadDown(_shares);
-        uint256 newShares = _shares + fee;
-        BuyParams memory params = BuyParams({
-            buyer: msg.sender,
-            recipient: _recipient,
-            wethAmount: wethAmount,
-            shares: _shares,
-            collateralAmount: newShares.mulDivDown(totalCollateral, totalSupply()),
-            debtAmount: newShares.mulDivDown(totalDebt, totalSupply()),
-            fee: fee,
-            price: price()
-        });
-
-        bytes memory data = abi.encode(FlashSwapType.Buy, abi.encode(params));
-        uniswapAdapter.flashSwapWETHForExactTokens(
-            address(collateral),
-            params.collateralAmount,
-            data
+        // Do the instant leverage
+        bytes memory data = abi.encode(
+            _recipient,
+            _shares,
+            ca,
+            da,
+            _tokenIn,
+            _amountIn
         );
-
-        /// ███ Interactions
-        // Check after flash swap; Refund the token
-        _amountIn = _tokenIn == address(0) ? msg.value : _amountInMax;
-        if (wethLeftAfterFlashSwap > 0) {
-            uint256 wethLeft = wethLeftAfterFlashSwap;
-            wethLeftAfterFlashSwap = 0;
-            if (_tokenIn == address(0)) {
-                weth.withdraw(wethLeft);
-                _amountIn = msg.value - wethLeft;
-                (bool sent, ) = msg.sender.call{value: wethLeft}("");
-                if (!sent) revert FailedToSendETH(msg.sender, wethLeft);
-            } else {
-                uint256 excess = uniswapAdapter.swapExactWETHForTokens(
-                    _tokenIn,
-                    wethLeft,
-                    0
-                );
-                _amountIn = _amountInMax - excess;
-                ERC20(_tokenIn).safeTransfer(msg.sender, excess);
-            }
-        }
-        emit Buy(params);
+        pair.swap(amount0Out, amount1Out, address(this), data);
     }
 
     /// @inheritdoc IRiseToken
-    function sell(
-        uint256 _shares,
-        address _recipient,
-        address _tokenOut,
-        uint256 _amountOutMin
-    ) external whenInitialized returns (uint256 _amountOut) {
-        uint256 fee = fees.mulWadDown(_shares);
-        uint256 newShares = _shares - fee;
-        SellParams memory params = SellParams({
-            seller: msg.sender,
-            recipient: _recipient,
-            shares: _shares,
-            collateralAmount: newShares.mulDivDown(totalCollateral, totalSupply()),
-            debtAmount: newShares.mulDivDown(totalDebt, totalSupply()),
-            fee: fee,
-            price: price()
-        });
-
-        // Perform the flash swap
-        bytes memory data = abi.encode(FlashSwapType.Sell, abi.encode(params));
-        uniswapAdapter.flashSwapWETHForExactTokens(
-            address(debt),
-            params.debtAmount,
-            data
-        );
-
-        if (collateralLeftAfterFlashSwap == 0) revert SlippageTooHigh();
-        uint256 cleft = collateralLeftAfterFlashSwap;
-        collateralLeftAfterFlashSwap = 0;
-
-        if (_tokenOut == address(collateral)) {
-            if (_amountOutMin > cleft) revert SlippageTooHigh();
-            collateral.safeTransfer(_recipient, cleft);
-            _amountOut = cleft;
-        } else {
-            uint256 wethOut = uniswapAdapter.swapExactTokensForWETH(
-                address(collateral),
-                cleft,
-                0
-            );
-            if (_tokenOut == address(0)) {
-                _amountOut = wethOut;
-                if (_amountOutMin > _amountOut) revert SlippageTooHigh();
-                if (_amountOut > 0) {
-                    weth.withdraw(_amountOut);
-                    (bool sent, ) = _recipient.call{value: _amountOut}("");
-                    if (!sent) revert FailedToSendETH(_recipient, _amountOut);
-                }
-            } else {
-                // Swap WETH to tokenOut
-                _amountOut = uniswapAdapter.swapExactWETHForTokens(
-                    _tokenOut,
-                    wethOut,
-                    0
-                );
-                if (_amountOutMin > _amountOut) revert SlippageTooHigh();
-                if (_amountOut > 0) {
-                    ERC20(_tokenOut).safeTransfer(_recipient, _amountOut);
-                }
-            }
-        }
-        emit Sell(params);
+    function burn() external whenInitialized {
     }
 
 

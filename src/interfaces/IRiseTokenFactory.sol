@@ -3,7 +3,8 @@ pragma solidity ^0.8.0;
 
 import { RiseToken } from "../RiseToken.sol";
 import { IfERC20 } from "./IfERC20.sol";
-import { UniswapAdapter } from "../adapters/UniswapAdapter.sol";
+import { IUniswapV2Pair } from "./IUniswapV2Pair.sol";
+import { IUniswapV2Router02 } from "./IUniswapV2Router02.sol";
 import { RariFusePriceOracleAdapter } from "../adapters/RariFusePriceOracleAdapter.sol";
 
 /**
@@ -65,10 +66,13 @@ interface IRiseTokenFactory {
      * @return _token The Rise Token address
      */
     function create(
+        string memory              _name,
+        string memory              _symbol,
         IfERC20                    _fCollateral,
         IfERC20                    _fDebt,
-        UniswapAdapter             _uniswapAdapter,
-        RariFusePriceOracleAdapter _oracleAdapter
+        RariFusePriceOracleAdapter _oracleAdapter,
+        IUniswapV2Pair             _pair,
+        IUniswapV2Router02         _router
     ) external returns (RiseToken _token);
 
 }
