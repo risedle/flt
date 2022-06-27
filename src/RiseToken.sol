@@ -45,7 +45,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
 
     uint256 public totalCollateral;
     uint256 public totalDebt;
-    uint256 public maxBuy = type(uint256).max;
+    uint256 public maxMint = type(uint256).max;
     uint256 public fees = 0.001 ether;
     uint256 public minLeverageRatio = 1.7 ether;
     uint256 public maxLeverageRatio = 2.3 ether;
@@ -57,7 +57,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     /// ███ Modifiers ████████████████████████████████████████████████████████
 
     modifier whenInitialized() {
-        if (!isInitialized) revert TokenNotInitialized();
+        if (!isInitialized) revert Uninitialized();
         _;
     }
 
@@ -189,7 +189,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         uint256 _maxLeverageRatio,
         uint256 _step,
         uint256 _discount,
-        uint256 _newMaxBuy
+        uint256 _newMaxMint
     ) external onlyOwner {
         // Checks
         if (_minLeverageRatio < 1 ether || _maxLeverageRatio > 3 ether) {
@@ -207,9 +207,9 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         maxLeverageRatio = _maxLeverageRatio;
         step = _step;
         discount = _discount;
-        maxBuy = _newMaxBuy;
+        maxMint = _newMaxMint;
 
-        emit ParamsUpdated(minLeverageRatio, maxLeverageRatio, step, discount, maxBuy);
+        emit ParamsUpdated(minLeverageRatio, maxLeverageRatio, step, discount, maxMint);
     }
 
     /// @inheritdoc IRiseToken
@@ -219,7 +219,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         uint256 _da,
         uint256 _shares
     ) external onlyOwner {
-        if (isInitialized) revert TokenInitialized();
+        if (isInitialized) revert Uninitialized();
 
         // Borrow collateral from pair for instant leverage
         address c = address(collateral);
@@ -298,7 +298,8 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
                 data,
                 (address,address,uint256,uint256,uint256,address,uint256)
             );
-            onMint(sender,recipient, shares, ca, da, tokenIn, amountIn);
+            if (r != ca) revert InvalidFlashSwapAmount(ca, r);
+            onMint(sender, recipient, shares, ca, da, tokenIn, amountIn);
             return;
         } else if (flashSwapType == FlashSwapType.Burn) {
             // onBurn(data);
@@ -382,10 +383,12 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         uint256 _shares,
         address _recipient,
         address _tokenIn,
-        address _amountIn
+        uint256 _amountIn
     ) external whenInitialized {
         /// ███ Checks
-        if (_shares > maxBuy) revert SwapAmountTooLarge();
+        if (_shares > maxMint || _shares == 0) {
+            revert InvalidMintAmount(maxMint, _shares);
+        }
         (uint256 ca, uint256 da) = sharesToUnderlying(_shares);
 
         // Borrow collateral from pair
@@ -395,13 +398,8 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
 
         // Do the instant leverage
         bytes memory data = abi.encode(
-            msg.sender,
-            _recipient,
-            _shares,
-            ca,
-            da,
-            _tokenIn,
-            _amountIn
+            FlashSwapType.Mint,
+            abi.encode(msg.sender,_recipient,_shares,ca,da,_tokenIn,_amountIn)
         );
         pair.swap(amount0Out, amount1Out, address(this), data);
     }
@@ -418,7 +416,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         uint256 _amountIn
     ) external whenInitialized returns (uint256 _amountOut) {
         /// ███ Checks
-        if (leverageRatio() > minLeverageRatio) revert NoNeedToRebalance();
+        if (leverageRatio() > minLeverageRatio) revert Balance();
         if (_amountIn == 0) return 0;
 
         // Prev states
@@ -438,7 +436,9 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         // Cap the swap amount
         // This is our buying power; can't buy collateral more than this
         uint256 maxBorrowAmount = step.mulWadDown(value(totalSupply()));
-        if (_amountOut > maxBorrowAmount) revert SwapAmountTooLarge();
+        if (_amountOut > maxBorrowAmount) {
+            revert InvalidSwapAmount(maxBorrowAmount, _amountOut);
+        }
 
         /// ███ Effects
 
@@ -466,7 +466,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         uint256 _amountOut
     ) external whenInitialized returns (uint256 _amountIn) {
         /// ███ Checks
-        if (leverageRatio() < maxLeverageRatio) revert NoNeedToRebalance();
+        if (leverageRatio() < maxLeverageRatio) revert Balance();
         if (_amountOut == 0) return 0;
 
         // Prev states
@@ -486,7 +486,9 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         // Cap the swap amount
         // This is our selling power; can't sell collateral more than this
         uint256 maxRepayAmount = step.mulWadDown(value(totalSupply()));
-        if (_amountIn > maxRepayAmount) revert SwapAmountTooLarge();
+        if (_amountIn > maxRepayAmount) {
+            revert InvalidSwapAmount(maxRepayAmount, _amountIn);
+        }
 
         /// ███ Effects
 

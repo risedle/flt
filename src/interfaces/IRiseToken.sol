@@ -87,34 +87,14 @@ interface IRiseToken is IERC20 {
 
     /// ███ Errors ███████████████████████████████████████████████████████████
 
-    /// @notice Error is raised if the caller of onFlashSwapWETHForExactTokens is
-    ///         not Uniswap Adapter contract
-    error NotUniswapAdapter();
-
     /// @notice Error is raised if the caller is unauthorized
     error Unauthorized();
 
-    /// @notice Error is raised if mint amount is invalid
-    error InitializeAmountInInvalid();
-
     /// @notice Error is raised if the owner run the initialize() twice
-    error TokenInitialized();
-
-    /// @notice Error is raised if buy & sell is executed before the FLT is initialized
-    error TokenNotInitialized();
-
-    /// @notice Error is raised if slippage too high
-    error SlippageTooHigh();
-
-    /// @notice Error is raised if contract failed to send ETH
-    error FailedToSendETH(address to, uint256 amount);
+    error Uninitialized();
 
     /// @notice Error is raised if rebalance is executed but leverage ratio is invalid
-    // error NoNeedToRebalance(uint256 leverageRatio);
-    error NoNeedToRebalance();
-
-    /// @notice Error is raised if liqudity to buy or sell collateral is not enough
-    error SwapAmountTooLarge();
+    error Balance();
 
     /// @notice Error is raised if something happen when interacting with Rari Fuse
     error FuseError(uint256 code);
@@ -136,6 +116,12 @@ interface IRiseToken is IERC20 {
 
     /// @notice Error is raised if minting is invalid
     error InvalidBalance();
+
+    /// @notice Error is raised if mint amount is too large
+    error InvalidMintAmount(uint256 max, uint256 got);
+
+    /// @notice Error is raised if swap amount is too large
+    error InvalidSwapAmount(uint256 max, uint256 got);
 
 
     /// ███ Owner actions ████████████████████████████████████████████████████
@@ -257,12 +243,14 @@ interface IRiseToken is IERC20 {
      *      of debt token.
      * @param _shares The amount of Rise Token to mint
      * @param _recipient The recipient of Rise Token
+     * @param _tokenIn The ERC20 address to mint the token; used for event only
+     * @param _amountIn The amount of tokenIn; used for event only
      */
     function mint(
         uint256 _shares,
         address _recipient,
         address _tokenIn,
-        address _amountIn
+        uint256 _amountIn
     ) external;
 
     /**
