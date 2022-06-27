@@ -225,6 +225,41 @@ contract BaseTest is Test {
         riseToken.uniswapV2Call(vm.addr(1), 1 ether, 1 ether, bytes("data"));
     }
 
+    /// @notice Make sure initializer get refund
+    function _testInitializeRefundSender(Data memory _data) internal {
+        // Add supply to Risedle Pool
+        setBalance(
+            address(_data.debt),
+            _data.debtSlot,
+            address(this),
+            _data.debtSupplyAmount
+        );
+        _data.debt.approve(address(_data.fDebt), _data.debtSupplyAmount);
+        _data.fDebt.mint(_data.debtSupplyAmount);
+
+        // Deploy Rise Token
+        RiseToken riseToken = deploy(_data);
+        uint256 lr = 2 ether;
+        (uint256 da, uint256 send, uint256 shares) = getInitializationParams(
+            _data,
+            lr
+        );
+
+        // Transfer `send` amount to riseToken
+        setBalance(
+            address(_data.debt),
+            _data.debtSlot,
+            address(this),
+            2*send
+        );
+        _data.debt.transfer(address(riseToken), 2*send);
+        riseToken.initialize(lr, _data.totalCollateral, da, shares);
+
+        // Make sure it refunded
+        assertEq(_data.debt.balanceOf(address(this)), send, "invalid balance");
+        assertEq(_data.debt.balanceOf(address(riseToken)), 0, "invalid contract");
+    }
+
     /// @notice Make sure 2x have correct states
     function _testInitializeWithLeverageRatio2x(Data memory _data) internal {
         // Add supply to Risedle Pool

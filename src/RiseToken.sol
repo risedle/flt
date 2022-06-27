@@ -90,16 +90,16 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
 
     /// ███ Internal functions ███████████████████████████████████████████████
 
-    function supplyThenBorrow(uint256 _cAmount, uint256 _bAmount) internal {
+    function supplyThenBorrow(uint256 _ca, uint256 _ba) internal {
         // Deposit to Rari Fuse
         uint256 fuseResponse;
-        fuseResponse = fCollateral.mint(_cAmount);
+        fuseResponse = fCollateral.mint(_ca);
         if (fuseResponse != 0) revert FuseError(fuseResponse);
         totalCollateral = fCollateral.balanceOfUnderlying(address(this));
 
         // Borrow from Rari Fuse
-        if (_bAmount == 0) return;
-        fuseResponse = fDebt.borrow(_bAmount);
+        if (_ba == 0) return;
+        fuseResponse = fDebt.borrow(_ba);
         if (fuseResponse != 0) revert FuseError(fuseResponse);
         totalDebt = fDebt.borrowBalanceCurrent(address(this));
     }
@@ -125,12 +125,22 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         uint256 _da,
         uint256 _shares
     ) internal {
+        // Enter the markets
+        address[] memory markets = new address[](2);
+        markets[0] = address(fCollateral);
+        markets[1] = address(fDebt);
+        IFuseComptroller troll = IFuseComptroller(fCollateral.comptroller());
+        uint256[] memory res = troll.enterMarkets(markets);
+        if (res[0] != 0 || res[1] != 0) revert FuseError(res[0]);
+
         uint256 amountIn = debt.balanceOf(address(this));
-        onMint(_sender, _shares, _ca, _da, address(debt), amountIn);
+        onMint(_sender, _sender, _shares, _ca, _da, address(debt), amountIn);
+        isInitialized = true;
         emit Initialized(_sender, _lr, totalCollateral, totalDebt, totalSupply());
     }
 
     function onMint(
+        address _sender,
         address _recipient,
         uint256 _shares,
         uint256 _ca,
@@ -145,10 +155,16 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         path[0] = address(debt);
         path[1] = address(collateral);
         uint256 requiredAmount = router.getAmountsIn(_ca, path)[0];
-        if(debt.balanceOf(address(this)) < requiredAmount) {
+        uint256 totalAmount = debt.balanceOf(address(this));
+        if(totalAmount < requiredAmount) {
             revert InvalidBalance();
         }
         debt.safeTransfer(address(pair), requiredAmount);
+
+        // Refund if any
+        if (totalAmount > requiredAmount) {
+            debt.safeTransfer(_sender, totalAmount - requiredAmount);
+        }
 
         // Mint the shares
         _mint(_recipient, _shares);
@@ -219,12 +235,30 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
 
     /// ███ External functions ███████████████████████████████████████████████
 
+    function pancakeCall(
+        address _sender,
+        uint256 _amount0,
+        uint256 _amount1,
+        bytes memory _data
+    ) external {
+        _callback(_sender, _amount0, _amount1, _data);
+    }
+
     function uniswapV2Call(
         address _sender,
         uint256 _amount0,
         uint256 _amount1,
         bytes memory _data
     ) external {
+        _callback(_sender, _amount0, _amount1, _data);
+    }
+
+    function _callback(
+        address _sender,
+        uint256 _amount0,
+        uint256 _amount1,
+        bytes memory _data
+    ) internal {
         /// ███ Checks
         if (msg.sender != address(pair)) revert Unauthorized();
         if (_sender != address(this)) revert Unauthorized();
@@ -253,6 +287,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
             return;
         } else if (flashSwapType == FlashSwapType.Mint) {
             (
+                address sender,
                 address recipient,
                 uint256 shares,
                 uint256 ca,
@@ -261,9 +296,9 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
                 uint256 amountIn
             ) = abi.decode(
                 data,
-                (address,uint256,uint256,uint256,address,uint256)
+                (address,address,uint256,uint256,uint256,address,uint256)
             );
-            onMint(recipient, shares, ca, da, tokenIn, amountIn);
+            onMint(sender,recipient, shares, ca, da, tokenIn, amountIn);
             return;
         } else if (flashSwapType == FlashSwapType.Burn) {
             // onBurn(data);
@@ -360,6 +395,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
 
         // Do the instant leverage
         bytes memory data = abi.encode(
+            msg.sender,
             _recipient,
             _shares,
             ca,

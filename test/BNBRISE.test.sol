@@ -84,6 +84,10 @@ contract BNBRISE is BaseTest {
         _testUniswapV2CallRevertIfCallerIsNotPair(data);
     }
 
+    function testInitializeRefundSender() public {
+        _testInitializeRefundSender(data);
+    }
+
     function testInitializeWithLeverageRatio2x() public {
         _testInitializeWithLeverageRatio2x(data);
     }
