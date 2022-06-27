@@ -339,5 +339,163 @@ contract BaseTest is Test {
         require(currentLR < lr + 0.0001 ether, "lr too high");
     }
 
+    /// @notice Make sure 1.3x have correct states
+    function _testInitializeWithLeverageRatioLessThan2x(Data memory _data) internal {
+        // Add supply to Risedle Pool
+        setBalance(
+            address(_data.debt),
+            _data.debtSlot,
+            address(this),
+            _data.debtSupplyAmount
+        );
+        _data.debt.approve(address(_data.fDebt), _data.debtSupplyAmount);
+        _data.fDebt.mint(_data.debtSupplyAmount);
+
+        // Deploy Rise Token
+        RiseToken riseToken = deploy(_data);
+        uint256 lr = 1.3 ether;
+        (uint256 da, uint256 send, uint256 shares) = getInitializationParams(
+            _data,
+            lr
+        );
+
+        // Transfer `send` amount to riseToken
+        setBalance(
+            address(_data.debt),
+            _data.debtSlot,
+            address(this),
+            send
+        );
+        _data.debt.transfer(address(riseToken), send);
+        riseToken.initialize(lr, _data.totalCollateral, da, shares);
+
+        // Check the parameters
+        assertTrue(riseToken.isInitialized(), "invalid status");
+
+        // Check total collateral
+        assertGt(
+            riseToken.totalCollateral(),
+            _data.totalCollateral-2,
+            "total collateral too low"
+        );
+        assertLt(
+            riseToken.totalCollateral(),
+            _data.totalCollateral+2,
+            "total collateral too high"
+        );
+
+        // Check total debt
+        assertEq(
+            riseToken.totalDebt(),
+            da,
+            "invalid total debt"
+        );
+
+        // Check total supply
+        uint256 totalSupply = riseToken.totalSupply();
+        uint256 balance = riseToken.balanceOf(address(this));
+        assertTrue(totalSupply > 0, "invalid total supply");
+        assertEq(balance, totalSupply, "invalid balance");
+
+        // Check price
+        uint256 price = riseToken.price();
+        uint256 percentage = 0.01 ether; // 1%
+        uint256 tolerance = percentage.mulWadDown(_data.initialPriceInETH);
+        assertGt(
+            price,
+            _data.initialPriceInETH - tolerance,
+            "price too low"
+        );
+        assertLt(
+            price,
+            _data.initialPriceInETH + tolerance,
+            "price too high"
+        );
+
+        // Check leverage ratio
+        uint256 currentLR = riseToken.leverageRatio();
+        require(currentLR > lr - 0.0001 ether, "lr too low");
+        require(currentLR < lr + 0.0001 ether, "lr too high");
+    }
+
+    /// @notice Make sure 2.6x have correct states
+    function _testInitializeWithLeverageRatioGreaterThan2x(Data memory _data) internal {
+        // Add supply to Risedle Pool
+        setBalance(
+            address(_data.debt),
+            _data.debtSlot,
+            address(this),
+            _data.debtSupplyAmount
+        );
+        _data.debt.approve(address(_data.fDebt), _data.debtSupplyAmount);
+        _data.fDebt.mint(_data.debtSupplyAmount);
+
+        // Deploy Rise Token
+        RiseToken riseToken = deploy(_data);
+        uint256 lr = 2.6 ether;
+        (uint256 da, uint256 send, uint256 shares) = getInitializationParams(
+            _data,
+            lr
+        );
+
+        // Transfer `send` amount to riseToken
+        setBalance(
+            address(_data.debt),
+            _data.debtSlot,
+            address(this),
+            send
+        );
+        _data.debt.transfer(address(riseToken), send);
+        riseToken.initialize(lr, _data.totalCollateral, da, shares);
+
+        // Check the parameters
+        assertTrue(riseToken.isInitialized(), "invalid status");
+
+        // Check total collateral
+        assertGt(
+            riseToken.totalCollateral(),
+            _data.totalCollateral-2,
+            "total collateral too low"
+        );
+        assertLt(
+            riseToken.totalCollateral(),
+            _data.totalCollateral+2,
+            "total collateral too high"
+        );
+
+        // Check total debt
+        assertEq(
+            riseToken.totalDebt(),
+            da,
+            "invalid total debt"
+        );
+
+        // Check total supply
+        uint256 totalSupply = riseToken.totalSupply();
+        uint256 balance = riseToken.balanceOf(address(this));
+        assertTrue(totalSupply > 0, "invalid total supply");
+        assertEq(balance, totalSupply, "invalid balance");
+
+        // Check price
+        uint256 price = riseToken.price();
+        uint256 percentage = 0.01 ether; // 1%
+        uint256 tolerance = percentage.mulWadDown(_data.initialPriceInETH);
+        assertGt(
+            price,
+            _data.initialPriceInETH - tolerance,
+            "price too low"
+        );
+        assertLt(
+            price,
+            _data.initialPriceInETH + tolerance,
+            "price too high"
+        );
+
+        // Check leverage ratio
+        uint256 currentLR = riseToken.leverageRatio();
+        require(currentLR > lr - 0.0001 ether, "lr too low");
+        require(currentLR < lr + 0.0001 ether, "lr too high");
+    }
+
 
 }

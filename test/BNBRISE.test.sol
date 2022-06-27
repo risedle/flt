@@ -92,6 +92,14 @@ contract BNBRISE is BaseTest {
         _testInitializeWithLeverageRatio2x(data);
     }
 
+    function testInitializeWithLeverageRatioLessThan2x() public {
+        _testInitializeWithLeverageRatioLessThan2x(data);
+    }
+
+    function testInitializeWithLeverageRatioGreaterThan2x() public {
+        _testInitializeWithLeverageRatioGreaterThan2x(data);
+    }
+
     /// ███ Mint █████████████████████████████████████████████████████████████
 
 
