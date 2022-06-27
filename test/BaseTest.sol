@@ -13,7 +13,7 @@ import { IUniswapV2Router02 } from "../src/interfaces/IUniswapV2Router02.sol";
 import { RariFusePriceOracleAdapter } from "../src/adapters/RariFusePriceOracleAdapter.sol";
 import { IfERC20 } from "../src/interfaces/IfERC20.sol";
 
-contract BaseTest is Test {
+abstract contract BaseTest is Test {
     /// ███ Libraries ████████████████████████████████████████████████████████
 
     using FixedPointMathLib for uint256;
@@ -51,6 +51,12 @@ contract BaseTest is Test {
         // Fuse params
         uint256 debtSupplyAmount;
     }
+
+
+    /// ███ Abstract  ████████████████████████████████████████████████████████
+
+    /// @notice Return test data
+    function getData() internal virtual returns (Data memory _data);
 
 
     /// ███ Utilities ████████████████████████████████████████████████████████
@@ -120,33 +126,36 @@ contract BaseTest is Test {
     /// ███ Initialize  ██████████████████████████████████████████████████████
 
     /// @notice Make sure the transaction revert if non-owner execute
-    function _testInitializeRevertIfNonOwnerExecute(Data memory _data) internal {
+    function testInitializeRevertIfNonOwnerExecute() public {
+        // Get data
+        Data memory data = getData();
+
         // Add supply to Risedle Pool
         setBalance(
-            address(_data.debt),
-            _data.debtSlot,
+            address(data.debt),
+            data.debtSlot,
             address(this),
-            _data.debtSupplyAmount
+            data.debtSupplyAmount
         );
-        _data.debt.approve(address(_data.fDebt), _data.debtSupplyAmount);
-        _data.fDebt.mint(_data.debtSupplyAmount);
+        data.debt.approve(address(data.fDebt), data.debtSupplyAmount);
+        data.fDebt.mint(data.debtSupplyAmount);
 
         // Deploy Rise Token
-        RiseToken riseToken = deploy(_data);
+        RiseToken riseToken = deploy(data);
         uint256 lr = 2 ether;
         (uint256 da, uint256 send, uint256 shares) = getInitializationParams(
-            _data,
+            data,
             lr
         );
 
         // Transfer `send` amount to riseToken
         setBalance(
-            address(_data.debt),
-            _data.debtSlot,
+            address(data.debt),
+            data.debtSlot,
             address(this),
             send
         );
-        _data.debt.transfer(address(riseToken), send);
+        data.debt.transfer(address(riseToken), send);
 
         // Transfer ownership
         address newOwner = vm.addr(2);
@@ -156,7 +165,7 @@ contract BaseTest is Test {
         vm.expectRevert("Ownable: caller is not the owner");
         riseToken.initialize(
             lr,
-            _data.totalCollateral,
+            data.totalCollateral,
             da,
             shares
         );
@@ -164,22 +173,25 @@ contract BaseTest is Test {
 
     /// @notice Make sure the transaction revert if required amount is not
     //          transfered
-    function _testInitializeRevertIfNoTransfer(Data memory _data) internal {
+    function testInitializeRevertIfNoTransfer() public {
+        // Get data
+        Data memory data = getData();
+
         // Add supply to Risedle Pool
         setBalance(
-            address(_data.debt),
-            _data.debtSlot,
+            address(data.debt),
+            data.debtSlot,
             address(this),
-            _data.debtSupplyAmount
+            data.debtSupplyAmount
         );
-        _data.debt.approve(address(_data.fDebt), _data.debtSupplyAmount);
-        _data.fDebt.mint(_data.debtSupplyAmount);
+        data.debt.approve(address(data.fDebt), data.debtSupplyAmount);
+        data.fDebt.mint(data.debtSupplyAmount);
 
         // Deploy Rise Token
-        RiseToken riseToken = deploy(_data);
+        RiseToken riseToken = deploy(data);
         uint256 lr = 2 ether;
         (uint256 da, , uint256 shares) = getInitializationParams(
-            _data,
+            data,
             lr
         );
 
@@ -191,16 +203,19 @@ contract BaseTest is Test {
         );
         riseToken.initialize(
             lr,
-            _data.totalCollateral,
+            data.totalCollateral,
             da,
             shares
         );
     }
 
     /// @notice Make sure pancakeCall only pair can call
-    function _testPancakeCallRevertIfCallerIsNotPair(Data memory _data) internal {
+    function testPancakeCallRevertIfCallerIsNotPair() public {
+        // Get data
+        Data memory data = getData();
+
         // Deploy Rise Token
-        RiseToken riseToken = deploy(_data);
+        RiseToken riseToken = deploy(data);
 
         // Call the pancake call
         vm.expectRevert(
@@ -212,9 +227,12 @@ contract BaseTest is Test {
     }
 
     /// @notice Make sure uniswapV2Pair only pair can call
-    function _testUniswapV2CallRevertIfCallerIsNotPair(Data memory _data) internal {
+    function testUniswapV2CallRevertIfCallerIsNotPair() public {
+        // Get data
+        Data memory data = getData();
+
         // Deploy Rise Token
-        RiseToken riseToken = deploy(_data);
+        RiseToken riseToken = deploy(data);
 
         // Call the Uniswap V2 call
         vm.expectRevert(
@@ -226,69 +244,75 @@ contract BaseTest is Test {
     }
 
     /// @notice Make sure initializer get refund
-    function _testInitializeRefundSender(Data memory _data) internal {
+    function testInitializeRefundSender() public {
+        // Get data
+        Data memory data = getData();
+
         // Add supply to Risedle Pool
         setBalance(
-            address(_data.debt),
-            _data.debtSlot,
+            address(data.debt),
+            data.debtSlot,
             address(this),
-            _data.debtSupplyAmount
+            data.debtSupplyAmount
         );
-        _data.debt.approve(address(_data.fDebt), _data.debtSupplyAmount);
-        _data.fDebt.mint(_data.debtSupplyAmount);
+        data.debt.approve(address(data.fDebt), data.debtSupplyAmount);
+        data.fDebt.mint(data.debtSupplyAmount);
 
         // Deploy Rise Token
-        RiseToken riseToken = deploy(_data);
+        RiseToken riseToken = deploy(data);
         uint256 lr = 2 ether;
         (uint256 da, uint256 send, uint256 shares) = getInitializationParams(
-            _data,
+            data,
             lr
         );
 
         // Transfer `send` amount to riseToken
         setBalance(
-            address(_data.debt),
-            _data.debtSlot,
+            address(data.debt),
+            data.debtSlot,
             address(this),
             2*send
         );
-        _data.debt.transfer(address(riseToken), 2*send);
-        riseToken.initialize(lr, _data.totalCollateral, da, shares);
+        data.debt.transfer(address(riseToken), 2*send);
+        riseToken.initialize(lr, data.totalCollateral, da, shares);
 
         // Make sure it refunded
-        assertEq(_data.debt.balanceOf(address(this)), send, "invalid balance");
-        assertEq(_data.debt.balanceOf(address(riseToken)), 0, "invalid contract");
+        assertEq(data.debt.balanceOf(address(this)), send, "invalid balance");
+        assertEq(data.debt.balanceOf(address(riseToken)), 0, "invalid contract");
     }
 
     /// @notice Make sure 2x have correct states
-    function _testInitializeWithLeverageRatio2x(Data memory _data) internal {
+    function testInitializeWithLeverageRatio2x() public {
+        // Get data
+        Data memory data = getData();
+
         // Add supply to Risedle Pool
         setBalance(
-            address(_data.debt),
-            _data.debtSlot,
+            address(data.debt),
+            data.debtSlot,
             address(this),
-            _data.debtSupplyAmount
+            data.debtSupplyAmount
         );
-        _data.debt.approve(address(_data.fDebt), _data.debtSupplyAmount);
-        _data.fDebt.mint(_data.debtSupplyAmount);
+        data.debt.approve(address(data.fDebt), data.debtSupplyAmount);
+        data.fDebt.mint(data.debtSupplyAmount);
 
         // Deploy Rise Token
-        RiseToken riseToken = deploy(_data);
+        RiseToken riseToken = deploy(data);
         uint256 lr = 2 ether;
         (uint256 da, uint256 send, uint256 shares) = getInitializationParams(
-            _data,
+            data,
             lr
         );
 
         // Transfer `send` amount to riseToken
         setBalance(
-            address(_data.debt),
-            _data.debtSlot,
+            address(data.debt),
+            data.debtSlot,
             address(this),
             send
         );
-        _data.debt.transfer(address(riseToken), send);
-        riseToken.initialize(lr, _data.totalCollateral, da, shares);
+        data.debt.transfer(address(riseToken), send);
+        riseToken.initialize(lr, data.totalCollateral, da, shares);
 
         // Check the parameters
         assertTrue(riseToken.isInitialized(), "invalid status");
@@ -296,12 +320,12 @@ contract BaseTest is Test {
         // Check total collateral
         assertGt(
             riseToken.totalCollateral(),
-            _data.totalCollateral-2,
+            data.totalCollateral-2,
             "total collateral too low"
         );
         assertLt(
             riseToken.totalCollateral(),
-            _data.totalCollateral+2,
+            data.totalCollateral+2,
             "total collateral too high"
         );
 
@@ -321,15 +345,15 @@ contract BaseTest is Test {
         // Check price
         uint256 price = riseToken.price();
         uint256 percentage = 0.01 ether; // 1%
-        uint256 tolerance = percentage.mulWadDown(_data.initialPriceInETH);
+        uint256 tolerance = percentage.mulWadDown(data.initialPriceInETH);
         assertGt(
             price,
-            _data.initialPriceInETH - tolerance,
+            data.initialPriceInETH - tolerance,
             "price too low"
         );
         assertLt(
             price,
-            _data.initialPriceInETH + tolerance,
+            data.initialPriceInETH + tolerance,
             "price too high"
         );
 
@@ -340,34 +364,37 @@ contract BaseTest is Test {
     }
 
     /// @notice Make sure 1.3x have correct states
-    function _testInitializeWithLeverageRatioLessThan2x(Data memory _data) internal {
+    function testInitializeWithLeverageRatioLessThan2x() public {
+        // Get data
+        Data memory data = getData();
+
         // Add supply to Risedle Pool
         setBalance(
-            address(_data.debt),
-            _data.debtSlot,
+            address(data.debt),
+            data.debtSlot,
             address(this),
-            _data.debtSupplyAmount
+            data.debtSupplyAmount
         );
-        _data.debt.approve(address(_data.fDebt), _data.debtSupplyAmount);
-        _data.fDebt.mint(_data.debtSupplyAmount);
+        data.debt.approve(address(data.fDebt), data.debtSupplyAmount);
+        data.fDebt.mint(data.debtSupplyAmount);
 
         // Deploy Rise Token
-        RiseToken riseToken = deploy(_data);
+        RiseToken riseToken = deploy(data);
         uint256 lr = 1.3 ether;
         (uint256 da, uint256 send, uint256 shares) = getInitializationParams(
-            _data,
+            data,
             lr
         );
 
         // Transfer `send` amount to riseToken
         setBalance(
-            address(_data.debt),
-            _data.debtSlot,
+            address(data.debt),
+            data.debtSlot,
             address(this),
             send
         );
-        _data.debt.transfer(address(riseToken), send);
-        riseToken.initialize(lr, _data.totalCollateral, da, shares);
+        data.debt.transfer(address(riseToken), send);
+        riseToken.initialize(lr, data.totalCollateral, da, shares);
 
         // Check the parameters
         assertTrue(riseToken.isInitialized(), "invalid status");
@@ -375,12 +402,12 @@ contract BaseTest is Test {
         // Check total collateral
         assertGt(
             riseToken.totalCollateral(),
-            _data.totalCollateral-2,
+            data.totalCollateral-2,
             "total collateral too low"
         );
         assertLt(
             riseToken.totalCollateral(),
-            _data.totalCollateral+2,
+            data.totalCollateral+2,
             "total collateral too high"
         );
 
@@ -400,15 +427,15 @@ contract BaseTest is Test {
         // Check price
         uint256 price = riseToken.price();
         uint256 percentage = 0.01 ether; // 1%
-        uint256 tolerance = percentage.mulWadDown(_data.initialPriceInETH);
+        uint256 tolerance = percentage.mulWadDown(data.initialPriceInETH);
         assertGt(
             price,
-            _data.initialPriceInETH - tolerance,
+            data.initialPriceInETH - tolerance,
             "price too low"
         );
         assertLt(
             price,
-            _data.initialPriceInETH + tolerance,
+            data.initialPriceInETH + tolerance,
             "price too high"
         );
 
@@ -419,34 +446,37 @@ contract BaseTest is Test {
     }
 
     /// @notice Make sure 2.6x have correct states
-    function _testInitializeWithLeverageRatioGreaterThan2x(Data memory _data) internal {
+    function testInitializeWithLeverageRatioGreaterThan2x() public {
+        // Get data
+        Data memory data = getData();
+
         // Add supply to Risedle Pool
         setBalance(
-            address(_data.debt),
-            _data.debtSlot,
+            address(data.debt),
+            data.debtSlot,
             address(this),
-            _data.debtSupplyAmount
+            data.debtSupplyAmount
         );
-        _data.debt.approve(address(_data.fDebt), _data.debtSupplyAmount);
-        _data.fDebt.mint(_data.debtSupplyAmount);
+        data.debt.approve(address(data.fDebt), data.debtSupplyAmount);
+        data.fDebt.mint(data.debtSupplyAmount);
 
         // Deploy Rise Token
-        RiseToken riseToken = deploy(_data);
+        RiseToken riseToken = deploy(data);
         uint256 lr = 2.6 ether;
         (uint256 da, uint256 send, uint256 shares) = getInitializationParams(
-            _data,
+            data,
             lr
         );
 
         // Transfer `send` amount to riseToken
         setBalance(
-            address(_data.debt),
-            _data.debtSlot,
+            address(data.debt),
+            data.debtSlot,
             address(this),
             send
         );
-        _data.debt.transfer(address(riseToken), send);
-        riseToken.initialize(lr, _data.totalCollateral, da, shares);
+        data.debt.transfer(address(riseToken), send);
+        riseToken.initialize(lr, data.totalCollateral, da, shares);
 
         // Check the parameters
         assertTrue(riseToken.isInitialized(), "invalid status");
@@ -454,12 +484,12 @@ contract BaseTest is Test {
         // Check total collateral
         assertGt(
             riseToken.totalCollateral(),
-            _data.totalCollateral-2,
+            data.totalCollateral-2,
             "total collateral too low"
         );
         assertLt(
             riseToken.totalCollateral(),
-            _data.totalCollateral+2,
+            data.totalCollateral+2,
             "total collateral too high"
         );
 
@@ -479,15 +509,15 @@ contract BaseTest is Test {
         // Check price
         uint256 price = riseToken.price();
         uint256 percentage = 0.01 ether; // 1%
-        uint256 tolerance = percentage.mulWadDown(_data.initialPriceInETH);
+        uint256 tolerance = percentage.mulWadDown(data.initialPriceInETH);
         assertGt(
             price,
-            _data.initialPriceInETH - tolerance,
+            data.initialPriceInETH - tolerance,
             "price too low"
         );
         assertLt(
             price,
-            _data.initialPriceInETH + tolerance,
+            data.initialPriceInETH + tolerance,
             "price too high"
         );
 

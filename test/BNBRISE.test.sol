@@ -22,9 +22,8 @@ contract BNBRISE is BaseTest {
     // Risedle Multisig address on Binance
     address multisig = 0x0F12290d070b81B190fAeb07fB65b00882Cc266A;
     address rariOracle = 0xB641c21124546e1c979b4C1EbF13aB00D43Ee8eA;
-    Data data;
 
-    function setUp() public {
+    function getData() internal override returns (Data memory _data) {
         // WBNB as collateral & BUSD as debt
         ERC20 collateral = ERC20(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
         ERC20 debt = ERC20(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56);
@@ -35,7 +34,7 @@ contract BNBRISE is BaseTest {
         oracle.configure(address(collateral), rariOracle, 18);
         oracle.configure(address(debt), rariOracle, 18);
 
-        data = Data({
+        _data = Data({
             // Factory
             factory: factory,
 
@@ -64,43 +63,4 @@ contract BNBRISE is BaseTest {
             debtSupplyAmount: 1_000_000 ether // 1M BUSD
         });
     }
-
-
-    /// ███ Initialize  ██████████████████████████████████████████████████████
-
-    function testInitializeRevertIfNonOwnerExecute() public {
-        _testInitializeRevertIfNonOwnerExecute(data);
-    }
-
-    function testInitializeRevertIfNoTransfer() public {
-        _testInitializeRevertIfNoTransfer(data);
-    }
-
-    function testPancakeCallRevertIfCallerIsNotPair() public {
-        _testPancakeCallRevertIfCallerIsNotPair(data);
-    }
-
-    function testUniswapV2CallRevertIfCallerIsNotPair() public {
-        _testUniswapV2CallRevertIfCallerIsNotPair(data);
-    }
-
-    function testInitializeRefundSender() public {
-        _testInitializeRefundSender(data);
-    }
-
-    function testInitializeWithLeverageRatio2x() public {
-        _testInitializeWithLeverageRatio2x(data);
-    }
-
-    function testInitializeWithLeverageRatioLessThan2x() public {
-        _testInitializeWithLeverageRatioLessThan2x(data);
-    }
-
-    function testInitializeWithLeverageRatioGreaterThan2x() public {
-        _testInitializeWithLeverageRatioGreaterThan2x(data);
-    }
-
-    /// ███ Mint █████████████████████████████████████████████████████████████
-
-
 }
