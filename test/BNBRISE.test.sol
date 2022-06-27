@@ -57,19 +57,35 @@ contract BNBRISE is BaseTest {
 
             // Params
             debtSlot: 1,
-            leverageRatio: 2 ether,
             totalCollateral: 3 ether, // 3 BNB
-            initialPriceInETH: 0.3 ether // 0.3 BNB
+            initialPriceInETH: 0.3 ether, // 0.3 BNB
+
+            // Fuse params
+            debtSupplyAmount: 1_000_000 ether // 1M BUSD
         });
     }
 
 
     /// ███ Initialize  ██████████████████████████████████████████████████████
 
-    /// @notice Make sure the transaction revert if non-owner execute
     function testInitializeRevertIfNonOwnerExecute() public {
-        uint256 supplyAmount = 100_000_000 ether; // 100M WBNB
-        _testInitializeRevertIfNonOwnerExecute(data, supplyAmount);
+        _testInitializeRevertIfNonOwnerExecute(data);
+    }
+
+    function testInitializeRevertIfNoTransfer() public {
+        _testInitializeRevertIfNoTransfer(data);
+    }
+
+    function testPancakeCallRevertIfCallerIsNotPair() public {
+        _testPancakeCallRevertIfCallerIsNotPair(data);
+    }
+
+    function testUniswapV2CallRevertIfCallerIsNotPair() public {
+        _testUniswapV2CallRevertIfCallerIsNotPair(data);
+    }
+
+    function testInitializeWithLeverageRatio2x() public {
+        _testInitializeWithLeverageRatio2x(data);
     }
 
     /// ███ Mint █████████████████████████████████████████████████████████████

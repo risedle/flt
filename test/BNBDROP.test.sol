@@ -58,19 +58,35 @@ contract BNBDROP is BaseTest {
 
             // Params
             debtSlot: 3,
-            leverageRatio: 2 ether,
-            totalCollateral: 1_000 ether, // 1K BUSD
-            initialPriceInETH: 0.1 ether // 0.1 BNB
+            totalCollateral: 500 ether, // 500 BUSD
+            initialPriceInETH: 0.1 ether, // 0.1 BNB
+
+            // Fuse params
+            debtSupplyAmount: 1_000_000 ether // 1M BNB
         });
     }
 
 
     /// ███ Initialize  ██████████████████████████████████████████████████████
 
-    /// @notice Make sure the transaction revert if non-owner execute
     function testInitializeRevertIfNonOwnerExecute() public {
-        uint256 supplyAmount = 100_000_000 ether; // 100M WBNB
-        _testInitializeRevertIfNonOwnerExecute(data, supplyAmount);
+        _testInitializeRevertIfNonOwnerExecute(data);
+    }
+
+    function testInitializeRevertIfNoTransfer() public {
+        _testInitializeRevertIfNoTransfer(data);
+    }
+
+    function testPancakeCallRevertIfCallerIsNotPair() public {
+        _testPancakeCallRevertIfCallerIsNotPair(data);
+    }
+
+    function testUniswapV2CallRevertIfCallerIsNotPair() public {
+        _testUniswapV2CallRevertIfCallerIsNotPair(data);
+    }
+
+    function testInitializeWithLeverageRatio2x() public {
+        _testInitializeWithLeverageRatio2x(data);
     }
 
     /// ███ Mint █████████████████████████████████████████████████████████████
