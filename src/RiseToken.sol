@@ -88,7 +88,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     }
 
 
-    /// ███ Internal functions █████████████████████████████████████████████████
+    /// ███ Internal functions ███████████████████████████████████████████████
 
     function supplyThenBorrow(uint256 _cAmount, uint256 _bAmount) internal {
         // Deposit to Rari Fuse
@@ -127,7 +127,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     ) internal {
         uint256 amountIn = debt.balanceOf(address(this));
         onMint(_sender, _shares, _ca, _da, address(debt), amountIn);
-        emit Initialized(_sender, totalCollateral, totalDebt, totalSupply());
+        emit Initialized(_sender, _lr, totalCollateral, totalDebt, totalSupply());
     }
 
     function onMint(
@@ -308,15 +308,20 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         // Get the collateral & debt amount
         (uint256 ca, uint256 da) = sharesToUnderlying(_shares);
 
-        // Get the collateral value
+        // Get the collateral value in ETH
         uint256 cv = oracleAdapter.totalValue(
             address(collateral),
-            address(debt),
+            address(0),
             ca
+        );
+        uint256 dv = oracleAdapter.totalValue(
+            address(debt),
+            address(0),
+            da
         );
 
         // Get total value in terms of debt token
-        _value = cv - da;
+        _value = cv - dv;
     }
 
     /// @inheritdoc IRiseToken

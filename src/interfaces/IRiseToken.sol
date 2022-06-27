@@ -31,6 +31,7 @@ interface IRiseToken is IERC20 {
      */
     event Initialized(
         address sender,
+        uint256 initialLeverageRatio,
         uint256 totalCollateral,
         uint256 totalDebt,
         uint256 totalSupply
@@ -222,7 +223,7 @@ interface IRiseToken is IERC20 {
     function value(uint256 _shares) external view returns (uint256 _value);
 
     /**
-     * @notice Gets the latest price of the Rise Token in debt token base units
+     * @notice Gets the latest price of the Rise Token in ETH base units
      * @return _price The latest price of the Rise Token
      */
     function price() external view returns (uint256 _price);
