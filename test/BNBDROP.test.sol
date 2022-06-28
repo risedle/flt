@@ -10,12 +10,14 @@ import { IUniswapV2Pair } from "../src/interfaces/IUniswapV2Pair.sol";
 import { IUniswapV2Router02 } from "../src/interfaces/IUniswapV2Router02.sol";
 
 import { BaseTest } from "./BaseTest.sol";
+import { BaseInitializeTest } from "./BaseInitializeTest.sol";
+import { BaseMintTest } from "./BaseMintTest.sol";
 
 /**
  * @title BNBDROP test
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
  */
-contract BNBDROP is BaseTest {
+contract BNBDROP is BaseTest, BaseInitializeTest, BaseMintTest {
 
     /// ███ Storages █████████████████████████████████████████████████████████
 
@@ -57,6 +59,7 @@ contract BNBDROP is BaseTest {
 
             // Params
             debtSlot: 3,
+            collateralSlot: 1,
             totalCollateral: 500 ether, // 500 BUSD
             initialPriceInETH: 0.1 ether, // 0.1 BNB
 

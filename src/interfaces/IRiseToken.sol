@@ -14,10 +14,21 @@ interface IRiseToken is IERC20 {
     /// ███ Types ████████████████████████████████████████████████████████████
 
     /// @notice Flashswap types
-    enum FlashSwapType {
-        Initialize,
-        Mint,
-        Burn
+    enum FlashSwapType { Mint, Burn }
+
+    /// @notice Mint params
+    struct MintParams {
+        address sender;
+        address recipient;
+        ERC20   tokenIn;
+        uint256 amountIn;
+        uint256 feeAmount;
+        uint256 refundAmount;
+        uint256 borrowAmount;
+        uint256 repayAmount;
+        uint256 mintAmount;
+        uint256 collateralAmount;
+        uint256 debtAmount;
     }
 
     /// ███ Events ███████████████████████████████████████████████████████████
@@ -38,11 +49,13 @@ interface IRiseToken is IERC20 {
     );
 
     /// @notice Event emitted when new supply is minted
-    event RiseTokenMinted(
+    event Minted(
+        address indexed sender,
         address indexed recipient,
-        uint256 shares,
         address indexed tokenIn,
-        uint256 amountIn
+        uint256 amountIn,
+        uint256 shares,
+        uint256 priceInETH
     );
 
     /**
@@ -114,14 +127,21 @@ interface IRiseToken is IERC20 {
     /// @notice Error is raised if the contract receive invalid amount
     error InvalidFlashSwapAmount(uint256 expected, uint256 got);
 
-    /// @notice Error is raised if minting is invalid
-    error InvalidBalance();
-
     /// @notice Error is raised if mint amount is too large
-    error InvalidMintAmount(uint256 max, uint256 got);
+    error MintAmountTooLow();
+    error MintAmountTooHigh();
 
     /// @notice Error is raised if swap amount is too large
     error InvalidSwapAmount(uint256 max, uint256 got);
+
+    /// @notice Error is raised if repay amount is invalid
+    error InvalidRepayFlashSwapAmount();
+
+    /// @notice Error is raised if flash swap repay amount is too low
+    error RepayAmountTooLow();
+
+    /// @notice Error is raised if amountIn is too low
+    error AmountInTooLow();
 
 
     /// ███ Owner actions ████████████████████████████████████████████████████
@@ -143,8 +163,9 @@ interface IRiseToken is IERC20 {
 
     /**
      * @notice Initialize the Rise Token using debt token
-     * @dev Owner must send enough debt token in order to initialize the Rise
-     *      Token.
+     * @dev Owner must send enough debt token to the rise token contract  in
+     *      order to initialize the Rise Token.
+     *
      *      Required amount is defined below:
      *
      *          Given:
@@ -162,17 +183,11 @@ interface IRiseToken is IERC20 {
      *
      *          Outputs: td (Total debt), amountSend & shares
      *
-     * @param _lr Initital leverage ratio
      * @param _ca Initial total collateral
      * @param _da Initial total debt
      * @param _shares Initial supply of Rise Token
      */
-    function initialize(
-        uint256 _lr,
-        uint256 _ca,
-        uint256 _da,
-        uint256 _shares
-    ) external;
+    function initialize(uint256 _ca, uint256 _da, uint256 _shares) external;
 
 
     /// ███ Read-only functions ██████████████████████████████████████████████
@@ -232,26 +247,34 @@ interface IRiseToken is IERC20 {
     /// ███ User actions █████████████████████████████████████████████████████
 
     /**
-     * @notice Mint Rise Token
+     * @notice Mint Rise Token using debt token
      * @dev This is low-level call for minting new supply of Rise Token.
      *      This function only expect the exact amount of debt token available
      *      owned by this contract at the time of minting. Otherwise the
-     *      minting process should be failed.
+     *      minting process will be failed.
      *
      *      This function should be called via high-level conctract such as
      *      router that dealing with swaping any token to exact amount
      *      of debt token.
      * @param _shares The amount of Rise Token to mint
      * @param _recipient The recipient of Rise Token
-     * @param _tokenIn The ERC20 address to mint the token; used for event only
-     * @param _amountIn The amount of tokenIn; used for event only
      */
-    function mint(
-        uint256 _shares,
-        address _recipient,
-        address _tokenIn,
-        uint256 _amountIn
-    ) external;
+    function mintd(uint256 _shares, address _recipient) external;
+
+    /**
+     * @notice Mint Rise Token using collateral token
+     * @dev This is low-level call for minting new supply of Rise Token.
+     *      This function only expect the exact amount of collateral token
+     *      available owned by this contract at the time of minting. Otherwise
+     *      the minting process will be failed.
+     *
+     *      This function should be called via high-level conctract such as
+     *      router that dealing with swaping any token to exact amount
+     *      of debt token.
+     * @param _shares The amount of Rise Token to mint
+     * @param _recipient The recipient of Rise Token
+     */
+    function mintc(uint256 _shares, address _recipient) external;
 
     /**
      * @notice Burn Rise Token

@@ -10,12 +10,14 @@ import { IUniswapV2Pair } from "../src/interfaces/IUniswapV2Pair.sol";
 import { IUniswapV2Router02 } from "../src/interfaces/IUniswapV2Router02.sol";
 
 import { BaseTest } from "./BaseTest.sol";
+import { BaseInitializeTest } from "./BaseInitializeTest.sol";
+import { BaseMintTest } from "./BaseMintTest.sol";
 
 /**
  * @title BNBRISE test
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
  */
-contract BNBRISE is BaseTest {
+contract BNBRISE is BaseTest, BaseInitializeTest, BaseMintTest {
 
     /// ███ Storages █████████████████████████████████████████████████████████
 
@@ -56,6 +58,7 @@ contract BNBRISE is BaseTest {
 
             // Params
             debtSlot: 1,
+            collateralSlot: 3,
             totalCollateral: 3 ether, // 3 BNB
             initialPriceInETH: 0.3 ether, // 0.3 BNB
 

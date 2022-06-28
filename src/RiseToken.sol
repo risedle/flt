@@ -46,7 +46,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     uint256 public totalCollateral;
     uint256 public totalDebt;
     uint256 public maxMint = type(uint256).max;
-    uint256 public fees = 0.001 ether;
+    uint256 public fees = 0.001 ether; // 0.1%
     uint256 public minLeverageRatio = 1.7 ether;
     uint256 public maxLeverageRatio = 2.3 ether;
     uint256 public step = 0.2 ether;
@@ -83,6 +83,14 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         pair = _pair;
         router = _router;
 
+        // Enter the markets
+        address[] memory markets = new address[](2);
+        markets[0] = address(fCollateral);
+        markets[1] = address(fDebt);
+        IFuseComptroller troll = IFuseComptroller(fCollateral.comptroller());
+        uint256[] memory res = troll.enterMarkets(markets);
+        if (res[0] != 0 || res[1] != 0) revert FuseError(res[0]);
+
         increaseAllowance();
         transferOwnership(factory.owner());
     }
@@ -118,59 +126,29 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         totalDebt = fDebt.borrowBalanceCurrent(address(this));
     }
 
-    function onInitialize(
-        address _sender,
-        uint256 _lr,
-        uint256 _ca,
-        uint256 _da,
-        uint256 _shares
-    ) internal {
-        // Enter the markets
-        address[] memory markets = new address[](2);
-        markets[0] = address(fCollateral);
-        markets[1] = address(fDebt);
-        IFuseComptroller troll = IFuseComptroller(fCollateral.comptroller());
-        uint256[] memory res = troll.enterMarkets(markets);
-        if (res[0] != 0 || res[1] != 0) revert FuseError(res[0]);
-
-        uint256 amountIn = debt.balanceOf(address(this));
-        onMint(_sender, _sender, _shares, _ca, _da, address(debt), amountIn);
-        isInitialized = true;
-        emit Initialized(_sender, _lr, totalCollateral, totalDebt, totalSupply());
-    }
-
-    function onMint(
-        address _sender,
-        address _recipient,
-        uint256 _shares,
-        uint256 _ca,
-        uint256 _da,
-        address _tokenIn,
-        uint256 _amountIn
-    ) internal {
+    function onMint(MintParams memory _params) internal {
         /// ███ Effects
-        supplyThenBorrow(_ca, _da);
-
-        address[] memory path = new address[](2);
-        path[0] = address(debt);
-        path[1] = address(collateral);
-        uint256 requiredAmount = router.getAmountsIn(_ca, path)[0];
-        uint256 totalAmount = debt.balanceOf(address(this));
-        if(totalAmount < requiredAmount) {
-            revert InvalidBalance();
+        supplyThenBorrow(_params.collateralAmount, _params.debtAmount);
+        debt.safeTransfer(address(pair), _params.repayAmount);
+        if (_params.refundAmount > 0) {
+            _params.tokenIn.safeTransfer(_params.sender, _params.refundAmount);
         }
-        debt.safeTransfer(address(pair), requiredAmount);
-
-        // Refund if any
-        if (totalAmount > requiredAmount) {
-            debt.safeTransfer(_sender, totalAmount - requiredAmount);
+        if (_params.feeAmount > 0) {
+            _params.tokenIn.safeTransfer(factory.feeRecipient(), _params.feeAmount);
         }
 
         // Mint the shares
-        _mint(_recipient, _shares);
+        _mint(_params.recipient, _params.mintAmount);
 
         // Emit
-        emit RiseTokenMinted(_recipient, _shares, _tokenIn, _amountIn);
+        emit Minted(
+            _params.sender,
+            _params.recipient,
+            address(_params.tokenIn),
+            _params.amountIn,
+            _params.mintAmount,
+            price()
+        );
     }
 
     function onBurn(
@@ -214,20 +192,46 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
 
     /// @inheritdoc IRiseToken
     function initialize(
-        uint256 _lr,
         uint256 _ca,
         uint256 _da,
         uint256 _shares
     ) external onlyOwner {
         if (isInitialized) revert Uninitialized();
+        isInitialized = true;
 
-        // Borrow collateral from pair for instant leverage
+        address[] memory path = new address[](2);
+        path[0] = address(debt);
+        path[1] = address(collateral);
+        uint256 repayAmount = router.getAmountsIn(_ca, path)[0];
+        if (repayAmount < _da) revert RepayAmountTooLow();
+
+        uint256 amountInUsed = repayAmount - _da;
+        uint256 amountIn = debt.balanceOf(address(this));
+        if(amountIn < amountInUsed) revert AmountInTooLow();
+        uint256 refundAmount = amountIn - amountInUsed;
+
+        // Borrow collateral from pair
         address c = address(collateral);
         uint256 amount0Out = c == pair.token0() ? _ca : 0;
         uint256 amount1Out = c == pair.token1() ? _ca : 0;
+
+        // Do the instant leverage
+        MintParams memory params = MintParams({
+            sender: msg.sender,
+            recipient: msg.sender,
+            tokenIn: debt,
+            amountIn: amountInUsed,
+            feeAmount: 0,
+            refundAmount: refundAmount,
+            borrowAmount: _ca,
+            repayAmount: repayAmount,
+            mintAmount: _shares,
+            collateralAmount: _ca,
+            debtAmount: _da
+        });
         bytes memory data = abi.encode(
-            FlashSwapType.Initialize,
-            abi.encode(msg.sender,_lr,_ca,_da,_shares)
+            FlashSwapType.Mint,
+            abi.encode(params)
         );
         pair.swap(amount0Out, amount1Out, address(this), data);
     }
@@ -271,35 +275,11 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
             bytes memory data
         ) = abi.decode(_data, (FlashSwapType,bytes));
 
-        if (flashSwapType == FlashSwapType.Initialize) {
-            (
-                address sender,
-                uint256 lr,
-                uint256 ca,
-                uint256 da,
-                uint256 shares
-            ) = abi.decode(
-                data,
-                (address,uint256,uint256,uint256,uint256)
-            );
-            if (r != ca) revert InvalidFlashSwapAmount(ca, r);
-            onInitialize(sender, lr, ca, da, shares);
-            return;
-        } else if (flashSwapType == FlashSwapType.Mint) {
-            (
-                address sender,
-                address recipient,
-                uint256 shares,
-                uint256 ca,
-                uint256 da,
-                address tokenIn,
-                uint256 amountIn
-            ) = abi.decode(
-                data,
-                (address,address,uint256,uint256,uint256,address,uint256)
-            );
-            if (r != ca) revert InvalidFlashSwapAmount(ca, r);
-            onMint(sender, recipient, shares, ca, da, tokenIn, amountIn);
+        if (flashSwapType == FlashSwapType.Mint) {
+            MintParams memory params = abi.decode(data, (MintParams));
+            uint256 b = params.borrowAmount;
+            if (r != b) revert InvalidFlashSwapAmount(b, r);
+            onMint(params);
             return;
         } else if (flashSwapType == FlashSwapType.Burn) {
             // onBurn(data);
@@ -379,17 +359,23 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     /// ███ User actions █████████████████████████████████████████████████████
 
     /// @inheritdoc IRiseToken
-    function mint(
-        uint256 _shares,
-        address _recipient,
-        address _tokenIn,
-        uint256 _amountIn
-    ) external whenInitialized {
+    function mintd(uint256 _shares, address _recipient) external whenInitialized {
         /// ███ Checks
-        if (_shares > maxMint || _shares == 0) {
-            revert InvalidMintAmount(maxMint, _shares);
-        }
+        if (_shares == 0) revert MintAmountTooLow();
+        if (_shares > maxMint) revert MintAmountTooHigh();
+
         (uint256 ca, uint256 da) = sharesToUnderlying(_shares);
+        address[] memory path = new address[](2);
+        path[0] = address(debt);
+        path[1] = address(collateral);
+        uint256 repayAmount = router.getAmountsIn(ca, path)[0];
+        if (repayAmount < da) revert RepayAmountTooLow();
+
+        uint256 amountInUsed = repayAmount - da;
+        uint256 feeAmount = fees.mulWadDown(amountInUsed);
+        uint256 amountIn = debt.balanceOf(address(this));
+        if (amountIn < amountInUsed + feeAmount) revert AmountInTooLow();
+        uint256 refundAmount = amountIn - (amountInUsed + feeAmount);
 
         // Borrow collateral from pair
         address c = address(collateral);
@@ -397,9 +383,67 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         uint256 amount1Out = c == pair.token1() ? ca : 0;
 
         // Do the instant leverage
+        MintParams memory params = MintParams({
+            sender: msg.sender,
+            recipient: _recipient,
+            tokenIn: debt,
+            amountIn: amountInUsed,
+            feeAmount: feeAmount,
+            refundAmount: refundAmount,
+            borrowAmount: ca,
+            repayAmount: repayAmount,
+            mintAmount: _shares,
+            collateralAmount: ca,
+            debtAmount: da
+        });
         bytes memory data = abi.encode(
             FlashSwapType.Mint,
-            abi.encode(msg.sender,_recipient,_shares,ca,da,_tokenIn,_amountIn)
+            abi.encode(params)
+        );
+        pair.swap(amount0Out, amount1Out, address(this), data);
+    }
+
+    /// @inheritdoc IRiseToken
+    function mintc(uint256 _shares, address _recipient) external whenInitialized {
+        /// ███ Checks
+        if (_shares == 0) revert MintAmountTooLow();
+        if (_shares > maxMint) revert MintAmountTooHigh();
+
+        (uint256 ca, uint256 da) = sharesToUnderlying(_shares);
+        address[] memory path = new address[](2);
+        path[0] = address(debt);
+        path[1] = address(collateral);
+        uint256 borrowAmount = router.getAmountsOut(da, path)[1];
+        if (ca < borrowAmount) revert RepayAmountTooLow();
+
+        uint256 amountInUsed = ca - borrowAmount;
+        uint256 feeAmount = fees.mulWadDown(amountInUsed);
+        uint256 amountIn = collateral.balanceOf(address(this));
+        if (amountIn < amountInUsed + feeAmount) revert AmountInTooLow();
+        uint256 refundAmount = amountIn - (amountInUsed + feeAmount);
+
+        // Borrow collateral from pair
+        address c = address(collateral);
+        uint256 amount0Out = c == pair.token0() ? borrowAmount : 0;
+        uint256 amount1Out = c == pair.token1() ? borrowAmount : 0;
+
+        // Do the instant leverage
+        MintParams memory params = MintParams({
+            sender: msg.sender,
+            recipient: _recipient,
+            tokenIn: collateral,
+            amountIn: amountInUsed,
+            feeAmount: feeAmount,
+            refundAmount: refundAmount,
+            borrowAmount: borrowAmount,
+            repayAmount: da,
+            mintAmount: _shares,
+            collateralAmount: ca,
+            debtAmount: da
+        });
+        bytes memory data = abi.encode(
+            FlashSwapType.Mint,
+            abi.encode(params)
         );
         pair.swap(amount0Out, amount1Out, address(this), data);
     }
