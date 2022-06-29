@@ -54,7 +54,7 @@ interface IRiseToken is IERC20 {
         address indexed recipient,
         address indexed tokenIn,
         uint256 amountIn,
-        uint256 shares,
+        uint256 mintAmount,
         uint256 priceInETH
     );
 
