@@ -146,6 +146,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
             _params.recipient,
             address(_params.tokenIn),
             _params.amountIn,
+            _params.feeAmount,
             _params.mintAmount,
             price()
         );
