@@ -41,7 +41,7 @@ abstract contract BaseMintTest is BaseTest {
                 IRiseToken.Uninitialized.selector
             )
         );
-        riseToken.mintd(1 ether, address(this));
+        riseToken.mintd(1 ether, address(this), address(this));
     }
 
     /// @notice Make sure it revert when token is not initialized
@@ -61,7 +61,7 @@ abstract contract BaseMintTest is BaseTest {
                 IRiseToken.Uninitialized.selector
             )
         );
-        riseToken.mintc(1 ether, address(this));
+        riseToken.mintc(1 ether, address(this), address(this));
     }
 
     /// @notice Make sure it revert when mint amount is more than max mint
@@ -85,7 +85,7 @@ abstract contract BaseMintTest is BaseTest {
                 IRiseToken.MintAmountTooHigh.selector
             )
         );
-        riseToken.mintd(2 ether, address(this));
+        riseToken.mintd(2 ether, address(this), address(this));
     }
 
     /// @notice Make sure it revert when mint amount is more than max mint
@@ -109,7 +109,7 @@ abstract contract BaseMintTest is BaseTest {
                 IRiseToken.MintAmountTooHigh.selector
             )
         );
-        riseToken.mintc(2 ether, address(this));
+        riseToken.mintc(2 ether, address(this), address(this));
     }
 
     /// @notice Make sure it revert when mint amount is zero
@@ -124,7 +124,7 @@ abstract contract BaseMintTest is BaseTest {
                 IRiseToken.MintAmountTooLow.selector
             )
         );
-        riseToken.mintd(0, address(this));
+        riseToken.mintd(0, address(this), address(this));
     }
 
     /// @notice Make sure it revert when mint amount is zero
@@ -139,7 +139,7 @@ abstract contract BaseMintTest is BaseTest {
                 IRiseToken.MintAmountTooLow.selector
             )
         );
-        riseToken.mintc(0, address(this));
+        riseToken.mintc(0, address(this), address(this));
     }
 
     /// @notice Make sure it revert when required amount is not send
@@ -155,7 +155,7 @@ abstract contract BaseMintTest is BaseTest {
                 IRiseToken.AmountInTooLow.selector
             )
         );
-        riseToken.mintd(mintAmount, address(this));
+        riseToken.mintd(mintAmount, address(this), address(this));
     }
 
     /// @notice Make sure it revert when required amount is not send
@@ -171,7 +171,7 @@ abstract contract BaseMintTest is BaseTest {
                 IRiseToken.AmountInTooLow.selector
             )
         );
-        riseToken.mintc(mintAmount, address(this));
+        riseToken.mintc(mintAmount, address(this), address(this));
     }
 
     /// @notice Make sure mint doesn't change the price
@@ -208,7 +208,7 @@ abstract contract BaseMintTest is BaseTest {
         );
         setBalance(address(data.debt), data.debtSlot, minter, amountIn);
         data.debt.transfer(address(riseToken), amountIn);
-        riseToken.mintd(mintAmount, minter);
+        riseToken.mintd(mintAmount, minter, minter);
 
         // Check minter balance
         assertEq(riseToken.balanceOf(minter), mintAmount, "invalid minter b");
@@ -276,7 +276,7 @@ abstract contract BaseMintTest is BaseTest {
             amountIn
         );
         data.collateral.transfer(address(riseToken), amountIn);
-        riseToken.mintc(mintAmount, minter);
+        riseToken.mintc(mintAmount, minter, minter);
 
         // Check minter balance
         assertEq(riseToken.balanceOf(minter), mintAmount, "invalid minter b");
@@ -339,7 +339,7 @@ abstract contract BaseMintTest is BaseTest {
         );
         setBalance(address(data.debt), data.debtSlot, minter, amountIn);
         data.debt.transfer(address(riseToken), amountIn);
-        riseToken.mintd(mintAmount, minter);
+        riseToken.mintd(mintAmount, minter, minter);
 
         // Check minter balance
         assertEq(riseToken.balanceOf(minter), mintAmount, "invalid minter b");
@@ -407,7 +407,7 @@ abstract contract BaseMintTest is BaseTest {
             amountIn
         );
         data.collateral.transfer(address(riseToken), amountIn);
-        riseToken.mintc(mintAmount, minter);
+        riseToken.mintc(mintAmount, minter, minter);
 
         // Check minter balance
         assertEq(riseToken.balanceOf(minter), mintAmount, "invalid minter b");
@@ -470,7 +470,7 @@ abstract contract BaseMintTest is BaseTest {
         );
         setBalance(address(data.debt), data.debtSlot, minter, amountIn);
         data.debt.transfer(address(riseToken), amountIn);
-        riseToken.mintd(mintAmount, minter);
+        riseToken.mintd(mintAmount, minter, minter);
 
         // Check minter balance
         assertEq(riseToken.balanceOf(minter), mintAmount, "invalid minter b");
@@ -538,7 +538,7 @@ abstract contract BaseMintTest is BaseTest {
             amountIn
         );
         data.collateral.transfer(address(riseToken), amountIn);
-        riseToken.mintc(mintAmount, minter);
+        riseToken.mintc(mintAmount, minter, minter);
 
         // Check minter balance
         assertEq(riseToken.balanceOf(minter), mintAmount, "invalid minter b");
@@ -603,7 +603,7 @@ abstract contract BaseMintTest is BaseTest {
         );
         setBalance(address(data.debt), data.debtSlot, minter, amountIn);
         data.debt.transfer(address(riseToken), amountIn);
-        riseToken.mintd(mintAmount, minter);
+        riseToken.mintd(mintAmount, minter, minter);
 
         // Second
         amountIn = getAmountIn(
@@ -613,7 +613,7 @@ abstract contract BaseMintTest is BaseTest {
         );
         setBalance(address(data.debt), data.debtSlot, minter, amountIn);
         data.debt.transfer(address(riseToken), amountIn);
-        riseToken.mintd(mintAmount, minter);
+        riseToken.mintd(mintAmount, minter, minter);
 
         // Check minter balance
         assertEq(riseToken.balanceOf(minter), 2*mintAmount, "invalid minter b");
@@ -682,7 +682,7 @@ abstract contract BaseMintTest is BaseTest {
             amountIn
         );
         data.collateral.transfer(address(riseToken), amountIn);
-        riseToken.mintc(mintAmount, minter);
+        riseToken.mintc(mintAmount, minter, minter);
 
         // Second
         amountIn = getAmountIn(
@@ -697,7 +697,7 @@ abstract contract BaseMintTest is BaseTest {
             amountIn
         );
         data.collateral.transfer(address(riseToken), amountIn);
-        riseToken.mintc(mintAmount, minter);
+        riseToken.mintc(mintAmount, minter, minter);
 
         // Check minter balance
         assertEq(riseToken.balanceOf(minter), 2*mintAmount, "invalid minter b");
@@ -744,7 +744,7 @@ abstract contract BaseMintTest is BaseTest {
         );
         setBalance(address(data.debt), data.debtSlot, minter, 2*amountIn);
         data.debt.transfer(address(riseToken), 2*amountIn);
-        riseToken.mintd(mintAmount, minter);
+        riseToken.mintd(mintAmount, minter, minter);
 
         // Check minter balance
         assertEq(data.debt.balanceOf(minter), amountIn, "invalid balance");
@@ -774,7 +774,7 @@ abstract contract BaseMintTest is BaseTest {
             2*amountIn
         );
         data.collateral.transfer(address(riseToken), 2*amountIn);
-        riseToken.mintc(mintAmount, minter);
+        riseToken.mintc(mintAmount, minter, minter);
 
         // Check minter balance
         assertEq(data.collateral.balanceOf(minter), amountIn, "invalid balance");

@@ -188,7 +188,7 @@ abstract contract BaseTest is Test {
         _amountIn = _amountIn + feeAmount;
     }
 
-    /// @notice Get required amount of debt token in order to mint the token
+    /// @notice Get required amount in order to mint the token
     function getAmountIn(
         RiseToken _token,
         uint256 _shares,
@@ -203,6 +203,50 @@ abstract contract BaseTest is Test {
         }
 
         revert("invalid tokenIn");
+    }
+
+    /// @notice Given amount of Rise Token, get the debt output
+    function getAmountOutViaDebt(
+        RiseToken _token,
+        uint256 _shares
+    ) internal view returns (uint256 _amountOut) {
+        (uint256 ca, uint256 da) = _token.sharesToUnderlying(_shares);
+        address[] memory path = new address[](2);
+        path[0] = address(_token.collateral());
+        path[1] = address(_token.debt());
+        uint256 borrowAmount = _token.router().getAmountsOut(ca, path)[1];
+        _amountOut = borrowAmount - da;
+    }
+
+
+    /// @notice Given amount of Rise token, get the collateral output
+    function getAmountOutViaCollateral(
+        RiseToken _token,
+        uint256 _shares
+    ) internal view returns (uint256 _amountOut) {
+        (uint256 ca, uint256 da) = _token.sharesToUnderlying(_shares);
+        address[] memory path = new address[](2);
+        path[0] = address(_token.collateral());
+        path[1] = address(_token.debt());
+        uint256 repayAmount = _token.router().getAmountsIn(da, path)[0];
+        _amountOut = ca - repayAmount;
+    }
+
+    /// @notice Get amount out given amount of rise token
+    function getAmountOut(
+        RiseToken _token,
+        uint256 _shares,
+        address _tokenOut
+    ) internal view returns (uint256 _amountOut) {
+        if (_tokenOut == address(_token.debt())) {
+            return getAmountOutViaDebt(_token, _shares);
+        }
+
+        if (_tokenOut == address(_token.collateral())) {
+            return getAmountOutViaCollateral(_token, _shares);
+        }
+
+        revert("invalid tokenOut");
     }
 
 }

@@ -131,7 +131,10 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         supplyThenBorrow(_params.collateralAmount, _params.debtAmount);
         debt.safeTransfer(address(pair), _params.repayAmount);
         if (_params.refundAmount > 0) {
-            _params.tokenIn.safeTransfer(_params.sender, _params.refundAmount);
+            _params.tokenIn.safeTransfer(
+                _params.refundRecipient,
+                _params.refundAmount
+            );
         }
         if (_params.feeAmount > 0) {
             _params.tokenIn.safeTransfer(factory.feeRecipient(), _params.feeAmount);
@@ -220,6 +223,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         MintParams memory params = MintParams({
             sender: msg.sender,
             recipient: msg.sender,
+            refundRecipient: msg.sender,
             tokenIn: debt,
             amountIn: amountInUsed,
             feeAmount: 0,
@@ -360,43 +364,54 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     /// ███ User actions █████████████████████████████████████████████████████
 
     /// @inheritdoc IRiseToken
-    function mintd(uint256 _shares, address _recipient) external whenInitialized {
+    function mintd(
+        uint256 _shares,
+        address _recipient,
+        address _refundRecipient
+    ) external whenInitialized {
         /// ███ Checks
         if (_shares == 0) revert MintAmountTooLow();
         if (_shares > maxMint) revert MintAmountTooHigh();
 
-        (uint256 ca, uint256 da) = sharesToUnderlying(_shares);
-        address[] memory path = new address[](2);
-        path[0] = address(debt);
-        path[1] = address(collateral);
-        uint256 repayAmount = router.getAmountsIn(ca, path)[0];
-        if (repayAmount < da) revert RepayAmountTooLow();
+        MintParams memory params;
 
-        uint256 amountInUsed = repayAmount - da;
-        uint256 feeAmount = fees.mulWadDown(amountInUsed);
-        uint256 amountIn = debt.balanceOf(address(this));
-        if (amountIn < amountInUsed + feeAmount) revert AmountInTooLow();
-        uint256 refundAmount = amountIn - (amountInUsed + feeAmount);
+        {
+            (uint256 ca, uint256 da) = sharesToUnderlying(_shares);
+            address[] memory path = new address[](2);
+            path[0] = address(debt);
+            path[1] = address(collateral);
+            uint256 repayAmount = router.getAmountsIn(ca, path)[0];
+            uint256 borrowAmount = ca;
 
-        // Borrow collateral from pair
-        address c = address(collateral);
-        uint256 amount0Out = c == pair.token0() ? ca : 0;
-        uint256 amount1Out = c == pair.token1() ? ca : 0;
+            if (repayAmount < da) revert AmountInTooLow();
+            uint256 amountInUsed = repayAmount - da;
+            uint256 feeAmount = fees.mulWadDown(amountInUsed);
+            uint256 amountIn = debt.balanceOf(address(this));
+
+            if (amountIn < amountInUsed + feeAmount) revert AmountInTooLow();
+            uint256 refundAmount = amountIn - (amountInUsed + feeAmount);
+
+            params = MintParams({
+                sender: msg.sender,
+                recipient: _recipient,
+                refundRecipient: _refundRecipient,
+                tokenIn: debt,
+                amountIn: amountInUsed,
+                feeAmount: feeAmount,
+                refundAmount: refundAmount,
+                borrowAmount: borrowAmount,
+                repayAmount: repayAmount,
+                mintAmount: _shares,
+                collateralAmount: ca,
+                debtAmount: da
+            });
+        }
 
         // Do the instant leverage
-        MintParams memory params = MintParams({
-            sender: msg.sender,
-            recipient: _recipient,
-            tokenIn: debt,
-            amountIn: amountInUsed,
-            feeAmount: feeAmount,
-            refundAmount: refundAmount,
-            borrowAmount: ca,
-            repayAmount: repayAmount,
-            mintAmount: _shares,
-            collateralAmount: ca,
-            debtAmount: da
-        });
+        address c = address(collateral);
+        uint256 amount0Out = c == pair.token0() ? params.borrowAmount : 0;
+        uint256 amount1Out = c == pair.token1() ? params.borrowAmount : 0;
+
         bytes memory data = abi.encode(
             FlashSwapType.Mint,
             abi.encode(params)
@@ -405,43 +420,53 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     }
 
     /// @inheritdoc IRiseToken
-    function mintc(uint256 _shares, address _recipient) external whenInitialized {
+    function mintc(
+        uint256 _shares,
+        address _recipient,
+        address _refundRecipient
+    ) external whenInitialized {
         /// ███ Checks
         if (_shares == 0) revert MintAmountTooLow();
         if (_shares > maxMint) revert MintAmountTooHigh();
 
-        (uint256 ca, uint256 da) = sharesToUnderlying(_shares);
-        address[] memory path = new address[](2);
-        path[0] = address(debt);
-        path[1] = address(collateral);
-        uint256 borrowAmount = router.getAmountsOut(da, path)[1];
-        if (ca < borrowAmount) revert RepayAmountTooLow();
+        MintParams memory params;
 
-        uint256 amountInUsed = ca - borrowAmount;
-        uint256 feeAmount = fees.mulWadDown(amountInUsed);
-        uint256 amountIn = collateral.balanceOf(address(this));
-        if (amountIn < amountInUsed + feeAmount) revert AmountInTooLow();
-        uint256 refundAmount = amountIn - (amountInUsed + feeAmount);
+        {
+            (uint256 ca, uint256 da) = sharesToUnderlying(_shares);
+            address[] memory path = new address[](2);
+            path[0] = address(debt);
+            path[1] = address(collateral);
+            uint256 repayAmount = da;
+            uint256 borrowAmount = router.getAmountsOut(repayAmount, path)[1];
 
-        // Borrow collateral from pair
-        address c = address(collateral);
-        uint256 amount0Out = c == pair.token0() ? borrowAmount : 0;
-        uint256 amount1Out = c == pair.token1() ? borrowAmount : 0;
+            if (ca < borrowAmount) revert AmountInTooLow();
+            uint256 amountInUsed = ca - borrowAmount;
+            uint256 feeAmount = fees.mulWadDown(amountInUsed);
+            uint256 amountIn = collateral.balanceOf(address(this));
+
+            if (amountIn < amountInUsed + feeAmount) revert AmountInTooLow();
+            uint256 refundAmount = amountIn - (amountInUsed + feeAmount);
+
+            params = MintParams({
+                sender: msg.sender,
+                recipient: _recipient,
+                refundRecipient: _refundRecipient,
+                tokenIn: collateral,
+                amountIn: amountInUsed,
+                feeAmount: feeAmount,
+                refundAmount: refundAmount,
+                borrowAmount: borrowAmount,
+                repayAmount: repayAmount,
+                mintAmount: _shares,
+                collateralAmount: ca,
+                debtAmount: da
+            });
+        }
 
         // Do the instant leverage
-        MintParams memory params = MintParams({
-            sender: msg.sender,
-            recipient: _recipient,
-            tokenIn: collateral,
-            amountIn: amountInUsed,
-            feeAmount: feeAmount,
-            refundAmount: refundAmount,
-            borrowAmount: borrowAmount,
-            repayAmount: da,
-            mintAmount: _shares,
-            collateralAmount: ca,
-            debtAmount: da
-        });
+        address c = address(collateral);
+        uint256 amount0Out = c == pair.token0() ? params.borrowAmount : 0;
+        uint256 amount1Out = c == pair.token1() ? params.borrowAmount : 0;
         bytes memory data = abi.encode(
             FlashSwapType.Mint,
             abi.encode(params)
@@ -450,7 +475,50 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     }
 
     /// @inheritdoc IRiseToken
-    function burn() external whenInitialized {
+    function burnd(
+        address _recipient,
+        uint256 _minAmountOut
+    ) external whenInitialized {
+        uint256 burnAmount = balanceOf(address(this));
+        if (burnAmount == 0) revert BurnAmountTooLow();
+
+        (uint256 ca, uint256 da) = sharesToUnderlying(burnAmount);
+        address[] memory path = new address[](2);
+        path[0] = address(collateral);
+        path[1] = address(debt);
+        uint256 repayAmount = ca;
+        uint256 borrowAmount = router.getAmountsOut(repayAmount, path)[1];
+        uint256 amountOutUsed = da;
+
+        if (borrowAmount < amountOutUsed) revert AmountOutTooLow();
+        uint256 amountOut = borrowAmount - amountOutUsed;
+
+        uint256 feeAmount = fees.mulWadDown(amountOut);
+        if (amountOut + feeAmount < _minAmountOut) revert AmountOutTooLow();
+
+    }
+
+    /// @inheritdoc IRiseToken
+    function burnc(
+        address _recipient,
+        uint256 _minAmountOut
+    ) external whenInitialized {
+        uint256 burnAmount = balanceOf(address(this));
+        if (burnAmount == 0) revert BurnAmountTooLow();
+
+        (uint256 ca, uint256 da) = sharesToUnderlying(burnAmount);
+        address[] memory path = new address[](2);
+        path[0] = address(collateral);
+        path[1] = address(debt);
+        uint256 repayAmount = router.getAmountsIn(da, path)[0];
+        uint256 borrowAmount = da;
+        uint256 amountOutUsed = repayAmount;
+
+        if (ca < amountOutUsed) revert AmountOutTooLow();
+        uint256 amountOut = ca - amountOutUsed;
+
+        uint256 feeAmount = fees.mulWadDown(amountOut);
+        if (amountOut + feeAmount < _minAmountOut) revert AmountOutTooLow();
     }
 
 

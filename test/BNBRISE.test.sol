@@ -12,12 +12,13 @@ import { IUniswapV2Router02 } from "../src/interfaces/IUniswapV2Router02.sol";
 import { BaseTest } from "./BaseTest.sol";
 import { BaseInitializeTest } from "./BaseInitializeTest.sol";
 import { BaseMintTest } from "./BaseMintTest.sol";
+import { BaseBurnTest } from "./BaseBurnTest.sol";
 
 /**
  * @title BNBRISE test
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
  */
-contract BNBRISE is BaseTest, BaseInitializeTest, BaseMintTest {
+contract BNBRISE is BaseTest, BaseInitializeTest, BaseMintTest, BaseBurnTest {
 
     /// ███ Storages █████████████████████████████████████████████████████████
 

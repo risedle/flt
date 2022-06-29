@@ -20,6 +20,7 @@ interface IRiseToken is IERC20 {
     struct MintParams {
         address sender;
         address recipient;
+        address refundRecipient;
         ERC20   tokenIn;
         uint256 amountIn;
         uint256 feeAmount;
@@ -128,9 +129,10 @@ interface IRiseToken is IERC20 {
     /// @notice Error is raised if the contract receive invalid amount
     error InvalidFlashSwapAmount(uint256 expected, uint256 got);
 
-    /// @notice Error is raised if mint amount is too large
+    /// @notice Error is raised if mint or burn amount is invalid
     error MintAmountTooLow();
     error MintAmountTooHigh();
+    error BurnAmountTooLow();
 
     /// @notice Error is raised if swap amount is too large
     error InvalidSwapAmount(uint256 max, uint256 got);
@@ -141,8 +143,9 @@ interface IRiseToken is IERC20 {
     /// @notice Error is raised if flash swap repay amount is too low
     error RepayAmountTooLow();
 
-    /// @notice Error is raised if amountIn is too low
+    /// @notice Error is raised if amountIn or amountOut is invalid
     error AmountInTooLow();
+    error AmountOutTooLow();
 
 
     /// ███ Owner actions ████████████████████████████████████████████████████
@@ -259,8 +262,13 @@ interface IRiseToken is IERC20 {
      *      of debt token.
      * @param _shares The amount of Rise Token to mint
      * @param _recipient The recipient of Rise Token
+     * @param _refundRecipient The recipient of unused debt token
      */
-    function mintd(uint256 _shares, address _recipient) external;
+    function mintd(
+        uint256 _shares,
+        address _recipient,
+        address _refundRecipient
+    ) external;
 
     /**
      * @notice Mint Rise Token using collateral token
@@ -274,13 +282,35 @@ interface IRiseToken is IERC20 {
      *      of debt token.
      * @param _shares The amount of Rise Token to mint
      * @param _recipient The recipient of Rise Token
+     * @param _refundRecipient The recipient of unused collateral token
      */
-    function mintc(uint256 _shares, address _recipient) external;
+    function mintc(
+        uint256 _shares,
+        address _recipient,
+        address _refundRecipient
+    ) external;
 
     /**
-     * @notice Burn Rise Token
+     * @notice Burn Rise Token to debt token
+     * @dev This is low-level call for burning new supply of Rise Token in
+     *      order to get minAmountOut of debt token.
+     *      This function expect the exact amount of Rise Token owned by this
+     *      contract. Otherwise the function will revert.
+     * @param _recipient The recipient of debt token
+     * @param _minAmountOut The minimum amount of debt token
      */
-    function burn() external;
+    function burnd(address _recipient, uint256 _minAmountOut) external;
+
+    /**
+     * @notice Burn Rise Token to collateral token
+     * @dev This is low-level call for burning new supply of Rise Token in
+     *      order to get minAmountOut of collateral token.
+     *      This function expect the exact amount of Rise Token owned by this
+     *      contract. Otherwise the function will revert.
+     * @param _recipient The recipient of collateral token
+     * @param _minAmountOut The minimum amount of collateral token
+     */
+    function burnc(address _recipient, uint256 _minAmountOut) external;
 
 
     /// ███ Market makers ████████████████████████████████████████████████████
