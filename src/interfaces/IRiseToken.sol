@@ -55,14 +55,14 @@ interface IRiseToken is IERC20 {
      * @param minLeverageRatio The minimum leverage ratio
      * @param step The rebalancing step
      * @param discount The incentives for the market makers
-     * @param maxBuy The maximum amount to buy in one transaction
+     * @param maxMint The maximum amount to mint in one transaction
      */
     event ParamsUpdated(
         uint256 maxLeverageRatio,
         uint256 minLeverageRatio,
         uint256 step,
         uint256 discount,
-        uint256 maxBuy
+        uint256 maxMint
     );
 
     /**
@@ -74,8 +74,8 @@ interface IRiseToken is IERC20 {
      * @param totalCollateral Current total collateral
      * @param prevTotalDebt Previoes total debt
      * @param totalDebt Current total debt
-     * @param prevPrice Previous price
-     * @param price Current price
+     * @param prevPriceInETH Previous price in ETH
+     * @param priceInETH Current price in ETH
      */
     event Rebalanced(
         address executor,
@@ -85,8 +85,8 @@ interface IRiseToken is IERC20 {
         uint256 totalCollateral,
         uint256 prevTotalDebt,
         uint256 totalDebt,
-        uint256 prevPrice,
-        uint256 price
+        uint256 prevPriceInETH,
+        uint256 priceInETH
     );
 
     /// ███ Errors ███████████████████████████████████████████████████████████
@@ -103,28 +103,16 @@ interface IRiseToken is IERC20 {
     /// @notice Error is raised if something happen when interacting with Rari Fuse
     error FuseError(uint256 code);
 
-    /// @notice Error is raised if leverage ratio invalid
+    /// @notice Errors are raised if params invalid
     error InvalidLeverageRatio();
-
-    /// @notice Error is raised if rebalancing step invalid
     error InvalidRebalancingStep();
-
-    /// @notice Error is raised if discount invalid
     error InvalidDiscount();
 
-    /// @notice Error is raised if flash swap type invalid
+    /// @notice Errors are raised if flash swap is invalid
     error InvalidFlashSwapType();
-
-    /// @notice Error is raised if the contract receive invalid amount
     error InvalidFlashSwapAmount();
 
-    /// @notice Error is raised if swap amount is too large
-    error InvalidSwapAmount(uint256 max, uint256 got);
-
-    /// @notice Error is raised if repay amount is invalid
-    error InvalidRepayFlashSwapAmount();
-
-    /// @notice Error is raised if amountIn or amountOut is invalid
+    /// @notice Errors are raised if amountIn or amountOut is invalid
     error AmountInTooLow();
     error AmountOutTooLow();
     error AmountOutTooHigh();
@@ -138,13 +126,14 @@ interface IRiseToken is IERC20 {
      * @param _maxLeverageRatio Maximum leverage ratio
      * @param _step Rebalancing step
      * @param _discount Discount for market makers to incentivize the rebalance
+     * @param _maxMint Maximum mint amount
      */
     function setParams(
         uint256 _minLeverageRatio,
         uint256 _maxLeverageRatio,
         uint256 _step,
         uint256 _discount,
-        uint256 _maxBuy
+        uint256 _maxMint
     ) external;
 
     /**

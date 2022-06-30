@@ -27,7 +27,6 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     /// ███ Libraries ████████████████████████████████████████████████████████
 
     using SafeERC20 for ERC20;
-    using SafeERC20 for IWETH9;
     using FixedPointMathLib for uint256;
 
 
@@ -47,9 +46,9 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     uint256 public totalDebt;
     uint256 public maxMint = type(uint256).max;
     uint256 public fees = 0.001 ether; // 0.1%
-    uint256 public minLeverageRatio = 1.7 ether;
-    uint256 public maxLeverageRatio = 2.3 ether;
-    uint256 public step = 0.2 ether;
+    uint256 public minLeverageRatio = 1.6 ether;
+    uint256 public maxLeverageRatio = 2.5 ether;
+    uint256 public step = 0.4 ether;
     uint256 public discount = 0.006 ether; // 0.6%
     bool    public isInitialized;
 
@@ -163,22 +162,12 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         );
     }
 
-    event Debug(string key, uint256 value);
-
     function onBurn(FlashSwapParams memory _params) internal {
         /// ███ Checks
         if (_params.amountIn == 0) revert AmountInTooLow();
         if (_params.amountOut == 0) revert AmountOutTooLow();
 
         /// ███ Effects
-        emit Debug(
-            "tokenOut balance before redeem",
-            _params.tokenOut.balanceOf(address(this))
-        );
-        emit Debug(
-            "params.collateralAmount",
-            _params.collateralAmount
-        );
         repayThenRedeem(_params.debtAmount, _params.collateralAmount);
         collateral.safeTransfer(address(pair), _params.repayAmount);
         if (_params.feeAmount > 0) {
@@ -189,14 +178,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         }
 
         // Burn the shares and send the tokenOut
-        emit Debug("conttract balance", balanceOf(address(this)));
-        emit Debug("params amountIn", _params.amountIn);
         _burn(address(this), _params.amountIn);
-        emit Debug("params amountOut", _params.amountOut);
-        emit Debug(
-            "tokenOut balance after redeem",
-            _params.tokenOut.balanceOf(address(this))
-        );
         _params.tokenOut.safeTransfer(_params.recipient, _params.amountOut);
 
         // Emit Swap event
@@ -241,7 +223,13 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         discount = _discount;
         maxMint = _newMaxMint;
 
-        emit ParamsUpdated(minLeverageRatio, maxLeverageRatio, step, discount, maxMint);
+        emit ParamsUpdated(
+            minLeverageRatio,
+            maxLeverageRatio,
+            step,
+            discount,
+            maxMint
+        );
     }
 
     /// @inheritdoc IRiseToken
@@ -320,11 +308,10 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         /// ███ Checks
         if (msg.sender != address(pair)) revert Unauthorized();
         if (_sender != address(this)) revert Unauthorized();
-        // Check collateral amount received from flash swap
-        uint256 r = _amount0 == 0 ? _amount1 : _amount0;
 
-        // Continue execution based on the type
         FlashSwapParams memory params = abi.decode(_data, (FlashSwapParams));
+        // Make sure borrowed amount from flash swap is correct
+        uint256 r = _amount0 == 0 ? _amount1 : _amount0;
         if (r != params.borrowAmount) revert InvalidFlashSwapAmount();
 
         if (params.flashSwapType == FlashSwapType.Mint) {
@@ -558,8 +545,6 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
 
         // Do the instant close position
         address d = address(debt);
-        emit Debug("burnAmount", burnAmount);
-        emit Debug("params amountIn", params.amountIn);
         uint256 amount0Out = d == pair.token0() ? params.borrowAmount : 0;
         uint256 amount1Out = d == pair.token1() ? params.borrowAmount : 0;
         bytes memory data = abi.encode(params);
@@ -644,9 +629,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         // Cap the swap amount
         // This is our buying power; can't buy collateral more than this
         uint256 maxBorrowAmount = step.mulWadDown(value(totalSupply()));
-        if (_amountOut > maxBorrowAmount) {
-            revert InvalidSwapAmount(maxBorrowAmount, _amountOut);
-        }
+        if (_amountOut > maxBorrowAmount) revert AmountOutTooHigh();
 
         /// ███ Effects
 
@@ -694,9 +677,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         // Cap the swap amount
         // This is our selling power; can't sell collateral more than this
         uint256 maxRepayAmount = step.mulWadDown(value(totalSupply()));
-        if (_amountIn > maxRepayAmount) {
-            revert InvalidSwapAmount(maxRepayAmount, _amountIn);
-        }
+        if (_amountIn > maxRepayAmount) revert AmountOutTooHigh();
 
         /// ███ Effects
 
@@ -718,7 +699,4 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
             price()
         );
     }
-
-    /// @notice Receives ETH when interacting with Uniswap or Fuse
-    receive() external payable {}
 }
