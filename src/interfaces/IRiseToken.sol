@@ -16,47 +16,36 @@ interface IRiseToken is IERC20 {
     /// @notice Flashswap types
     enum FlashSwapType { Mint, Burn }
 
-    /// @notice Mint params
-    struct MintParams {
+    /// @notice Mint & Burn params
+    struct FlashSwapParams {
+        FlashSwapType flashSwapType;
+
         address sender;
         address recipient;
         address refundRecipient;
         ERC20   tokenIn;
+        ERC20   tokenOut;
         uint256 amountIn;
+        uint256 amountOut;
         uint256 feeAmount;
         uint256 refundAmount;
         uint256 borrowAmount;
         uint256 repayAmount;
-        uint256 mintAmount;
         uint256 collateralAmount;
         uint256 debtAmount;
     }
 
     /// ███ Events ███████████████████████████████████████████████████████████
 
-    /**
-     * @notice Event emitted when the Rise Token is initialized
-     * @param sender The initializer wallet address
-     * @param totalCollateral The initial total collateral
-     * @param totalDebt The initial total debt
-     * @param totalSupply The initial total supply
-     */
-    event Initialized(
-        address sender,
-        uint256 initialLeverageRatio,
-        uint256 totalCollateral,
-        uint256 totalDebt,
-        uint256 totalSupply
-    );
-
-    /// @notice Event emitted when new supply is minted
-    event Minted(
+    /// @notice Event emitted when new supply is minted or burned
+    event Swap(
         address indexed sender,
         address indexed recipient,
         address indexed tokenIn,
+        address tokenOut,
         uint256 amountIn,
-        uint256 feeAmount,
         uint256 amountOut,
+        uint256 feeAmount,
         uint256 priceInETH
     );
 
@@ -127,12 +116,7 @@ interface IRiseToken is IERC20 {
     error InvalidFlashSwapType();
 
     /// @notice Error is raised if the contract receive invalid amount
-    error InvalidFlashSwapAmount(uint256 expected, uint256 got);
-
-    /// @notice Error is raised if mint or burn amount is invalid
-    error MintAmountTooLow();
-    error MintAmountTooHigh();
-    error BurnAmountTooLow();
+    error InvalidFlashSwapAmount();
 
     /// @notice Error is raised if swap amount is too large
     error InvalidSwapAmount(uint256 max, uint256 got);
@@ -140,12 +124,10 @@ interface IRiseToken is IERC20 {
     /// @notice Error is raised if repay amount is invalid
     error InvalidRepayFlashSwapAmount();
 
-    /// @notice Error is raised if flash swap repay amount is too low
-    error RepayAmountTooLow();
-
     /// @notice Error is raised if amountIn or amountOut is invalid
     error AmountInTooLow();
     error AmountOutTooLow();
+    error AmountOutTooHigh();
 
 
     /// ███ Owner actions ████████████████████████████████████████████████████

@@ -82,7 +82,7 @@ abstract contract BaseMintTest is BaseTest {
         // MintFromDebt; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.MintAmountTooHigh.selector
+                IRiseToken.AmountOutTooHigh.selector
             )
         );
         riseToken.mintd(2 ether, address(this), address(this));
@@ -106,7 +106,7 @@ abstract contract BaseMintTest is BaseTest {
         // MintFromDebt; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.MintAmountTooHigh.selector
+                IRiseToken.AmountOutTooHigh.selector
             )
         );
         riseToken.mintc(2 ether, address(this), address(this));
@@ -121,7 +121,7 @@ abstract contract BaseMintTest is BaseTest {
         // MintFromDebt; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.MintAmountTooLow.selector
+                IRiseToken.AmountOutTooLow.selector
             )
         );
         riseToken.mintd(0, address(this), address(this));
@@ -136,7 +136,7 @@ abstract contract BaseMintTest is BaseTest {
         // MintFromDebt; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.MintAmountTooLow.selector
+                IRiseToken.AmountOutTooLow.selector
             )
         );
         riseToken.mintc(0, address(this), address(this));
