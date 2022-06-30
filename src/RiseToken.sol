@@ -605,38 +605,45 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     /// ███ Market makers ████████████████████████████████████████████████████
 
     /// @inheritdoc IRiseToken
-    function push(
-        uint256 _amountIn
-    ) external whenInitialized returns (uint256 _amountOut) {
+    function pushc() external whenInitialized {
         /// ███ Checks
-        if (leverageRatio() > minLeverageRatio) revert Balance();
-        if (_amountIn == 0) return 0;
+        uint256 lr = leverageRatio();
+        uint256 amountIn = collateral.balanceOf(address(this));
+
+        if (lr > minLeverageRatio) revert Balance();
+        if (amountIn == 0) revert AmountInTooLow();
+
+        uint256 amountOutInETH = step.mulWadDown(value(totalSupply()));
+        uint256 amountOut = oracleAdapter.totalValue(
+            address(0),
+            address(debt),
+            amountOutInETH
+        );
+        uint256 expectedAmountIn = oracleAdapter.totalValue(
+            address(0),
+            address(collateral),
+            amountOutInETH
+        );
+        uint256 amountInDiscount = discount.mulWadDown(expectedAmountIn);
+        uint256 minAmountIn = expectedAmountIn - amountInDiscount;
+
+        // Make sure collateral token is sent to this contract
+        if (amountIn < minAmountIn) revert AmountInTooLow();
+        uint256 refundAmountIn = amountIn - minAmountIn;
 
         // Prev states
-        uint256 prevLeverageRatio = leverageRatio();
+        uint256 prevLeverageRatio = lr;
         uint256 prevTotalCollateral = totalCollateral;
         uint256 prevTotalDebt = totalDebt;
         uint256 prevPrice = price();
 
-        // Discount the price
-        uint256 amountInValue = oracleAdapter.totalValue(
-            address(collateral),
-            address(debt),
-            _amountIn
-        );
-        _amountOut = amountInValue + discount.mulWadDown(amountInValue);
-
-        // Cap the swap amount
-        // This is our buying power; can't buy collateral more than this
-        uint256 maxBorrowAmount = step.mulWadDown(value(totalSupply()));
-        if (_amountOut > maxBorrowAmount) revert AmountOutTooHigh();
-
         /// ███ Effects
-
         // Supply then borrow
-        collateral.safeTransferFrom(msg.sender, address(this), _amountIn);
-        supplyThenBorrow(_amountIn, _amountOut);
-        debt.safeTransfer(msg.sender, _amountOut);
+        supplyThenBorrow(minAmountIn, amountOut);
+        debt.safeTransfer(msg.sender, amountOut);
+        if (refundAmountIn > 0) {
+            collateral.safeTransfer(msg.sender, refundAmountIn);
+        }
 
         // Emit event
         emit Rebalanced(
@@ -653,38 +660,44 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
     }
 
     /// @inheritdoc IRiseToken
-    function pull(
-        uint256 _amountOut
-    ) external whenInitialized returns (uint256 _amountIn) {
+    function pushd() external whenInitialized {
         /// ███ Checks
-        if (leverageRatio() < maxLeverageRatio) revert Balance();
-        if (_amountOut == 0) return 0;
+        uint256 lr = leverageRatio();
+        if (lr < maxLeverageRatio) revert Balance();
+        uint256 amountIn = debt.balanceOf(address(this));
+        if (amountIn == 0) revert AmountInTooLow();
+
+        uint256 amountOutInETH = step.mulWadDown(value(totalSupply()));
+        uint256 amountOut = oracleAdapter.totalValue(
+            address(0),
+            address(collateral),
+            amountOutInETH
+        );
+        uint256 expectedAmountIn = oracleAdapter.totalValue(
+            address(0),
+            address(debt),
+            amountOutInETH
+        );
+        uint256 amountInDiscount = discount.mulWadDown(expectedAmountIn);
+        uint256 minAmountIn = expectedAmountIn - amountInDiscount;
+
+        // Make sure debt token is sent to this contract
+        if (amountIn < minAmountIn) revert AmountInTooLow();
+        uint256 refundAmountIn = amountIn - minAmountIn;
 
         // Prev states
-        uint256 prevLeverageRatio = leverageRatio();
+        uint256 prevLeverageRatio = lr;
         uint256 prevTotalCollateral = totalCollateral;
         uint256 prevTotalDebt = totalDebt;
         uint256 prevPrice = price();
 
-        // Discount the price
-        uint256 amountOutValue = oracleAdapter.totalValue(
-            address(collateral),
-            address(debt),
-            _amountOut
-        );
-        _amountIn = amountOutValue - discount.mulWadDown(amountOutValue);
-
-        // Cap the swap amount
-        // This is our selling power; can't sell collateral more than this
-        uint256 maxRepayAmount = step.mulWadDown(value(totalSupply()));
-        if (_amountIn > maxRepayAmount) revert AmountOutTooHigh();
-
         /// ███ Effects
-
         // Repay then redeem
-        debt.safeTransferFrom(msg.sender, address(this), _amountIn);
-        repayThenRedeem(_amountIn, _amountOut);
-        collateral.safeTransfer(msg.sender, _amountOut);
+        repayThenRedeem(minAmountIn, amountOut);
+        collateral.safeTransfer(msg.sender, amountOut);
+        if (refundAmountIn > 0) {
+            debt.safeTransfer(msg.sender, refundAmountIn);
+        }
 
         // Emit event
         emit Rebalanced(

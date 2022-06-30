@@ -287,18 +287,18 @@ interface IRiseToken is IERC20 {
     /// ███ Market makers ████████████████████████████████████████████████████
 
     /**
-     * Rise Token is designed in such way that users get protection against
+     * FLT is designed in such way that users get protection against
      * liquidation, while market makers are well-incentivized to execute the
      * rebalancing process.
      *
      * ===== Leveraging Up
      * When collateral (ex: gOHM) price is going up, the net-asset value of
-     * Rise Token (ex: gOHMRISE) will going up and the leverage ratio of
-     * the Rise Token will going down.
+     * Fuse Leveraged Token (ex: gOHMRISE) will going up and the leverage
+     * ratio will going down.
      *
      * If leverage ratio is below specified minimum leverage ratio (ex: 1.7x),
-     * Rise Token need to borrow more asset from Rari Fuse (ex: USDC), in order
-     * to buy more collateral then supply the collateral to Rari Fuse.
+     * Fuse Leveraged Token need to borrow more asset from Fuse (ex: USDC),
+     * in order to buy more collateral then supply the collateral to Rari Fuse.
      *
      * If leverageRatio < minLeverageRatio:
      *     Rise Token want collateral (ex: gOHM)
@@ -309,11 +309,12 @@ interface IRiseToken is IERC20 {
      *
      * ===== Leveraging Down
      * When collateral (ex: gOHM) price is going down, the net-asset value of
-     * Rise Token (ex: gOHMRISE) will going down and the leverage ratio of
-     * the Rise Token will going up.
+     * Fuse Leveraged Token (ex: gOHMRISE) will going down and the leverage
+     * ratio  will going up.
      *
      * If leverage ratio is above specified maximum leverage ratio (ex: 2.3x),
-     * Rise Token need to sell collateral in order to repay debt to Rari Fuse.
+     * Fuse Leveraged Token need to sell collateral in order to repay debt to
+     * Fuse.
      *
      * If leverageRatio > maxLeverageRatio:
      *     Rise Token want liquid asset (ex: USDC)
@@ -324,20 +325,20 @@ interface IRiseToken is IERC20 {
      *
      * -----------
      *
-     * In order to incentives the swap process, Rise Token will give specified
+     * In order to incentives the rebalancing process, FLT will give specified
      * discount price 0.6%.
      *
-     * push: Market Makers can sell collateral +0.6% above the market price.
-     *       For example: suppose the gOHM price is 2000 USDC, when Rise Token
-     *       need to increase the leverage ratio, anyone can send 1 gOHM to
-     *       Rise Token contract then they will receive 2000 USDC + 12 USDC in
-     *       exchange.
+     * pushc: Market Makers can sell collateral +0.6% above the market price.
+     *        For example: suppose the gOHM price is 2000 USDC, when Fuse
+     *        Leveraged Token need to increase the leverage ratio, anyone can
+     *        send 1 gOHM to Fuse Leveraged Token contract then they will
+     *        receive 2000 USDC + 12 USDC in exchange.
      *
-     * pull: Market Makers can buy collateral -0.6% below the market price
-     *       For example: suppose the gOHM price is 2000 USDC, when Rise Token
-     *       need to decrease the leverage ratio, anyone can send 2000 USDC to
-     *       Rise Token contract then they will receive 1 gOHM + 0.006 gOHM in
-     *       exchange.
+     * pushd: Market Makers can buy collateral -0.6% below the market price
+     *        For example: suppose the gOHM price is 2000 USDC, when Fuse
+     *        Leveraged Token need to decrease the leverage ratio, anyone can
+     *        send 2000 USDC to Fuse Leveraged Token contract then they will
+     *        receive 1 gOHM + 0.006 gOHM in exchange.
      *
      * In this case, market price is determined using Rari Fuse Oracle Adapter.
      *
@@ -381,25 +382,21 @@ interface IRiseToken is IERC20 {
      *     Dr = D + (ΔL * V) ............................................. (8)
      *
      * So the maximum swap amount is ΔLV.
-     *     ΔL > 0 Supply collateral then borrow (swapCollateralForETH)
-     *     ΔL < 0 Repay debt and redeem collateral (swapETHForCollateral)
+     *     ΔL > 0 Supply collateral then borrow
+     *     ΔL < 0 Repay debt and redeem collateral
      */
 
      /**
-      * @notice Swaps collateral token (ex: gOHM) for debt token (ex: USDC)
+      * @notice Push the leverage ratio up by sending collateral token to
+      *         contract.
       * @dev Anyone can execute this if leverage ratio is below minimum.
-      * @param _amountIn The amount of collateral
-      * @return _amountOut The amount of debt token that received by msg.sender
       */
-    function push(uint256 _amountIn) external returns (uint256 _amountOut);
+    function pushc() external;
 
      /**
-      * @notice Swaps debt token (ex: USDC) for collateral token (ex: gOHM)
+      * @notice Push the leverage ratio down by sending debt token to contract.
       * @dev Anyone can execute this if leverage ratio is below minimum.
-      * @param _amountOut The amount of collateral token that will received by
-      *        msg.sender
-      * @return _amountIn The amount of debt token send by msg.sender
       */
-    function pull(uint256 _amountOut) external returns (uint256 _amountIn);
+    function pushd() external;
 
 }

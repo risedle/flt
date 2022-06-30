@@ -13,12 +13,18 @@ import { BaseTest } from "./BaseTest.sol";
 import { BaseInitializeTest } from "./BaseInitializeTest.sol";
 import { BaseMintTest } from "./BaseMintTest.sol";
 import { BaseBurnTest } from "./BaseBurnTest.sol";
+import { BaseRebalanceTest } from "./BaseRebalanceTest.sol";
 
 /**
  * @title BNBRISE test
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
  */
-contract BNBRISE is BaseTest, BaseInitializeTest, BaseMintTest, BaseBurnTest {
+contract BNBRISE is
+    BaseTest,
+    BaseInitializeTest,
+    BaseMintTest,
+    BaseBurnTest,
+    BaseRebalanceTest {
 
     /// ███ Storages █████████████████████████████████████████████████████████
 
