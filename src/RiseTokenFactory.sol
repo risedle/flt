@@ -6,10 +6,9 @@ import { IERC20Metadata } from "openzeppelin/token/ERC20/extensions/IERC20Metada
 
 import { IfERC20 } from "./interfaces/IfERC20.sol";
 import { IRiseTokenFactory } from "./interfaces/IRiseTokenFactory.sol";
-import { IUniswapV2Pair } from "./interfaces/IUniswapV2Pair.sol";
-import { IUniswapV2Router02 } from "./interfaces/IUniswapV2Router02.sol";
 
 import { RiseToken } from "./RiseToken.sol";
+import { UniswapAdapter } from "./adapters/UniswapAdapter.sol";
 import { RariFusePriceOracleAdapter } from "./adapters/RariFusePriceOracleAdapter.sol";
 
 /**
@@ -44,27 +43,26 @@ contract RiseTokenFactory is IRiseTokenFactory, Ownable {
 
     /// @inheritdoc IRiseTokenFactory
     function create(
-        string memory _name,
-        string memory _symbol,
         IfERC20 _fCollateral,
         IfERC20 _fDebt,
-        RariFusePriceOracleAdapter _oracleAdapter,
-        IUniswapV2Pair _pair,
-        IUniswapV2Router02 _router
+        UniswapAdapter _uniswapAdapter,
+        RariFusePriceOracleAdapter _oracleAdapter
     ) external onlyOwner returns (RiseToken _riseToken) {
         bool tokenExists = address(getToken[_fCollateral][_fDebt]) != address(0) || address(getToken[_fDebt][_fCollateral]) != address(0) ? true : false;
         if (tokenExists) revert TokenExists(getToken[_fCollateral][_fDebt]);
 
         /// ███ Contract deployment
+        string memory collateralSymbol = IERC20Metadata(_fCollateral.underlying()).symbol();
+        string memory tokenName = string(abi.encodePacked(collateralSymbol, " 2x Long Risedle"));
+        string memory tokenSymbol = string(abi.encodePacked(collateralSymbol, "RISE"));
         _riseToken = new RiseToken(
-            _name,
-            _symbol,
+            tokenName,
+            tokenSymbol,
             RiseTokenFactory(address(this)),
             _fCollateral,
             _fDebt,
-            _oracleAdapter,
-            _pair,
-            _router
+            _uniswapAdapter,
+            _oracleAdapter
         );
 
         getToken[_fCollateral][_fDebt] = _riseToken;
