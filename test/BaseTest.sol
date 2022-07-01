@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "forge-std/Test.sol";
 import { ERC20 } from "solmate/tokens/ERC20.sol";
 import { FixedPointMathLib } from "solmate/utils/FixedPointMathLib.sol";
+import { Owned } from "solmate/auth/Owned.sol";
 
 import { IFLT } from "../src/interfaces/IFLT.sol";
 import { FLTFactory } from "../src/FLTFactory.sol";
@@ -67,7 +68,6 @@ abstract contract BaseTest is Test {
 
     /// @notice Deploy new FLT
     function deploy(Data memory _data) internal returns (IFLT _flt) {
-
         // Deploy the FLT
         _flt = _data.factory.create(
             _data.name,
@@ -253,4 +253,135 @@ abstract contract BaseTest is Test {
         assertLt(amountOut, expectedAmountOut + tolerance);
     }
 
+
+    /// @notice Make sure only owner can execute the setParams
+    function testSetParamsRevertIfNonOwnerExecute() public {
+        Data memory data = getData();
+        IFLT flt = deploy(data);
+
+        // Transfer ownership
+        address newOwner = vm.addr(1);
+        Owned(address(flt)).setOwner(newOwner);
+
+        vm.expectRevert("UNAUTHORIZED");
+        flt.setParams(0, 0, 0, 0, 0);
+    }
+
+    /// @notice Make sure revert if min leverage ratio is below 1.2x
+    function testSetParamsRevertIfMinLeverageRatioTooLow() public {
+        Data memory data = getData();
+        IFLT flt = deploy(data);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLT.InvalidLeverageRatio.selector
+            )
+        );
+        flt.setParams(1.1 ether, 0, 0, 0, 0);
+    }
+
+    /// @notice Make sure revert if max leverage ratio is above 3x
+    function testSetParamsRevertIfMaxLeverageRatioTooHigh() public {
+        Data memory data = getData();
+        IFLT flt = deploy(data);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLT.InvalidLeverageRatio.selector
+            )
+        );
+        flt.setParams(1.5 ether, 4 ether, 0, 0, 0);
+    }
+
+    /// @notice Make sure revert if min max leverage ratio
+    function testSetParamsRevertIfMinMaxLeverageRatioInvaid() public {
+        Data memory data = getData();
+        IFLT flt = deploy(data);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLT.InvalidLeverageRatio.selector
+            )
+        );
+        flt.setParams(4 ether, 2 ether, 0, 0, 0);
+    }
+
+    /// @notice Make sure revert if step is too low
+    function testSetParamsRevertIfDeltaTooLow() public {
+        Data memory data = getData();
+        IFLT flt = deploy(data);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLT.InvalidLeverageRatio.selector
+            )
+        );
+        flt.setParams(1.6 ether, 1.9 ether, 0.4 ether, 0, 0);
+    }
+
+    /// @notice Make sure revert if step is too low
+    function testSetParamsRevertIfStepTooLow() public {
+        Data memory data = getData();
+        IFLT flt = deploy(data);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLT.InvalidRebalancingStep.selector
+            )
+        );
+        flt.setParams(1.6 ether, 2.5 ether, 0.01 ether, 0, 0);
+    }
+
+    /// @notice Make sure revert if step is too high
+    function testSetParamsRevertIfStepTooHigh() public {
+        Data memory data = getData();
+        IFLT flt = deploy(data);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLT.InvalidRebalancingStep.selector
+            )
+        );
+        flt.setParams(1.6 ether, 2.5 ether, 0.6 ether, 0, 0);
+    }
+
+    /// @notice Make sure revert if discount is too low
+    function testSetParamsRevertIfDiscountTooLow() public {
+        Data memory data = getData();
+        IFLT flt = deploy(data);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLT.InvalidDiscount.selector
+            )
+        );
+        flt.setParams(1.6 ether, 2.5 ether, 0.4 ether, 0.000001 ether, 0);
+    }
+
+    /// @notice Make sure revert if discount is too high
+    function testSetParamsRevertIfDiscountTooHigh() public {
+        Data memory data = getData();
+        IFLT flt = deploy(data);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLT.InvalidDiscount.selector
+            )
+        );
+        flt.setParams(1.6 ether, 2.5 ether, 0.4 ether, 0.1 ether, 0);
+    }
+
+    /// @notice Make sure owner can set params
+    function testSetParams() public {
+        Data memory data = getData();
+        IFLT flt = deploy(data);
+
+        flt.setParams(1.3 ether, 2.9 ether, 0.4 ether, 0.003 ether, 3 ether);
+        assertEq(flt.minLeverageRatio(), 1.3 ether, "invalid min lr");
+        assertEq(flt.maxLeverageRatio(), 2.9 ether, "invalid max lr");
+        assertEq(flt.step(), 0.4 ether, "invalid step");
+        assertEq(flt.discount(), 0.003 ether, "invalid discount");
+        assertEq(flt.maxMint(), 3 ether, "invalid maxMint");
+
+    }
 }
