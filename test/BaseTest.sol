@@ -249,4 +249,98 @@ abstract contract BaseTest is Test {
         revert("invalid tokenOut");
     }
 
+    /// @notice Get required collateral to push leverage ratio up
+    function getLeveragingUpInOut(
+        RiseToken _token
+    ) internal view returns (uint256 _amountIn, uint256 _amountOut) {
+        uint256 amountOutInETH = _token.step().mulWadDown(
+            _token.value(
+                _token.totalSupply()
+            )
+        );
+        _amountOut = _token.oracleAdapter().totalValue(
+            address(0),
+            address(_token.debt()),
+            amountOutInETH
+        );
+        uint256 expectedAmountIn = _token.oracleAdapter().totalValue(
+            address(0),
+            address(_token.collateral()),
+            amountOutInETH
+        );
+        uint256 amountInDiscount = _token.discount().mulWadDown(
+            expectedAmountIn
+        );
+        _amountIn = expectedAmountIn - amountInDiscount;
+    }
+
+    /// @notice Make sure getLeveragingUpInOut return correctly
+    function testGetLeveragingUpInOut() public {
+        // Deploy and initialize 1.5x token
+        Data memory data = getData();
+        RiseToken token = deployAndInitialize(data, 1.5 ether);
+
+        // Get in and out
+        (uint256 amountIn, uint256 amountOut) = getLeveragingUpInOut(token);
+
+        // Make sure value amountOut is equal to amountIn value + discount
+        uint256 valueAmountIn = token.oracleAdapter().totalValue(
+            address(data.collateral),
+            address(data.debt),
+            amountIn
+        );
+        uint256 discount = token.discount().mulWadDown(valueAmountIn);
+        uint256 expectedAmountOut = valueAmountIn + discount;
+        uint256 tolerance = uint256(0.005 ether).mulWadDown(expectedAmountOut);
+        assertGt(amountOut, expectedAmountOut - tolerance);
+        assertLt(amountOut, expectedAmountOut + tolerance);
+    }
+
+    /// @notice Get required debt to push leverage ratio down
+    function getLeveragingDownInOut(
+        RiseToken _token
+    ) internal view returns (uint256 _amountIn, uint256 _amountOut) {
+        uint256 amountOutInETH = _token.step().mulWadDown(
+            _token.value(
+                _token.totalSupply()
+            )
+        );
+        _amountOut = _token.oracleAdapter().totalValue(
+            address(0),
+            address(_token.collateral()),
+            amountOutInETH
+        );
+        uint256 expectedAmountIn = _token.oracleAdapter().totalValue(
+            address(0),
+            address(_token.debt()),
+            amountOutInETH
+        );
+        uint256 amountInDiscount = _token.discount().mulWadDown(
+            expectedAmountIn
+        );
+        _amountIn = expectedAmountIn - amountInDiscount;
+    }
+
+    /// @notice Make sure getLeveragingDownInOut return correctly
+    function testGetLeveragingDownInOut() public {
+        // Deploy and initialize 2.6x token
+        Data memory data = getData();
+        RiseToken token = deployAndInitialize(data, 2.6 ether);
+
+        // Get in and out
+        (uint256 amountIn, uint256 amountOut) = getLeveragingDownInOut(token);
+
+        // Make sure value amountOut is equal to amountIn value + discount
+        uint256 valueAmountIn = token.oracleAdapter().totalValue(
+            address(data.debt),
+            address(data.collateral),
+            amountIn
+        );
+        uint256 discount = token.discount().mulWadDown(valueAmountIn);
+        uint256 expectedAmountOut = valueAmountIn + discount;
+        uint256 tolerance = uint256(0.005 ether).mulWadDown(expectedAmountOut);
+        assertGt(amountOut, expectedAmountOut - tolerance);
+        assertLt(amountOut, expectedAmountOut + tolerance);
+    }
+
 }
