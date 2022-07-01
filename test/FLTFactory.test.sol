@@ -30,4 +30,18 @@ contract FLTFactoryTest is Test {
         factory.setFeeRecipient(feeRecipient);
         assertEq(factory.feeRecipient(), feeRecipient);
     }
+
+    /// @notice Make sure revert if non-owner trying to create new token
+    function testCreateRevertIfNonOwnerExecute() public {
+        // Deploy new FLT Factory
+        FLTFactory factory = new FLTFactory(vm.addr(1));
+
+        // Transfer ownership
+        address newOwner = vm.addr(2);
+        factory.setOwner(newOwner);
+
+        // Set fee recipient
+        vm.expectRevert("UNAUTHORIZED");
+        factory.create("B", "B", bytes(""), vm.addr(3));
+    }
 }
