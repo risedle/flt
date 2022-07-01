@@ -185,6 +185,7 @@ interface IFLT {
     function totalDebt() external view returns (uint256);
     function minLeverageRatio() external view returns (uint256);
     function maxLeverageRatio() external view returns (uint256);
+    function maxMint() external view returns (uint256);
     function oracleAdapter() external view returns (RariFusePriceOracleAdapter);
     function isInitialized() external view returns (bool);
     function factory() external view returns (FLTFactory);
