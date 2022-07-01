@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import { FixedPointMathLib } from "solmate/utils/FixedPointMathLib.sol";
+import { ERC20 } from "solmate/tokens/ERC20.sol";
 
-import { RiseToken } from "../src/RiseToken.sol";
-import { IRiseToken } from "../src/interfaces/IRiseToken.sol";
+import { IFLT } from "../src/interfaces/IFLT.sol";
 
 import { BaseTest } from "./BaseTest.sol";
 
@@ -18,15 +18,15 @@ abstract contract BaseBurnTest is BaseTest {
         Data memory data = getData();
 
         // Deploy Rise Token
-        RiseToken riseToken = deploy(data);
+        IFLT flt = deploy(data);
 
         // MintFromDebt; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.Uninitialized.selector
+                IFLT.Uninitialized.selector
             )
         );
-        riseToken.burnd(address(this), 0);
+        flt.burnd(address(this), 0);
     }
 
     /// @notice Make sure it revert when token is not initialized
@@ -35,123 +35,123 @@ abstract contract BaseBurnTest is BaseTest {
         Data memory data = getData();
 
         // Deploy Rise Token
-        RiseToken riseToken = deploy(data);
+        IFLT flt = deploy(data);
 
         // MintFromDebt; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.Uninitialized.selector
+                IFLT.Uninitialized.selector
             )
         );
-        riseToken.burnc(address(this), 0);
+        flt.burnc(address(this), 0);
     }
 
     /// @notice Make sure it revert when burn amount is zero
     function testBurnRevertIfBurnAmountIsZeroViaDebt() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // Burn to debt; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.AmountInTooLow.selector
+                IFLT.AmountInTooLow.selector
             )
         );
-        riseToken.burnd(address(this), 0);
+        flt.burnd(address(this), 0);
     }
 
     /// @notice Make sure it revert when burn amount is zero
     function testBurnRevertIfBurnAmountIsZeroViaCollateral() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // Burn to collateral; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.AmountInTooLow.selector
+                IFLT.AmountInTooLow.selector
             )
         );
-        riseToken.burnc(address(this), 0);
+        flt.burnc(address(this), 0);
     }
 
     /// @notice Make sure it revert if amount out less than min amount out
     function testBurnRevertIfAmountOutLessThanMinAmountOutViaDebt() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // Mint first
         address minter = vm.addr(1);
         startHoax(minter);
         uint256 mintAmount = 5 ether;
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.debt)
+            address(flt.debt())
         );
-        setBalance(address(data.debt), data.debtSlot, minter, amountIn);
-        data.debt.transfer(address(riseToken), amountIn);
-        riseToken.mintd(mintAmount, minter, minter);
+        setBalance(address(flt.debt()), data.debtSlot, minter, amountIn);
+        flt.debt().transfer(address(flt), amountIn);
+        flt.mintd(mintAmount, minter, minter);
 
         // Transfer token to burn
-        riseToken.transfer(address(riseToken), mintAmount);
+        ERC20(address(flt)).transfer(address(flt), mintAmount);
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.AmountOutTooLow.selector
+                IFLT.AmountOutTooLow.selector
             )
         );
-        riseToken.burnd(address(this), 1e18 ether);
+        flt.burnd(address(this), 1e18 ether);
     }
 
     /// @notice Make sure it revert if amount out less than min amount out
     function testBurnRevertIfAmountOutLessThanMinAmountOutViaCollateral() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // Mint first
         address minter = vm.addr(1);
         startHoax(minter);
         uint256 mintAmount = 5 ether;
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.collateral)
+            address(flt.collateral())
         );
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
             minter,
             amountIn
         );
-        data.collateral.transfer(address(riseToken), amountIn);
-        riseToken.mintc(mintAmount, minter, minter);
+        ERC20(address(flt.collateral())).transfer(address(flt), amountIn);
+        flt.mintc(mintAmount, minter, minter);
 
         // Transfer to burn
-        riseToken.transfer(address(riseToken), mintAmount);
+        ERC20(address(flt)).transfer(address(flt), mintAmount);
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.AmountOutTooLow.selector
+                IFLT.AmountOutTooLow.selector
             )
         );
-        riseToken.burnc(address(this), 1e18 ether);
+        flt.burnc(address(this), 1e18 ether);
     }
 
     /// @notice Make sure burn doesn't change the price
     function testBurnWithLeverageRatioViaDebt(uint256 _lr) internal {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, _lr);
+        IFLT flt = deployAndInitialize(data, _lr);
 
         // Reset fee recipient balance to zero
         setBalance(
-            address(data.debt),
+            address(flt.debt()),
             data.debtSlot,
-            data.factory.feeRecipient(),
+            flt.factory().feeRecipient(),
             0
         );
 
@@ -160,62 +160,62 @@ abstract contract BaseBurnTest is BaseTest {
         startHoax(minter);
         uint256 mintAmount = 5 ether;
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.debt)
+            address(flt.debt())
         );
-        setBalance(address(data.debt), data.debtSlot, minter, amountIn);
-        data.debt.transfer(address(riseToken), amountIn);
-        riseToken.mintd(mintAmount, minter, minter);
+        setBalance(address(flt.debt()), data.debtSlot, minter, amountIn);
+        flt.debt().transfer(address(flt), amountIn);
+        flt.mintd(mintAmount, minter, minter);
 
         // Make sure these values does not change after burn
-        uint256 cps = riseToken.collateralPerShare();
-        uint256 dps = riseToken.debtPerShare();
-        uint256 price = riseToken.price();
-        uint256 lr  = riseToken.leverageRatio();
-        uint256 fb = data.debt.balanceOf(data.factory.feeRecipient());
+        uint256 cps = flt.collateralPerShare();
+        uint256 dps = flt.debtPerShare();
+        uint256 price = flt.price();
+        uint256 lr  = flt.leverageRatio();
+        uint256 fb = flt.debt().balanceOf(flt.factory().feeRecipient());
 
         // Make sure these values is decreased after burn
-        uint256 ts = riseToken.totalSupply();
+        uint256 ts = ERC20(address(flt)).totalSupply();
 
         // Burn
-        riseToken.transfer(address(riseToken), mintAmount);
-        riseToken.burnd(minter, 0);
+        ERC20(address(flt)).transfer(address(flt), mintAmount);
+        flt.burnd(minter, 0);
 
         // Check minter balance
-        assertEq(riseToken.balanceOf(minter), 0, "invalid minter b");
+        assertEq(ERC20(address(flt)).balanceOf(minter), 0, "invalid minter b");
 
         // Make sure these values doesn't changes
-        assertEq(riseToken.collateralPerShare(), cps, "invalid cps");
-        assertEq(riseToken.debtPerShare(), dps, "invalid dps");
-        assertEq(riseToken.price(), price, "invalid price");
-        uint256 currentLR = riseToken.leverageRatio();
+        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertEq(flt.debtPerShare(), dps, "invalid dps");
+        assertEq(flt.price(), price, "invalid price");
+        uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
 
         // Make sure total supply is decreased
-        assertEq(riseToken.totalSupply(), ts - mintAmount, "invalid ts");
+        assertEq(ERC20(address(flt)).totalSupply(), ts - mintAmount, "invalid ts");
 
         // Make sure fee recipient receive 0.1%x2 of amountIn
         assertGt(
-            data.debt.balanceOf(data.factory.feeRecipient()),
+            flt.debt().balanceOf(flt.factory().feeRecipient()),
             fb,
             "invalid fee recipient"
         );
         assertEq(
-            data.collateral.balanceOf(data.factory.feeRecipient()),
+            ERC20(address(flt.collateral())).balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
 
         // Make sure there are no tokens inside contract
         assertEq(
-            data.debt.balanceOf(address(riseToken)),
+            flt.debt().balanceOf(address(flt)),
             0,
             "invalid debt contract balance"
         );
         assertEq(
-            data.collateral.balanceOf(address(riseToken)),
+            ERC20(address(flt.collateral())).balanceOf(address(flt)),
             0,
             "invalid collateral contract balance"
         );
@@ -225,13 +225,13 @@ abstract contract BaseBurnTest is BaseTest {
     function testBurnWithLeverageRatioViaCollateral(uint256 _lr) internal {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, _lr);
+        IFLT flt = deployAndInitialize(data, _lr);
 
         // Reset fee recipient balance to zero
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
-            data.factory.feeRecipient(),
+            flt.factory().feeRecipient(),
             0
         );
 
@@ -240,67 +240,67 @@ abstract contract BaseBurnTest is BaseTest {
         startHoax(minter);
         uint256 mintAmount = 5 ether;
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.collateral)
+            address(flt.collateral())
         );
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
             minter,
             amountIn
         );
-        data.collateral.transfer(address(riseToken), amountIn);
-        riseToken.mintc(mintAmount, minter, minter);
+        ERC20(address(flt.collateral())).transfer(address(flt), amountIn);
+        flt.mintc(mintAmount, minter, minter);
 
         // Make sure these values does not change after burn
-        uint256 cps = riseToken.collateralPerShare();
-        uint256 dps = riseToken.debtPerShare();
-        uint256 price = riseToken.price();
-        uint256 lr  = riseToken.leverageRatio();
-        uint256 fb = data.debt.balanceOf(data.factory.feeRecipient());
+        uint256 cps = flt.collateralPerShare();
+        uint256 dps = flt.debtPerShare();
+        uint256 price = flt.price();
+        uint256 lr  = flt.leverageRatio();
+        uint256 fb = flt.debt().balanceOf(flt.factory().feeRecipient());
 
         // Make sure these values is decreased after burn
-        uint256 ts = riseToken.totalSupply();
+        uint256 ts = ERC20(address(flt)).totalSupply();
 
         // Burn
-        riseToken.transfer(address(riseToken), mintAmount);
-        riseToken.burnc(minter, 0);
+        ERC20(address(flt)).transfer(address(flt), mintAmount);
+        flt.burnc(minter, 0);
 
         // Check minter balance
-        assertEq(riseToken.balanceOf(minter), 0, "invalid minter b");
+        assertEq(ERC20(address(flt)).balanceOf(minter), 0, "invalid minter b");
 
         // Make sure these values doesn't changes
-        assertEq(riseToken.collateralPerShare(), cps, "invalid cps");
-        assertEq(riseToken.debtPerShare(), dps, "invalid dps");
-        assertEq(riseToken.price(), price, "invalid price");
-        uint256 currentLR = riseToken.leverageRatio();
+        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertEq(flt.debtPerShare(), dps, "invalid dps");
+        assertEq(flt.price(), price, "invalid price");
+        uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
 
         // Make sure total supply is decreased
-        assertEq(riseToken.totalSupply(), ts - mintAmount, "invalid ts");
+        assertEq(ERC20(address(flt)).totalSupply(), ts - mintAmount, "invalid ts");
 
         // Make sure fee recipient receive 0.1%x2 of amountIn
         assertGt(
-            data.collateral.balanceOf(data.factory.feeRecipient()),
+            ERC20(address(flt.collateral())).balanceOf(flt.factory().feeRecipient()),
             fb,
             "invalid fee recipient"
         );
         assertEq(
-            data.debt.balanceOf(data.factory.feeRecipient()),
+            flt.debt().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
 
         // Make sure there are no tokens inside contract
         assertEq(
-            data.debt.balanceOf(address(riseToken)),
+            flt.debt().balanceOf(address(flt)),
             0,
             "invalid debt contract balance"
         );
         assertEq(
-            data.collateral.balanceOf(address(riseToken)),
+            ERC20(address(flt.collateral())).balanceOf(address(flt)),
             0,
             "invalid collateral contract balance"
         );
@@ -334,13 +334,13 @@ abstract contract BaseBurnTest is BaseTest {
     function testBurnTwiceViaDebt() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // Reset fee recipient balance to zero
         setBalance(
-            address(data.debt),
+            address(flt.debt()),
             data.debtSlot,
-            data.factory.feeRecipient(),
+            flt.factory().feeRecipient(),
             0
         );
 
@@ -349,59 +349,59 @@ abstract contract BaseBurnTest is BaseTest {
         startHoax(minter);
         uint256 mintAmount = 5 ether;
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.debt)
+            address(flt.debt())
         );
-        setBalance(address(data.debt), data.debtSlot, minter, amountIn);
-        data.debt.transfer(address(riseToken), amountIn);
-        riseToken.mintd(mintAmount, minter, minter);
+        setBalance(address(flt.debt()), data.debtSlot, minter, amountIn);
+        flt.debt().transfer(address(flt), amountIn);
+        flt.mintd(mintAmount, minter, minter);
 
         // Make sure these values does not change after burn
-        uint256 cps = riseToken.collateralPerShare();
-        uint256 dps = riseToken.debtPerShare();
-        uint256 price = riseToken.price();
-        uint256 lr  = riseToken.leverageRatio();
+        uint256 cps = flt.collateralPerShare();
+        uint256 dps = flt.debtPerShare();
+        uint256 price = flt.price();
+        uint256 lr  = flt.leverageRatio();
 
         // Make sure these values is decreased after burn
-        uint256 ts = riseToken.totalSupply();
+        uint256 ts = ERC20(address(flt)).totalSupply();
 
         // Burn
         uint256 half = uint256(0.5 ether).mulWadDown(mintAmount);
         uint256 left = mintAmount - half;
         // First
-        riseToken.transfer(address(riseToken), half);
-        riseToken.burnd(minter, 0);
+        ERC20(address(flt)).transfer(address(flt), half);
+        flt.burnd(minter, 0);
         // Second
-        riseToken.transfer(address(riseToken), left);
-        riseToken.burnd(minter, 0);
+        ERC20(address(flt)).transfer(address(flt), left);
+        flt.burnd(minter, 0);
 
         // Check minter balance
-        assertEq(riseToken.balanceOf(minter), 0, "invalid minter b");
+        assertEq(ERC20(address(flt)).balanceOf(minter), 0, "invalid minter b");
 
         // Make sure these values doesn't changes
-        assertEq(riseToken.collateralPerShare(), cps, "invalid cps");
-        assertEq(riseToken.debtPerShare(), dps, "invalid dps");
-        assertEq(riseToken.price(), price, "invalid price");
-        uint256 currentLR = riseToken.leverageRatio();
+        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertEq(flt.debtPerShare(), dps, "invalid dps");
+        assertEq(flt.price(), price, "invalid price");
+        uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
 
         // Make sure total supply is decreased
-        assertEq(riseToken.totalSupply(), ts - mintAmount, "invalid ts");
+        assertEq(ERC20(address(flt)).totalSupply(), ts - mintAmount, "invalid ts");
     }
 
     /// @notice Make sure burn twice in a row doesn't change the price
     function testBurnTwiceViaCollateral() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // Reset fee recipient balance to zero
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
-            data.factory.feeRecipient(),
+            flt.factory().feeRecipient(),
             0
         );
 
@@ -410,51 +410,51 @@ abstract contract BaseBurnTest is BaseTest {
         startHoax(minter);
         uint256 mintAmount = 5 ether;
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.collateral)
+            address(flt.collateral())
         );
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
             minter,
             amountIn
         );
-        data.collateral.transfer(address(riseToken), amountIn);
-        riseToken.mintc(mintAmount, minter, minter);
+        ERC20(address(flt.collateral())).transfer(address(flt), amountIn);
+        flt.mintc(mintAmount, minter, minter);
 
         // Make sure these values does not change after burn
-        uint256 cps = riseToken.collateralPerShare();
-        uint256 dps = riseToken.debtPerShare();
-        uint256 price = riseToken.price();
-        uint256 lr  = riseToken.leverageRatio();
+        uint256 cps = flt.collateralPerShare();
+        uint256 dps = flt.debtPerShare();
+        uint256 price = flt.price();
+        uint256 lr  = flt.leverageRatio();
 
         // Make sure these values is decreased after burn
-        uint256 ts = riseToken.totalSupply();
+        uint256 ts = ERC20(address(flt)).totalSupply();
 
         // Burn
         uint256 half = uint256(0.5 ether).mulWadDown(mintAmount);
         uint256 left = mintAmount - half;
         // First
-        riseToken.transfer(address(riseToken), half);
-        riseToken.burnc(minter, 0);
+        ERC20(address(flt)).transfer(address(flt), half);
+        flt.burnc(minter, 0);
         // Second
-        riseToken.transfer(address(riseToken), left);
-        riseToken.burnc(minter, 0);
+        ERC20(address(flt)).transfer(address(flt), left);
+        flt.burnc(minter, 0);
 
         // Check minter balance
-        assertEq(riseToken.balanceOf(minter), 0, "invalid minter b");
+        assertEq(ERC20(address(flt)).balanceOf(minter), 0, "invalid minter b");
 
         // Make sure these values doesn't changes
-        assertEq(riseToken.collateralPerShare(), cps, "invalid cps");
-        assertEq(riseToken.debtPerShare(), dps, "invalid dps");
-        assertEq(riseToken.price(), price, "invalid price");
-        uint256 currentLR = riseToken.leverageRatio();
+        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertEq(flt.debtPerShare(), dps, "invalid dps");
+        assertEq(flt.price(), price, "invalid price");
+        uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
 
         // Make sure total supply is decreased
-        assertEq(riseToken.totalSupply(), ts - mintAmount, "invalid ts");
+        assertEq(ERC20(address(flt)).totalSupply(), ts - mintAmount, "invalid ts");
     }
 
 }

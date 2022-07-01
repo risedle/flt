@@ -1,27 +1,28 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import { RiseToken } from "../src/RiseToken.sol";
-import { IRiseToken } from "../src/interfaces/IRiseToken.sol";
+import { ERC20 } from "solmate/tokens/ERC20.sol";
+
+import { IFLT } from "../src/interfaces/IFLT.sol";
 
 import { BaseTest } from "./BaseTest.sol";
 
 abstract contract BaseMintTest is BaseTest {
 
     /// @notice Make sure pool is seeded
-    function _seedPool() internal {
+    function _seedPool(IFLT flt) internal {
         // Get data
         Data memory data = getData();
 
         // Add supply to Risedle Pool
         setBalance(
-            address(data.debt),
+            address(flt.debt()),
             data.debtSlot,
             address(this),
             data.debtSupplyAmount
         );
-        data.debt.approve(address(data.fDebt), data.debtSupplyAmount);
-        data.fDebt.mint(data.debtSupplyAmount);
+        flt.debt().approve(address(flt.fDebt()), data.debtSupplyAmount);
+        flt.fDebt().mint(data.debtSupplyAmount);
     }
 
     /// @notice Make sure it revert when token is not initialized
@@ -29,19 +30,19 @@ abstract contract BaseMintTest is BaseTest {
         // Get data
         Data memory data = getData();
 
-        // Seed pool
-        _seedPool();
-
         // Deploy Rise Token
-        RiseToken riseToken = deploy(data);
+        IFLT flt = deploy(data);
+
+        // Seed pool
+        _seedPool(flt);
 
         // MintFromDebt; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.Uninitialized.selector
+                IFLT.Uninitialized.selector
             )
         );
-        riseToken.mintd(1 ether, address(this), address(this));
+        flt.mintd(1 ether, address(this), address(this));
     }
 
     /// @notice Make sure it revert when token is not initialized
@@ -49,189 +50,197 @@ abstract contract BaseMintTest is BaseTest {
         // Get data
         Data memory data = getData();
 
-        // Seed pool
-        _seedPool();
-
         // Deploy Rise Token
-        RiseToken riseToken = deploy(data);
+        IFLT flt = deploy(data);
+
+        // Seed pool
+        _seedPool(flt);
 
         // MintFromDebt; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.Uninitialized.selector
+                IFLT.Uninitialized.selector
             )
         );
-        riseToken.mintc(1 ether, address(this), address(this));
+        flt.mintc(1 ether, address(this), address(this));
     }
 
     /// @notice Make sure it revert when mint amount is more than max mint
     function testMintRevertIfMoreThanMaxMintViaDebt() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // Set max mint to 1 ether
-        riseToken.setParams(
-            riseToken.minLeverageRatio(),
-            riseToken.maxLeverageRatio(),
-            riseToken.step(),
-            riseToken.discount(),
+        flt.setParams(
+            flt.minLeverageRatio(),
+            flt.maxLeverageRatio(),
+            flt.step(),
+            flt.discount(),
             0.5 ether
         );
 
         // MintFromDebt; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.AmountOutTooHigh.selector
+                IFLT.AmountOutTooHigh.selector
             )
         );
-        riseToken.mintd(2 ether, address(this), address(this));
+        flt.mintd(2 ether, address(this), address(this));
     }
 
     /// @notice Make sure it revert when mint amount is more than max mint
     function testMintRevertIfMoreThanMaxMintViaCollateral() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // Set max mint to 1 ether
-        riseToken.setParams(
-            riseToken.minLeverageRatio(),
-            riseToken.maxLeverageRatio(),
-            riseToken.step(),
-            riseToken.discount(),
+        flt.setParams(
+            flt.minLeverageRatio(),
+            flt.maxLeverageRatio(),
+            flt.step(),
+            flt.discount(),
             0.5 ether
         );
 
         // MintFromDebt; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.AmountOutTooHigh.selector
+                IFLT.AmountOutTooHigh.selector
             )
         );
-        riseToken.mintc(2 ether, address(this), address(this));
+        flt.mintc(2 ether, address(this), address(this));
     }
 
     /// @notice Make sure it revert when mint amount is zero
     function testMintRevertIfMintAmountIsZeroViaDebt() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // MintFromDebt; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.AmountOutTooLow.selector
+                IFLT.AmountOutTooLow.selector
             )
         );
-        riseToken.mintd(0, address(this), address(this));
+        flt.mintd(0, address(this), address(this));
     }
 
     /// @notice Make sure it revert when mint amount is zero
     function testMintRevertIfMintAmountIsZeroViaCollateral() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // MintFromDebt; this should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.AmountOutTooLow.selector
+                IFLT.AmountOutTooLow.selector
             )
         );
-        riseToken.mintc(0, address(this), address(this));
+        flt.mintc(0, address(this), address(this));
     }
 
     /// @notice Make sure it revert when required amount is not send
     function testMintRevertIfRequiredAmountNotReceivedViaDebt() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // MintFromDebt; this should revert
         uint256 mintAmount = 5 ether;
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.AmountInTooLow.selector
+                IFLT.AmountInTooLow.selector
             )
         );
-        riseToken.mintd(mintAmount, address(this), address(this));
+        flt.mintd(mintAmount, address(this), address(this));
     }
 
     /// @notice Make sure it revert when required amount is not send
     function testMintRevertIfRequiredAmountNotReceivedViaCollateral() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // MintFromDebt; this should revert
         uint256 mintAmount = 5 ether;
         vm.expectRevert(
             abi.encodeWithSelector(
-                IRiseToken.AmountInTooLow.selector
+                IFLT.AmountInTooLow.selector
             )
         );
-        riseToken.mintc(mintAmount, address(this), address(this));
+        flt.mintc(mintAmount, address(this), address(this));
     }
 
     /// @notice Make sure mint doesn't change the price
     function testMintWithLeverageRatio2xViaDebt() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // Reset fee recipient balance to zero
         setBalance(
-            address(data.debt),
+            address(flt.debt()),
             data.debtSlot,
-            data.factory.feeRecipient(),
+            flt.factory().feeRecipient(),
             0
         );
 
         // Make sure these values does not change after mint
-        uint256 cps = riseToken.collateralPerShare();
-        uint256 dps = riseToken.debtPerShare();
-        uint256 price = riseToken.price();
-        uint256 lr  = riseToken.leverageRatio();
+        uint256 cps = flt.collateralPerShare();
+        uint256 dps = flt.debtPerShare();
+        uint256 price = flt.price();
+        uint256 lr  = flt.leverageRatio();
 
         // Make sure these values is increased after mint
-        uint256 ts = riseToken.totalSupply();
+        uint256 ts = ERC20(address(flt)).totalSupply();
 
         // Mint
         address minter = vm.addr(1);
         startHoax(minter);
         uint256 mintAmount = 5 ether;
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.debt)
+            address(flt.debt())
         );
-        setBalance(address(data.debt), data.debtSlot, minter, amountIn);
-        data.debt.transfer(address(riseToken), amountIn);
-        riseToken.mintd(mintAmount, minter, minter);
+        setBalance(address(flt.debt()), data.debtSlot, minter, amountIn);
+        flt.debt().transfer(address(flt), amountIn);
+        flt.mintd(mintAmount, minter, minter);
 
         // Check minter balance
-        assertEq(riseToken.balanceOf(minter), mintAmount, "invalid minter b");
+        assertEq(
+            ERC20(address(flt)).balanceOf(minter),
+            mintAmount,
+            "invalid minter b"
+        );
 
         // Make sure these values doesn't changes
-        assertEq(riseToken.collateralPerShare(), cps, "invalid cps");
-        assertEq(riseToken.debtPerShare(), dps, "invalid dps");
-        assertEq(riseToken.price(), price, "invalid price");
-        uint256 currentLR = riseToken.leverageRatio();
+        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertEq(flt.debtPerShare(), dps, "invalid dps");
+        assertEq(flt.price(), price, "invalid price");
+        uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
 
         // Make sure total supply is increased
-        assertEq(riseToken.totalSupply(), ts + mintAmount, "invalid ts");
+        assertEq(
+            ERC20(address(flt)).totalSupply(),
+            ts + mintAmount,
+            "invalid ts"
+        );
 
         // Make sure fee recipient receive 0.1% of amountIn
         assertGt(
-            data.debt.balanceOf(data.factory.feeRecipient()),
+            flt.debt().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
         assertEq(
-            data.collateral.balanceOf(data.factory.feeRecipient()),
+            flt.collateral().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
@@ -241,65 +250,73 @@ abstract contract BaseMintTest is BaseTest {
     function testMintWithLeverageRatio2xViaCollateral() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // Reset fee recipient balance to zero
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
-            data.factory.feeRecipient(),
+            flt.factory().feeRecipient(),
             0
         );
 
         // Make sure these values does not change after mint
-        uint256 cps = riseToken.collateralPerShare();
-        uint256 dps = riseToken.debtPerShare();
-        uint256 price = riseToken.price();
-        uint256 lr  = riseToken.leverageRatio();
+        uint256 cps = flt.collateralPerShare();
+        uint256 dps = flt.debtPerShare();
+        uint256 price = flt.price();
+        uint256 lr  = flt.leverageRatio();
 
         // Make sure these values is increased after mint
-        uint256 ts = riseToken.totalSupply();
+        uint256 ts = ERC20(address(flt)).totalSupply();
 
         // Mint
         address minter = vm.addr(1);
         startHoax(minter);
         uint256 mintAmount = 5 ether;
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.collateral)
+            address(flt.collateral())
         );
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
             minter,
             amountIn
         );
-        data.collateral.transfer(address(riseToken), amountIn);
-        riseToken.mintc(mintAmount, minter, minter);
+        flt.collateral().transfer(address(flt), amountIn);
+        flt.mintc(mintAmount, minter, minter);
 
         // Check minter balance
-        assertEq(riseToken.balanceOf(minter), mintAmount, "invalid minter b");
+        assertEq(
+            ERC20(address(flt)).balanceOf(minter),
+            mintAmount,
+            "invalid minter b"
+        );
 
         // Make sure these values doesn't changes
-        assertEq(riseToken.collateralPerShare(), cps, "invalid cps");
-        assertEq(riseToken.debtPerShare(), dps, "invalid dps");
-        assertEq(riseToken.price(), price, "invalid price");
-        uint256 currentLR = riseToken.leverageRatio();
+        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertEq(flt.debtPerShare(), dps, "invalid dps");
+        assertEq(flt.price(), price, "invalid price");
+        uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
 
         // Make sure total supply is increased
-        assertEq(riseToken.totalSupply(), ts + mintAmount, "invalid ts");
+        assertEq(
+            ERC20(address(flt)).totalSupply(),
+            ts + mintAmount,
+            "invalid ts"
+        );
 
         // Make sure fee recipient receive 0.1% of amountIn
         assertGt(
-            data.collateral.balanceOf(data.factory.feeRecipient()),
+            flt.collateral().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
         assertEq(
-            data.debt.balanceOf(data.factory.feeRecipient()),
+            flt.debt().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
@@ -309,60 +326,68 @@ abstract contract BaseMintTest is BaseTest {
     function testMintWithLeverageRatioLessThan2xViaDebt() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 1.6 ether);
+        IFLT flt = deployAndInitialize(data, 1.6 ether);
 
         // Reset fee recipient balance to zero
         setBalance(
-            address(data.debt),
+            address(flt.debt()),
             data.debtSlot,
-            data.factory.feeRecipient(),
+            flt.factory().feeRecipient(),
             0
         );
 
         // Make sure these values does not change after mint
-        uint256 cps = riseToken.collateralPerShare();
-        uint256 dps = riseToken.debtPerShare();
-        uint256 price = riseToken.price();
-        uint256 lr  = riseToken.leverageRatio();
+        uint256 cps = flt.collateralPerShare();
+        uint256 dps = flt.debtPerShare();
+        uint256 price = flt.price();
+        uint256 lr  = flt.leverageRatio();
 
         // Make sure these values is increased after mint
-        uint256 ts = riseToken.totalSupply();
+        uint256 ts = ERC20(address(flt)).totalSupply();
 
         // MintFromDebt
         address minter = vm.addr(1);
         startHoax(minter);
         uint256 mintAmount = 5 ether;
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.debt)
+            address(flt.debt())
         );
-        setBalance(address(data.debt), data.debtSlot, minter, amountIn);
-        data.debt.transfer(address(riseToken), amountIn);
-        riseToken.mintd(mintAmount, minter, minter);
+        setBalance(address(flt.debt()), data.debtSlot, minter, amountIn);
+        flt.debt().transfer(address(flt), amountIn);
+        flt.mintd(mintAmount, minter, minter);
 
         // Check minter balance
-        assertEq(riseToken.balanceOf(minter), mintAmount, "invalid minter b");
+        assertEq(
+            ERC20(address(flt)).balanceOf(minter),
+            mintAmount,
+            "invalid minter b"
+        );
 
         // Make sure these values doesn't changes
-        assertEq(riseToken.collateralPerShare(), cps, "invalid cps");
-        assertEq(riseToken.debtPerShare(), dps, "invalid dps");
-        assertEq(riseToken.price(), price, "invalid price");
-        uint256 currentLR = riseToken.leverageRatio();
+        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertEq(flt.debtPerShare(), dps, "invalid dps");
+        assertEq(flt.price(), price, "invalid price");
+        uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
 
         // Make sure total supply is increased
-        assertEq(riseToken.totalSupply(), ts + mintAmount, "invalid ts");
+        assertEq(
+            ERC20(address(flt)).totalSupply(),
+            ts + mintAmount,
+            "invalid ts"
+        );
 
         // Make sure fee recipient receive 0.1% of amountIn
         assertGt(
-            data.debt.balanceOf(data.factory.feeRecipient()),
+            flt.debt().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
         assertEq(
-            data.collateral.balanceOf(data.factory.feeRecipient()),
+            flt.collateral().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
@@ -372,65 +397,73 @@ abstract contract BaseMintTest is BaseTest {
     function testMintWithLeverageRatioLessThan2xViaCollateral() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 1.6 ether);
+        IFLT flt = deployAndInitialize(data, 1.6 ether);
 
         // Reset fee recipient balance to zero
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
-            data.factory.feeRecipient(),
+            flt.factory().feeRecipient(),
             0
         );
 
         // Make sure these values does not change after mint
-        uint256 cps = riseToken.collateralPerShare();
-        uint256 dps = riseToken.debtPerShare();
-        uint256 price = riseToken.price();
-        uint256 lr  = riseToken.leverageRatio();
+        uint256 cps = flt.collateralPerShare();
+        uint256 dps = flt.debtPerShare();
+        uint256 price = flt.price();
+        uint256 lr  = flt.leverageRatio();
 
         // Make sure these values is increased after mint
-        uint256 ts = riseToken.totalSupply();
+        uint256 ts = ERC20(address(flt)).totalSupply();
 
         // MintFromDebt
         address minter = vm.addr(1);
         startHoax(minter);
         uint256 mintAmount = 5 ether;
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.collateral)
+            address(flt.collateral())
         );
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
             minter,
             amountIn
         );
-        data.collateral.transfer(address(riseToken), amountIn);
-        riseToken.mintc(mintAmount, minter, minter);
+        flt.collateral().transfer(address(flt), amountIn);
+        flt.mintc(mintAmount, minter, minter);
 
         // Check minter balance
-        assertEq(riseToken.balanceOf(minter), mintAmount, "invalid minter b");
+        assertEq(
+            ERC20(address(flt)).balanceOf(minter),
+            mintAmount,
+            "invalid minter b"
+        );
 
         // Make sure these values doesn't changes
-        assertEq(riseToken.collateralPerShare(), cps, "invalid cps");
-        assertEq(riseToken.debtPerShare(), dps, "invalid dps");
-        assertEq(riseToken.price(), price, "invalid price");
-        uint256 currentLR = riseToken.leverageRatio();
+        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertEq(flt.debtPerShare(), dps, "invalid dps");
+        assertEq(flt.price(), price, "invalid price");
+        uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
 
         // Make sure total supply is increased
-        assertEq(riseToken.totalSupply(), ts + mintAmount, "invalid ts");
+        assertEq(
+            ERC20(address(flt)).totalSupply(),
+            ts + mintAmount,
+            "invalid ts"
+        );
 
         // Make sure fee recipient receive 0.1% of amountIn
         assertGt(
-            data.collateral.balanceOf(data.factory.feeRecipient()),
+            flt.collateral().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
         assertEq(
-            data.debt.balanceOf(data.factory.feeRecipient()),
+            flt.debt().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
@@ -440,60 +473,68 @@ abstract contract BaseMintTest is BaseTest {
     function testMintWithLeverageRatioGreaterThan2xViaDebt() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2.5 ether);
+        IFLT flt = deployAndInitialize(data, 2.5 ether);
 
         // Reset fee recipient balance to zero
         setBalance(
-            address(data.debt),
+            address(flt.debt()),
             data.debtSlot,
-            data.factory.feeRecipient(),
+            flt.factory().feeRecipient(),
             0
         );
 
         // Make sure these values does not change after mint
-        uint256 cps = riseToken.collateralPerShare();
-        uint256 dps = riseToken.debtPerShare();
-        uint256 price = riseToken.price();
-        uint256 lr  = riseToken.leverageRatio();
+        uint256 cps = flt.collateralPerShare();
+        uint256 dps = flt.debtPerShare();
+        uint256 price = flt.price();
+        uint256 lr  = flt.leverageRatio();
 
         // Make sure these values is increased after mint
-        uint256 ts = riseToken.totalSupply();
+        uint256 ts = ERC20(address(flt)).totalSupply();
 
         // MintFromDebt
         address minter = vm.addr(1);
         startHoax(minter);
         uint256 mintAmount = 5 ether;
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.debt)
+            address(flt.debt())
         );
-        setBalance(address(data.debt), data.debtSlot, minter, amountIn);
-        data.debt.transfer(address(riseToken), amountIn);
-        riseToken.mintd(mintAmount, minter, minter);
+        setBalance(address(flt.debt()), data.debtSlot, minter, amountIn);
+        flt.debt().transfer(address(flt), amountIn);
+        flt.mintd(mintAmount, minter, minter);
 
         // Check minter balance
-        assertEq(riseToken.balanceOf(minter), mintAmount, "invalid minter b");
+        assertEq(
+            ERC20(address(flt)).balanceOf(minter),
+            mintAmount,
+            "invalid minter b"
+        );
 
         // Make sure these values doesn't changes
-        assertEq(riseToken.collateralPerShare(), cps, "invalid cps");
-        assertEq(riseToken.debtPerShare(), dps, "invalid dps");
-        assertEq(riseToken.price(), price, "invalid price");
-        uint256 currentLR = riseToken.leverageRatio();
+        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertEq(flt.debtPerShare(), dps, "invalid dps");
+        assertEq(flt.price(), price, "invalid price");
+        uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
 
         // Make sure total supply is increased
-        assertEq(riseToken.totalSupply(), ts + mintAmount, "invalid ts");
+        assertEq(
+            ERC20(address(flt)).totalSupply(),
+            ts + mintAmount,
+            "invalid ts"
+        );
 
         // Make sure fee recipient receive 0.1% of amountIn
         assertGt(
-            data.debt.balanceOf(data.factory.feeRecipient()),
+            flt.debt().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
         assertEq(
-            data.collateral.balanceOf(data.factory.feeRecipient()),
+            flt.collateral().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
@@ -503,65 +544,73 @@ abstract contract BaseMintTest is BaseTest {
     function testMintWithLeverageRatioGreaterThan2xViaCollateral() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2.5 ether);
+        IFLT flt = deployAndInitialize(data, 2.5 ether);
 
         // Reset fee recipient balance to zero
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
-            data.factory.feeRecipient(),
+            flt.factory().feeRecipient(),
             0
         );
 
         // Make sure these values does not change after mint
-        uint256 cps = riseToken.collateralPerShare();
-        uint256 dps = riseToken.debtPerShare();
-        uint256 price = riseToken.price();
-        uint256 lr  = riseToken.leverageRatio();
+        uint256 cps = flt.collateralPerShare();
+        uint256 dps = flt.debtPerShare();
+        uint256 price = flt.price();
+        uint256 lr  = flt.leverageRatio();
 
         // Make sure these values is increased after mint
-        uint256 ts = riseToken.totalSupply();
+        uint256 ts = ERC20(address(flt)).totalSupply();
 
         // Mint
         address minter = vm.addr(1);
         startHoax(minter);
         uint256 mintAmount = 5 ether;
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.collateral)
+            address(flt.collateral())
         );
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
             minter,
             amountIn
         );
-        data.collateral.transfer(address(riseToken), amountIn);
-        riseToken.mintc(mintAmount, minter, minter);
+        flt.collateral().transfer(address(flt), amountIn);
+        flt.mintc(mintAmount, minter, minter);
 
         // Check minter balance
-        assertEq(riseToken.balanceOf(minter), mintAmount, "invalid minter b");
+        assertEq(
+            ERC20(address(flt)).balanceOf(minter),
+            mintAmount,
+            "invalid minter b"
+        );
 
         // Make sure these values doesn't changes
-        assertEq(riseToken.collateralPerShare(), cps, "invalid cps");
-        assertEq(riseToken.debtPerShare(), dps, "invalid dps");
-        assertEq(riseToken.price(), price, "invalid price");
-        uint256 currentLR = riseToken.leverageRatio();
+        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertEq(flt.debtPerShare(), dps, "invalid dps");
+        assertEq(flt.price(), price, "invalid price");
+        uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
 
         // Make sure total supply is increased
-        assertEq(riseToken.totalSupply(), ts + mintAmount, "invalid ts");
+        assertEq(
+            ERC20(address(flt)).totalSupply(),
+            ts + mintAmount,
+            "invalid ts"
+        );
 
         // Make sure fee recipient receive 0.1% of amountIn
         assertGt(
-            data.collateral.balanceOf(data.factory.feeRecipient()),
+            flt.collateral().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
         assertEq(
-            data.debt.balanceOf(data.factory.feeRecipient()),
+            flt.debt().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
@@ -571,24 +620,24 @@ abstract contract BaseMintTest is BaseTest {
     function testMintTwiceViaDebt() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2.5 ether);
+        IFLT flt = deployAndInitialize(data, 2.5 ether);
 
         // Reset fee recipient balance to zero
         setBalance(
-            address(data.debt),
+            address(flt.debt()),
             data.debtSlot,
-            data.factory.feeRecipient(),
+            flt.factory().feeRecipient(),
             0
         );
 
         // Make sure these values does not change after mint
-        uint256 cps = riseToken.collateralPerShare();
-        uint256 dps = riseToken.debtPerShare();
-        uint256 price = riseToken.price();
-        uint256 lr  = riseToken.leverageRatio();
+        uint256 cps = flt.collateralPerShare();
+        uint256 dps = flt.debtPerShare();
+        uint256 price = flt.price();
+        uint256 lr  = flt.leverageRatio();
 
         // Make sure these values is increased after mint
-        uint256 ts = riseToken.totalSupply();
+        uint256 ts = ERC20(address(flt)).totalSupply();
 
         // MintFromDebt
         address minter = vm.addr(1);
@@ -597,45 +646,53 @@ abstract contract BaseMintTest is BaseTest {
 
         // First
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.debt)
+            address(flt.debt())
         );
-        setBalance(address(data.debt), data.debtSlot, minter, amountIn);
-        data.debt.transfer(address(riseToken), amountIn);
-        riseToken.mintd(mintAmount, minter, minter);
+        setBalance(address(flt.debt()), data.debtSlot, minter, amountIn);
+        flt.debt().transfer(address(flt), amountIn);
+        flt.mintd(mintAmount, minter, minter);
 
         // Second
         amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.debt)
+            address(flt.debt())
         );
-        setBalance(address(data.debt), data.debtSlot, minter, amountIn);
-        data.debt.transfer(address(riseToken), amountIn);
-        riseToken.mintd(mintAmount, minter, minter);
+        setBalance(address(flt.debt()), data.debtSlot, minter, amountIn);
+        flt.debt().transfer(address(flt), amountIn);
+        flt.mintd(mintAmount, minter, minter);
 
         // Check minter balance
-        assertEq(riseToken.balanceOf(minter), 2*mintAmount, "invalid minter b");
+        assertEq
+            (ERC20(address(flt)).balanceOf(minter),
+            2*mintAmount,
+            "invalid minter b"
+        );
 
         // Make sure these values doesn't changes
-        assertEq(riseToken.collateralPerShare(), cps, "invalid cps");
-        assertEq(riseToken.debtPerShare(), dps, "invalid dps");
-        assertEq(riseToken.price(), price, "invalid price");
-        uint256 currentLR = riseToken.leverageRatio();
+        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertEq(flt.debtPerShare(), dps, "invalid dps");
+        assertEq(flt.price(), price, "invalid price");
+        uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
 
         // Make sure total supply is increased
-        assertEq(riseToken.totalSupply(), ts + (2*mintAmount), "invalid ts");
+        assertEq(
+            ERC20(address(flt)).totalSupply(),
+            ts + (2*mintAmount),
+            "invalid ts"
+        );
         // Make sure fee recipient receive 0.1% of amountIn
         assertGt(
-            data.debt.balanceOf(data.factory.feeRecipient()),
+            flt.debt().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
         assertEq(
-            data.collateral.balanceOf(data.factory.feeRecipient()),
+            flt.collateral().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
@@ -645,24 +702,24 @@ abstract contract BaseMintTest is BaseTest {
     function testMintTwiceViaCollateral() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2.5 ether);
+        IFLT flt = deployAndInitialize(data, 2.5 ether);
 
         // Reset fee recipient balance to zero
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
-            data.factory.feeRecipient(),
+            flt.factory().feeRecipient(),
             0
         );
 
         // Make sure these values does not change after mint
-        uint256 cps = riseToken.collateralPerShare();
-        uint256 dps = riseToken.debtPerShare();
-        uint256 price = riseToken.price();
-        uint256 lr  = riseToken.leverageRatio();
+        uint256 cps = flt.collateralPerShare();
+        uint256 dps = flt.debtPerShare();
+        uint256 price = flt.price();
+        uint256 lr  = flt.leverageRatio();
 
         // Make sure these values is increased after mint
-        uint256 ts = riseToken.totalSupply();
+        uint256 ts = ERC20(address(flt)).totalSupply();
 
         // MintFromDebt
         address minter = vm.addr(1);
@@ -671,55 +728,63 @@ abstract contract BaseMintTest is BaseTest {
 
         // First
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.collateral)
+            address(flt.collateral())
         );
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
             minter,
             amountIn
         );
-        data.collateral.transfer(address(riseToken), amountIn);
-        riseToken.mintc(mintAmount, minter, minter);
+        flt.collateral().transfer(address(flt), amountIn);
+        flt.mintc(mintAmount, minter, minter);
 
         // Second
         amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.collateral)
+            address(flt.collateral())
         );
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
             minter,
             amountIn
         );
-        data.collateral.transfer(address(riseToken), amountIn);
-        riseToken.mintc(mintAmount, minter, minter);
+        flt.collateral().transfer(address(flt), amountIn);
+        flt.mintc(mintAmount, minter, minter);
 
         // Check minter balance
-        assertEq(riseToken.balanceOf(minter), 2*mintAmount, "invalid minter b");
+        assertEq(
+            ERC20(address(flt)).balanceOf(minter),
+            2*mintAmount,
+            "invalid minter b"
+        );
 
         // Make sure these values doesn't changes
-        assertEq(riseToken.collateralPerShare(), cps, "invalid cps");
-        assertEq(riseToken.debtPerShare(), dps, "invalid dps");
-        assertEq(riseToken.price(), price, "invalid price");
-        uint256 currentLR = riseToken.leverageRatio();
+        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertEq(flt.debtPerShare(), dps, "invalid dps");
+        assertEq(flt.price(), price, "invalid price");
+        uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
 
         // Make sure total supply is increased
-        assertEq(riseToken.totalSupply(), ts + (2*mintAmount), "invalid ts");
+        assertEq(
+            ERC20(address(flt)).totalSupply(),
+            ts + (2*mintAmount),
+            "invalid ts"
+        );
         // Make sure fee recipient receive 0.1% of amountIn
         assertGt(
-            data.collateral.balanceOf(data.factory.feeRecipient()),
+            flt.collateral().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
         assertEq(
-            data.debt.balanceOf(data.factory.feeRecipient()),
+            flt.debt().balanceOf(flt.factory().feeRecipient()),
             0,
             "invalid fee recipient"
         );
@@ -729,7 +794,7 @@ abstract contract BaseMintTest is BaseTest {
     function testMintRefundViaDebt() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // MintFromDebt
         address minter = vm.addr(1);
@@ -738,23 +803,23 @@ abstract contract BaseMintTest is BaseTest {
 
         // First
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.debt)
+            address(flt.debt())
         );
-        setBalance(address(data.debt), data.debtSlot, minter, 2*amountIn);
-        data.debt.transfer(address(riseToken), 2*amountIn);
-        riseToken.mintd(mintAmount, minter, minter);
+        setBalance(address(flt.debt()), data.debtSlot, minter, 2*amountIn);
+        flt.debt().transfer(address(flt), 2*amountIn);
+        flt.mintd(mintAmount, minter, minter);
 
         // Check minter balance
-        assertEq(data.debt.balanceOf(minter), amountIn, "invalid balance");
+        assertEq(flt.debt().balanceOf(minter), amountIn, "invalid balance");
     }
 
     /// @notice Make sure mint are refunded
     function testMintRefundViaCollateral() public {
         // Get data
         Data memory data = getData();
-        RiseToken riseToken = deployAndInitialize(data, 2 ether);
+        IFLT flt = deployAndInitialize(data, 2 ether);
 
         // MintFromDebt
         address minter = vm.addr(1);
@@ -763,21 +828,25 @@ abstract contract BaseMintTest is BaseTest {
 
         // First
         uint256 amountIn = getAmountIn(
-            riseToken,
+            address(flt),
             mintAmount,
-            address(data.collateral)
+            address(flt.collateral())
         );
         setBalance(
-            address(data.collateral),
+            address(flt.collateral()),
             data.collateralSlot,
             minter,
             2*amountIn
         );
-        data.collateral.transfer(address(riseToken), 2*amountIn);
-        riseToken.mintc(mintAmount, minter, minter);
+        flt.collateral().transfer(address(flt), 2*amountIn);
+        flt.mintc(mintAmount, minter, minter);
 
         // Check minter balance
-        assertEq(data.collateral.balanceOf(minter), amountIn, "invalid balance");
+        assertEq(
+            flt.collateral().balanceOf(minter),
+            amountIn,
+            "invalid balance"
+        );
     }
 
 }

@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import { ERC20 } from "openzeppelin/token/ERC20/ERC20.sol";
-
-import { RiseTokenFactory } from "../src/RiseTokenFactory.sol";
-import { IfERC20 } from "../src/interfaces/IfERC20.sol";
 import { RariFusePriceOracleAdapter } from "../src/adapters/RariFusePriceOracleAdapter.sol";
-import { IUniswapV2Pair } from "../src/interfaces/IUniswapV2Pair.sol";
-import { IUniswapV2Router02 } from "../src/interfaces/IUniswapV2Router02.sol";
+import { FLTSinglePair } from "../src/FLTSinglePair.sol";
+import { FLTFactory } from "../src/FLTFactory.sol";
 
 import { BaseTest } from "./BaseTest.sol";
+import { BaseSinglePair } from "./BaseSinglePair.sol";
 import { BaseInitializeTest } from "./BaseInitializeTest.sol";
 import { BaseMintTest } from "./BaseMintTest.sol";
 import { BaseBurnTest } from "./BaseBurnTest.sol";
@@ -21,6 +18,7 @@ import { BaseRebalanceTest } from "./BaseRebalanceTest.sol";
  */
 contract BNBRISE is
     BaseTest,
+    BaseSinglePair,
     BaseInitializeTest,
     BaseMintTest,
     BaseBurnTest,
@@ -34,34 +32,32 @@ contract BNBRISE is
 
     function getData() internal override returns (Data memory _data) {
         // WBNB as collateral & BUSD as debt
-        ERC20 collateral = ERC20(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
-        ERC20 debt = ERC20(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56);
-
-        RiseTokenFactory factory = new RiseTokenFactory(multisig);
+        address collateral = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+        address debt = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
 
         RariFusePriceOracleAdapter oracle = new RariFusePriceOracleAdapter();
         oracle.configure(address(collateral), rariOracle, 18);
         oracle.configure(address(debt), rariOracle, 18);
 
-        _data = Data({
-            // Factory
-            factory: factory,
+        // Fuse WBNB as collateral and Fuse BUSD as debt
+        address fCollateral = 0xFEc2B82337dC69C61195bCF43606f46E9cDD2930;
+        address fDebt = 0x1f6B34d12301d6bf0b52Db7938Fc90ab4f12fE95;
 
+        // WBNB/BUSD Pair and router
+        address pair = 0x58F876857a02D6762E0101bb5C46A8c1ED44Dc16;
+        address router = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+
+        // Create new factory with multisig as fee recipient
+        FLTFactory factory = new FLTFactory(multisig);
+        FLTSinglePair implementation = new FLTSinglePair();
+
+        _data = Data({
             // Name & Symbol
             name: "BNB 2x Long Risedle",
             symbol: "BNBRISE",
-
-            collateral: collateral,
-            debt: debt,
-
-            // Fuse WBNB as collateral and Fuse BUSD as debt
-            fCollateral: IfERC20(0xFEc2B82337dC69C61195bCF43606f46E9cDD2930),
-            fDebt: IfERC20(0x1f6B34d12301d6bf0b52Db7938Fc90ab4f12fE95),
-            oracle: oracle,
-
-            // WBNB/BUSD Pair and router
-            pair: IUniswapV2Pair(0x58F876857a02D6762E0101bb5C46A8c1ED44Dc16),
-            router: IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E),
+            deploymentData: abi.encode(fCollateral, fDebt, address(oracle), pair, router),
+            implementation: address(implementation),
+            factory: factory,
 
             // Params
             debtSlot: 1,
