@@ -323,6 +323,7 @@ contract RiseToken is IRiseToken, ERC20, Ownable {
         } else revert InvalidFlashSwapType();
     }
 
+    /// @inheritdoc IRiseToken
     function increaseAllowance() public {
         uint256 max = type(uint256).max;
         collateral.safeIncreaseAllowance(address(fCollateral), max);
