@@ -231,9 +231,17 @@ contract FLTSinglePair is IFLT, ERC20, Owned {
         uint256 _newMaxMint
     ) external onlyOwner {
         // Checks
-        if (_minLeverageRatio < 1 ether || _maxLeverageRatio > 3 ether) {
+        if (
+            _minLeverageRatio < 1.2 ether ||
+            _maxLeverageRatio > 3 ether ||
+            _minLeverageRatio > _maxLeverageRatio
+        ) {
             revert InvalidLeverageRatio();
         }
+
+        uint256 delta = _maxLeverageRatio - _minLeverageRatio;
+        if (delta < _step) revert InvalidLeverageRatio();
+
         // plus or minus 0.5x leverage in one rebalance is too much
         if (_step > 0.5 ether || _step < 0.1 ether) revert InvalidRebalancingStep();
         // 5% discount too much; 0.1% discount too low
