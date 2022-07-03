@@ -5,6 +5,7 @@ import { ERC20 } from "solmate/tokens/ERC20.sol";
 import { SafeTransferLib } from "solmate/utils/SafeTransferLib.sol";
 import { FixedPointMathLib } from "solmate/utils/FixedPointMathLib.sol";
 
+import { IFLT } from "./interfaces/IFLT.sol";
 import { IFLTRouter } from "./interfaces/IFLTRouter.sol";
 import { FLTFactory } from "./FLTFactory.sol";
 import { FLTSinglePair } from "./FLTSinglePair.sol";
@@ -102,7 +103,6 @@ contract FLTRouter is IFLTRouter {
         uint256 _amountOut
     ) external view returns (uint256 _amountIn) {
         if (!factory.isValid(_flt)) revert InvalidFLT();
-
         FLTSinglePair flt = FLTSinglePair(_flt);
         if (_tokenIn == address(flt.debt())) {
             return getAmountInViaDebt(flt, _amountOut);
@@ -132,6 +132,32 @@ contract FLTRouter is IFLTRouter {
 
 
     /// ███ Swaps ████████████████████████████████████████████████████████████
+
+    /// @inheritdoc IFLTRouter
+    function swapTokensForExactFLT(
+        address _tokenIn,
+        uint256 _maxAmountIn,
+        address _flt,
+        uint256 _amountOut
+    ) external {
+        if (!factory.isValid(_flt)) revert InvalidFLT();
+        IFLT flt = IFLT(_flt);
+        if (_tokenIn == address(flt.debt())) {
+            ERC20(_tokenIn).safeTransferFrom(
+                msg.sender,
+                _flt,
+                _maxAmountIn
+            );
+            flt.mintd(_amountOut, msg.sender, msg.sender);
+        } else if (_tokenIn == address(flt.collateral())) {
+            ERC20(_tokenIn).safeTransferFrom(
+                msg.sender,
+                _flt,
+                _maxAmountIn
+            );
+            flt.mintc(_amountOut, msg.sender, msg.sender);
+        } else revert InvalidTokenIn();
+    }
 
 
 }

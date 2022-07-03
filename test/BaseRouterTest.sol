@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
+import { ERC20 } from "solmate/tokens/ERC20.sol";
 import { FixedPointMathLib } from "solmate/utils/FixedPointMathLib.sol";
 
 import { BaseTest } from "./BaseTest.sol";
@@ -21,7 +22,7 @@ abstract contract BaseRouterTest is BaseTest {
     using FixedPointMathLib for uint256;
 
 
-    /// ███ Tests ████████████████████████████████████████████████████████████
+    /// ███ getAmountIn ██████████████████████████████████████████████████████
 
     /// @notice Make sure getAmountIn revert if FLT is invalid
     function testRouterGetAmountInRevertIfFLTIsInvalid() public {
@@ -74,7 +75,7 @@ abstract contract BaseRouterTest is BaseTest {
         assertEq(amountIn, 0, "invalid collateral amountIn");
     }
 
-    /// @notice Make sure getAmountIn return fair amount
+    /// @notice Make sure getAmountIn return it's fair value
     function testRouterGetAmountIn() public {
         // Setup contracts
         Data memory data = getData();
@@ -136,4 +137,120 @@ abstract contract BaseRouterTest is BaseTest {
         );
 
     }
+
+
+    /// ███ swapTokensForExactFLT ████████████████████████████████████████████
+
+    /// @notice Make sure it revert if flt is invalid
+    function testRouterSwapTokensForExactFLTRevertIfFLTIsInvalid() public {
+        // Setup contracts
+        Data memory data = getData();
+        FLTRouter router = new FLTRouter(data.factory);
+
+        // Test
+        address flt = vm.addr(1);
+        address tokenIn = vm.addr(2);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLTRouter.InvalidFLT.selector
+            )
+        );
+        router.swapTokensForExactFLT(
+            tokenIn,
+            2 ether,
+            flt,
+            1 ether
+        );
+    }
+
+    /// @notice Make sure it revert if tokenIn is invalid
+    function testRouterSwapTokensForExactFLTRevertIfTokenInIsInvalid() public {
+        // Setup contracts
+        Data memory data = getData();
+        IFLT flt = deployAndInitialize(data, 2 ether);
+        FLTRouter router = new FLTRouter(data.factory);
+
+        // Test
+        address tokenIn = vm.addr(1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLTRouter.InvalidTokenIn.selector
+            )
+        );
+        router.swapTokensForExactFLT(
+            tokenIn,
+            2 ether,
+            address(flt),
+            1 ether
+        );
+    }
+
+    /// @notice Make sure swapTokensForExactFLT is working as expected
+    function testRouterSwapTokensForExactFLT() public {
+        // Setup contracts
+        Data memory data = getData();
+        IFLT flt = deployAndInitialize(data, 2 ether);
+        FLTRouter router = new FLTRouter(data.factory);
+
+        // Test
+        address minter = vm.addr(1);
+        startHoax(minter);
+        uint256 amountOut = 10 ether;
+        address tokenIn = address(flt.debt());
+        uint256 amountIn = router.getAmountIn(
+            address(flt),
+            tokenIn,
+            amountOut
+        );
+
+        // Swaps debt tokens to FLT, make sure it refunded
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
+            minter,
+            2*amountIn
+        );
+        flt.debt().approve(address(router), 2*amountIn);
+        router.swapTokensForExactFLT(
+            address(flt.debt()),
+            2*amountIn,
+            address(flt),
+            amountOut
+        );
+
+        // Checks
+        uint256 fltBalance = ERC20(address(flt)).balanceOf(minter);
+        assertEq(fltBalance, amountOut, "d invalid flt balance");
+        uint256 amountInBalance = flt.debt().balanceOf(minter);
+        assertEq(amountInBalance, amountIn, "d invalid amountIn balance");
+
+        tokenIn = address(flt.collateral());
+        amountIn = router.getAmountIn(
+            address(flt),
+            tokenIn,
+            amountOut
+        );
+
+        // Swaps collateral tokens to FLT, make sure it refunded
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
+            minter,
+            2*amountIn
+        );
+        flt.collateral().approve(address(router), 2*amountIn);
+        router.swapTokensForExactFLT(
+            address(flt.collateral()),
+            2*amountIn,
+            address(flt),
+            amountOut
+        );
+
+        // Checks
+        fltBalance = ERC20(address(flt)).balanceOf(minter);
+        assertEq(fltBalance, 2*amountOut, "c invalid flt balance");
+        amountInBalance = flt.collateral().balanceOf(minter);
+        assertEq(amountInBalance, amountIn, "c invalid amountIn balance");
+    }
+
 }
