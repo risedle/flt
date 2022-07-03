@@ -28,13 +28,13 @@ interface IFLTFactory {
     event FeeRecipientUpdated(address newRecipient);
 
 
-    /// ███ Errors █████████████████████████████████████████████████████████████
+    /// ███ Errors ███████████████████████████████████████████████████████████
 
     /// @notice Error is raised when Fee recipient is similar with existing
     error FeeRecipientNotChanged();
 
 
-    /// ███ Owner actions ██████████████████████████████████████████████████████
+    /// ███ Owner actions ████████████████████████████████████████████████████
 
     /**
      * @notice Sets fee recipient
