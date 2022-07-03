@@ -159,5 +159,29 @@ contract FLTRouter is IFLTRouter {
         } else revert InvalidTokenIn();
     }
 
-
+    /// @inheritdoc IFLTRouter
+    function swapExactFLTForTokens(
+        address _flt,
+        uint256 _amountIn,
+        address _tokenOut,
+        uint256 _minAmountOut
+    ) external {
+        if (!factory.isValid(_flt)) revert InvalidFLT();
+        IFLT flt = IFLT(_flt);
+        if (_tokenOut == address(flt.debt())) {
+            ERC20(_flt).safeTransferFrom(
+                msg.sender,
+                _flt,
+                _amountIn
+            );
+            flt.burnd(msg.sender, _minAmountOut);
+        } else if (_tokenOut == address(flt.collateral())) {
+            ERC20(_flt).safeTransferFrom(
+                msg.sender,
+                _flt,
+                _amountIn
+            );
+            flt.burnc(msg.sender, _minAmountOut);
+        } else revert InvalidTokenOut();
+    }
 }
