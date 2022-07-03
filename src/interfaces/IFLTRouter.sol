@@ -58,4 +58,17 @@ interface IFLTRouter {
         uint256 _amountOut
     ) external;
 
+    /**
+     * @notice Swap exact amount of FLT for tokens
+     * @param _flt The FLT address
+     * @param _amountIn The exact amount of FLT
+     * @param _tokenOut ERC20 address (debt / collateral token)
+     * @param _minAmountOut Minimum amount of tokenOut
+     */
+    function swapExactFLTForTokens(
+        address _flt,
+        uint256 _amountIn,
+        address _tokenOut,
+        uint256 _minAmountOut
+    ) external;
 }

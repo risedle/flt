@@ -369,4 +369,136 @@ abstract contract BaseRouterTest is BaseTest {
         );
     }
 
+
+    /// ███ swapExactFLTForTokens ████████████████████████████████████████████
+
+    /// @notice Make sure it revert if LFT is invalid
+    function testRouterSwapExactFLTForTokensRevertIfFLTIsInvalid() public {
+        // Setup contracts
+        Data memory data = getData();
+        FLTRouter router = new FLTRouter(data.factory);
+
+        // Test
+        address flt = vm.addr(1);
+        address tokenOut = vm.addr(2);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLTRouter.InvalidFLT.selector
+            )
+        );
+        router.swapExactFLTForTokens(
+            flt,
+            1 ether,
+            tokenOut,
+            2 ether
+        );
+    }
+
+    /// @notice Make sure it revert if tokenOut is invalid
+    function testRouterSwapExactFLTForTokensRevertIfTokenOutIsInvalid() public {
+        // Setup contracts
+        Data memory data = getData();
+        IFLT flt = deployAndInitialize(data, 2 ether);
+        FLTRouter router = new FLTRouter(data.factory);
+
+        // Test
+        address tokenOut = vm.addr(1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLTRouter.InvalidTokenOut.selector
+            )
+        );
+        router.swapExactFLTForTokens(
+            address(flt),
+            1 ether,
+            tokenOut,
+            2 ether
+        );
+    }
+
+    /// @notice Make sure swapExactFLTForTokens is working as expected
+    function testRouterSwapExactFLTForTokens() public {
+        // Setup contracts
+        Data memory data = getData();
+        IFLT flt = deployAndInitialize(data, 2 ether);
+        FLTRouter router = new FLTRouter(data.factory);
+
+        // Test
+        address minter = vm.addr(1);
+        startHoax(minter);
+        uint256 amountOut = 10 ether;
+        address tokenIn = address(flt.debt());
+        uint256 amountIn = router.getAmountIn(
+            address(flt),
+            tokenIn,
+            amountOut
+        );
+
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
+            minter,
+            amountIn
+        );
+        flt.debt().approve(address(router), amountIn);
+        router.swapTokensForExactFLT(
+            address(flt.debt()),
+            amountIn,
+            address(flt),
+            amountOut
+        );
+        ERC20(address(flt)).approve(address(router), amountOut);
+        router.swapExactFLTForTokens(
+            address(flt),
+            amountOut,
+            address(flt.debt()),
+            0
+        );
+
+        // Checks
+        uint256 fltBalance = ERC20(address(flt)).balanceOf(minter);
+        assertEq(fltBalance, 0, "d invalid flt balance");
+        uint256 amountInBalance = flt.debt().balanceOf(minter);
+        uint256 slippageAndFees = uint256(0.02 ether).mulWadDown(amountIn); // max 2%
+        assertLt(amountInBalance, amountIn, "d amountIn too high");
+        assertGt(amountInBalance, amountIn - slippageAndFees, "d amountIn too low");
+
+        tokenIn = address(flt.collateral());
+        amountIn = router.getAmountIn(
+            address(flt),
+            tokenIn,
+            amountOut
+        );
+
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
+            minter,
+            amountIn
+        );
+        flt.collateral().approve(address(router), amountIn);
+        router.swapTokensForExactFLT(
+            address(flt.collateral()),
+            amountIn,
+            address(flt),
+            amountOut
+        );
+        ERC20(address(flt)).approve(address(router), amountOut);
+        router.swapExactFLTForTokens(
+            address(flt),
+            amountOut,
+            address(flt.collateral()),
+            0
+        );
+
+        // Checks
+        fltBalance = ERC20(address(flt)).balanceOf(minter);
+        assertEq(fltBalance, 0, "c invalid flt balance");
+        amountInBalance = flt.collateral().balanceOf(minter);
+        slippageAndFees = uint256(0.02 ether).mulWadDown(amountIn); // max 2%
+        assertLt(amountInBalance, amountIn, "c amountIn too high");
+        assertGt(amountInBalance, amountIn - slippageAndFees, "c amountIn too low");
+    }
+
+
 }
