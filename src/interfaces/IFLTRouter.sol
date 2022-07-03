@@ -32,6 +32,19 @@ interface IFLTRouter {
     ) external returns (uint256 _amountIn);
 
     /**
+     * @notice Given the amount of FLT, get the amountOut of tokenOut
+     * @param _flt FLT token
+     * @param _tokenOut Output token address
+     * @param _amountIn The amount of FLT token to burn
+     * @return _amountOut The amount of tokenOut when burning amountIn of FLT
+     */
+    function getAmountOut(
+        address _flt,
+        address _tokenOut,
+        uint256 _amountIn
+    ) external returns (uint256 _amountOut);
+
+    /**
      * @notice Swap tokens for exact amount of FLT
      * @param _tokenIn ERC20 address (debt / collateral token)
      * @param _maxAmountIn Maximum amount of tokenIn

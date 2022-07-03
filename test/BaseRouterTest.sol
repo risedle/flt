@@ -253,4 +253,120 @@ abstract contract BaseRouterTest is BaseTest {
         assertEq(amountInBalance, amountIn, "c invalid amountIn balance");
     }
 
+
+    /// ███ getAmountOut █████████████████████████████████████████████████████
+
+    /// @notice Make sure getAmountOut revert if FLT is invalid
+    function testRouterGetAmountOutRevertIfFLTIsInvalid() public {
+        // Setup contracts
+        Data memory data = getData();
+        FLTRouter router = new FLTRouter(data.factory);
+
+        // Test
+        address flt = vm.addr(1);
+        address tokenOut = vm.addr(2);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLTRouter.InvalidFLT.selector
+            )
+        );
+        router.getAmountOut(flt, tokenOut, 1 ether);
+    }
+
+    /// @notice Make sure getAmountOut revert if tokenOut is invalid
+    function testRouterGetAmountOutRevertIfTokenOutIsInvalid() public {
+        // Setup contracts
+        Data memory data = getData();
+        IFLT flt = deployAndInitialize(data, 2 ether);
+        FLTRouter router = new FLTRouter(data.factory);
+
+        // Test
+        address tokenOut = vm.addr(1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFLTRouter.InvalidTokenOut.selector
+            )
+        );
+        router.getAmountOut(address(flt), tokenOut, 1 ether);
+    }
+
+    /// @notice Make sure getAmountOut return 0 if amountOut is zero
+    function testRouterGetAmountOutReturnZeroIfAmountOutZero() public {
+        // Setup contracts
+        Data memory data = getData();
+        IFLT flt = deployAndInitialize(data, 2 ether);
+        FLTRouter router = new FLTRouter(data.factory);
+
+        // Test
+        address tokenOut = address(flt.debt());
+        uint256 amountOut = router.getAmountOut(address(flt), tokenOut, 0);
+        assertEq(amountOut, 0, "invalid debt amountOut");
+
+        tokenOut = address(flt.collateral());
+        amountOut = router.getAmountOut(address(flt), tokenOut, 0);
+        assertEq(amountOut, 0, "invalid collateral amountOut");
+    }
+
+    /// @notice Make sure getAmountOut return it's fair value
+    function testRouterGetAmountOut() public {
+        // Setup contracts
+        Data memory data = getData();
+        IFLT flt = deployAndInitialize(data, 2 ether);
+        FLTRouter router = new FLTRouter(data.factory);
+
+        // Test
+        uint256 amountIn = 10 ether;
+        uint256 amountInValueInETH = flt.value(amountIn);
+
+        // Get debt token amount
+        address tokenOut = address(flt.debt());
+        uint256 amountOut = router.getAmountOut(
+            address(flt),
+            tokenOut,
+            amountIn
+        );
+        // Get the value
+        uint256 amountOutValueInETH = flt.oracleAdapter().totalValue(
+            address(flt.debt()),
+            address(0),
+            amountOut
+        );
+        uint256 percentage = 0.02 ether; // 2%
+        uint256 tolerance = percentage.mulWadDown(amountInValueInETH);
+        assertGt(
+            amountOutValueInETH,
+            amountInValueInETH - tolerance,
+            "d amountOut value too low"
+        );
+        assertLt(
+            amountOutValueInETH,
+            amountInValueInETH + tolerance,
+            "d amountOut value too high"
+        );
+
+        // Get collateral token amount
+        tokenOut = address(flt.collateral());
+        amountOut = router.getAmountOut(
+            address(flt),
+            tokenOut,
+            amountIn
+        );
+        // Get the value
+        amountOutValueInETH = flt.oracleAdapter().totalValue(
+            address(flt.collateral()),
+            address(0),
+            amountOut
+        );
+        assertGt(
+            amountOutValueInETH,
+            amountInValueInETH - tolerance,
+            "c amountOut value too low"
+        );
+        assertLt(
+            amountOutValueInETH,
+            amountInValueInETH + tolerance,
+            "c amountOut value too high"
+        );
+    }
+
 }

@@ -49,7 +49,7 @@ contract FLTRouter is IFLTRouter {
         uint256 repayAmount = _token.router().getAmountsIn(ca, path)[0];
         _amountIn = repayAmount - da;
         uint256 feeAmount = _token.fees().mulWadDown(_amountIn);
-        _amountIn = _amountIn + feeAmount;
+        _amountIn += feeAmount;
     }
 
     function getAmountInViaCollateral(
@@ -64,7 +64,7 @@ contract FLTRouter is IFLTRouter {
         uint256 borrowAmount = _token.router().getAmountsOut(da, path)[1];
         _amountIn = ca - borrowAmount;
         uint256 feeAmount = _token.fees().mulWadDown(_amountIn);
-        _amountIn = _amountIn + feeAmount;
+        _amountIn += feeAmount;
     }
 
     function getAmountOutViaDebt(
@@ -78,6 +78,8 @@ contract FLTRouter is IFLTRouter {
         path[1] = address(_token.debt());
         uint256 borrowAmount = _token.router().getAmountsOut(ca, path)[1];
         _amountOut = borrowAmount - da;
+        uint256 feeAmount = _token.fees().mulWadDown(_amountOut);
+        _amountOut -= feeAmount;
     }
 
     function getAmountOutViaCollateral(
@@ -91,6 +93,8 @@ contract FLTRouter is IFLTRouter {
         path[1] = address(_token.debt());
         uint256 repayAmount = _token.router().getAmountsIn(da, path)[0];
         _amountOut = ca - repayAmount;
+        uint256 feeAmount = _token.fees().mulWadDown(_amountOut);
+        _amountOut -= feeAmount;
     }
 
 
@@ -113,21 +117,17 @@ contract FLTRouter is IFLTRouter {
 
     /// @notice Get amount out given amount of rise token
     function getAmountOut(
-        address _token,
-        uint256 _shares,
-        address _tokenOut
+        address _flt,
+        address _tokenOut,
+        uint256 _amountIn
     ) external view returns (uint256 _amountOut) {
-        FLTSinglePair _flt = FLTSinglePair(_token);
-
-        if (_tokenOut == address(_flt.debt())) {
-            return getAmountOutViaDebt(_flt, _shares);
-        }
-
-        if (_tokenOut == address(_flt.collateral())) {
-            return getAmountOutViaCollateral(_flt, _shares);
-        }
-
-        revert("invalid tokenOut");
+        if (!factory.isValid(_flt)) revert InvalidFLT();
+        FLTSinglePair flt = FLTSinglePair(_flt);
+        if (_tokenOut == address(flt.debt())) {
+            return getAmountOutViaDebt(flt, _amountIn);
+        } else if (_tokenOut == address(flt.collateral())) {
+            return getAmountOutViaCollateral(flt, _amountIn);
+        } else revert InvalidTokenOut();
     }
 
 
