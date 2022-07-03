@@ -382,6 +382,16 @@ abstract contract BaseTest is Test {
         assertEq(flt.step(), 0.4 ether, "invalid step");
         assertEq(flt.discount(), 0.003 ether, "invalid discount");
         assertEq(flt.maxMint(), 3 ether, "invalid maxMint");
+    }
 
+    /// @notice Make sure anyone can run increase allowance
+    function testIncreaseAllowance() public {
+        Data memory data = getData();
+        IFLT flt = deploy(data);
+        flt.increaseAllowance();
+        flt.increaseAllowance();
+        flt.increaseAllowance();
+        flt.increaseAllowance();
+        flt.increaseAllowance();
     }
 }
