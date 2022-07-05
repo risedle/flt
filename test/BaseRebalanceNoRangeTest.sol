@@ -192,6 +192,12 @@ abstract contract BaseRebalanceNoRangeTest is BaseTest {
         flt.pushc();
 
         (maxAmountIn, ,) = getLeverageUpMaxInOut(_flt);
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
+            address(this),
+            maxAmountIn
+        );
         flt.collateral().transfer(address(flt), maxAmountIn);
         flt.pushc();
 
@@ -200,25 +206,36 @@ abstract contract BaseRebalanceNoRangeTest is BaseTest {
         assertLt(flt.leverageRatio(), 2 ether + 10, "too high");
 
         // Make sure total collateral and debt is increased
-        assertEq(
+        uint256 expected = tc + half + maxAmountIn;
+        uint256 tolerance = uint256(0.005 ether).mulWadDown(expected);
+        assertGt(
             flt.totalCollateral(),
-            tc + half + maxAmountIn,
-            "invalid tc"
+            expected - tolerance,
+            "tc too low"
         );
+        assertLt(
+            flt.totalCollateral(),
+            expected + tolerance,
+            "tc too high"
+        );
+
+
+        expected = td + maxAmountOut;
+        tolerance = uint256(0.005 ether).mulWadDown(expected);
         assertGt(
             flt.totalDebt(),
-            td + maxAmountOut - 2,
+            expected - tolerance,
             "td too low"
         );
         assertLt(
             flt.totalDebt(),
-            td + maxAmountOut + 2,
+            expected + tolerance,
             "td too high"
         );
 
         // Make sure price doesn't change
         uint256 cp = flt.price();
-        uint256 tolerance = uint256(0.01 ether).mulWadDown(p);
+        tolerance = uint256(0.01 ether).mulWadDown(p);
         assertGt(cp, p - tolerance, "p too low");
         assertLt(cp, p + tolerance, "p too high");
 
@@ -226,10 +243,17 @@ abstract contract BaseRebalanceNoRangeTest is BaseTest {
         assertEq(flt.totalSupply(), ts, "invalid ts");
 
         // Make sure user receive debt token
-        assertEq(
+        expected = maxAmountOut - fee;
+        tolerance = uint256(0.005 ether).mulWadDown(expected);
+        assertGt(
             flt.debt().balanceOf(address(this)),
-            maxAmountOut - fee,
-            "invalid rebalancor balance"
+            expected - tolerance,
+            "balance too low"
+        );
+        assertLt(
+            flt.debt().balanceOf(address(this)),
+            expected + tolerance,
+            "balance too high"
         );
         assertGt(
             flt.debt().balanceOf(flt.factory().feeRecipient()),
@@ -297,6 +321,12 @@ abstract contract BaseRebalanceNoRangeTest is BaseTest {
         flt.pushd();
 
         (maxAmountIn, ,) = getLeverageDownMaxInOut(_flt);
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
+            address(this),
+            maxAmountIn
+        );
         flt.debt().transfer(address(flt), maxAmountIn);
         flt.pushd();
 
@@ -305,36 +335,54 @@ abstract contract BaseRebalanceNoRangeTest is BaseTest {
         assertLt(flt.leverageRatio(), 2 ether + 10, "too high");
 
         // Make sure total collateral and debt is decreased
-        assertEq(
+        uint256 expected = td - (half + maxAmountIn);
+        uint256 tolerance = uint256(0.005 ether).mulWadDown(expected);
+        assertGt(
             flt.totalDebt(),
-            td - (half + maxAmountIn),
-            "invalid td"
+            expected - tolerance,
+            "td too low"
         );
+        assertLt(
+            flt.totalDebt(),
+            expected + tolerance,
+            "td too high"
+        );
+
+        expected = tc - (maxAmountOut);
+        tolerance = uint256(0.005 ether).mulWadDown(expected);
         assertGt(
             flt.totalCollateral(),
-            tc - (maxAmountOut + 2),
+            expected - tolerance,
             "tc too low"
         );
         assertLt(
             flt.totalCollateral(),
-            tc - (maxAmountOut - 2),
+            expected + tolerance,
             "tc too high"
         );
 
+
         // Make sure price doesn't change
-        uint256 cp = flt.price();
-        uint256 tolerance = uint256(0.01 ether).mulWadDown(p);
-        assertGt(cp, p - tolerance, "p too low");
-        assertLt(cp, p + tolerance, "p too high");
+        expected = flt.price();
+        tolerance = uint256(0.01 ether).mulWadDown(p);
+        assertGt(expected, p - tolerance, "p too low");
+        assertLt(expected, p + tolerance, "p too high");
 
         // Make sure total supply doesn't change
         assertEq(flt.totalSupply(), ts, "invalid ts");
 
         // Make sure user receive collateral token
-        assertEq(
+        expected = maxAmountOut - fee;
+        tolerance = uint256(0.005 ether).mulWadDown(expected);
+        assertGt(
             flt.collateral().balanceOf(address(this)),
-            maxAmountOut - fee,
-            "invalid rebalancor balance"
+            expected - tolerance,
+            "balance too low"
+        );
+        assertLt(
+            flt.collateral().balanceOf(address(this)),
+            expected + tolerance,
+            "balance too high"
         );
         assertGt(
             flt.collateral().balanceOf(flt.factory().feeRecipient()),
