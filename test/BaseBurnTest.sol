@@ -381,8 +381,10 @@ abstract contract BaseBurnTest is BaseTest {
 
         // Make sure these values doesn't changes
         assertEq(flt.collateralPerShare(), cps, "invalid cps");
-        assertEq(flt.debtPerShare(), dps, "invalid dps");
-        assertEq(flt.price(), price, "invalid price");
+        assertGt(flt.debtPerShare(), dps-2, "dps too low");
+        assertLt(flt.debtPerShare(), dps+2, "dps too low");
+        assertGt(flt.price(), price-2, "price too low");
+        assertLt(flt.price(), price+2, "price too high");
         uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
@@ -447,8 +449,10 @@ abstract contract BaseBurnTest is BaseTest {
 
         // Make sure these values doesn't changes
         assertEq(flt.collateralPerShare(), cps, "invalid cps");
-        assertEq(flt.debtPerShare(), dps, "invalid dps");
-        assertEq(flt.price(), price, "invalid price");
+        assertGt(flt.debtPerShare(), dps-2, "dps too low");
+        assertLt(flt.debtPerShare(), dps+2, "dps too low");
+        assertGt(flt.price(), price-2, "price too low");
+        assertLt(flt.price(), price+2, "price too high");
         uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
