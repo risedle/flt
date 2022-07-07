@@ -53,19 +53,11 @@ interface IFLT {
         uint256 priceInETH
     );
 
-    /**
-     * @notice Event emitted when params updated
-     * @param maxLeverageRatio The maximum leverage ratio
-     * @param minLeverageRatio The minimum leverage ratio
-     * @param step The rebalancing step
-     * @param discount The incentives for the market makers
-     * @param maxSupply The maximum total supply of FLT
-     */
     event ParamsUpdated(
         uint256 maxLeverageRatio,
         uint256 minLeverageRatio,
-        uint256 step,
-        uint256 discount,
+        uint256 maxDrift,
+        uint256 maxIncentive,
         uint256 maxSupply
     );
 
@@ -112,8 +104,8 @@ interface IFLT {
 
     /// @notice Errors are raised if params invalid
     error InvalidLeverageRatio();
-    error InvalidRebalancingStep();
-    error InvalidDiscount();
+    error InvalidMaxDrift();
+    error InvalidMaxIncentive();
 
     /// @notice Errors are raised if flash swap is invalid
     error InvalidFlashSwapType();
@@ -128,18 +120,18 @@ interface IFLT {
     /// ███ Owner actions ████████████████████████████████████████████████████
 
     /**
-     * @notice Update the Rise Token parameters
+     * @notice Update the FLT parameters
      * @param _minLeverageRatio Minimum leverage ratio
      * @param _maxLeverageRatio Maximum leverage ratio
-     * @param _step Rebalancing step
-     * @param _discount Discount for market makers to incentivize the rebalance
+     * @param _maxDrift Maximum leverage ratio drift from min and max
+     * @param _maxIncentive Maximum incentive to rebalance the token
      * @param _maxSupply Maximum total supply of FLT
      */
     function setParams(
         uint256 _minLeverageRatio,
         uint256 _maxLeverageRatio,
-        uint256 _step,
-        uint256 _discount,
+        uint256 _maxDrift,
+        uint256 _maxIncentive,
         uint256 _maxSupply
     ) external;
 
@@ -175,21 +167,24 @@ interface IFLT {
     /// ███ Read-only functions ██████████████████████████████████████████████
 
     /// @notice storages
+    function factory() external view returns (FLTFactory);
     function debt() external view returns (ERC20);
     function collateral() external view returns (ERC20);
     function fDebt() external view returns (IfERC20);
     function fCollateral() external view returns (IfERC20);
-    function step() external view returns (uint256);
-    function discount() external view returns (uint256);
+    function oracleAdapter() external view returns (RariFusePriceOracleAdapter);
+
     function totalCollateral() external view returns (uint256);
     function totalDebt() external view returns (uint256);
+
     function minLeverageRatio() external view returns (uint256);
     function maxLeverageRatio() external view returns (uint256);
+    function maxDrift() external view returns (uint256);
+    function maxIncentive() external view returns (uint256);
     function maxSupply() external view returns (uint256);
     function fees() external view returns (uint256);
-    function oracleAdapter() external view returns (RariFusePriceOracleAdapter);
+
     function isInitialized() external view returns (bool);
-    function factory() external view returns (FLTFactory);
 
     /**
      * @notice Gets the collateral and debt amount give the shares amount
@@ -364,22 +359,13 @@ interface IFLT {
      *
      * -----------
      *
-     * In order to incentives the rebalancing process, FLT will give specified
-     * discount price 0.6%.
+     * Anyone is incentivized to execute the rebalance. The maximum incentive
+     * is set to 20%. FLT leverages a Dutch-auction style mechanism which
+     * allows the market to express itself in determining what the appropriate
+     * rebalancing incentive needs to be.
      *
-     * pushc: Market Makers can sell collateral +0.6% above the market price.
-     *        For example: suppose the gOHM price is 2000 USDC, when Fuse
-     *        Leveraged Token need to increase the leverage ratio, anyone can
-     *        send 1 gOHM to Fuse Leveraged Token contract then they will
-     *        receive 2000 USDC + 12 USDC in exchange.
-     *
-     * pushd: Market Makers can buy collateral -0.6% below the market price
-     *        For example: suppose the gOHM price is 2000 USDC, when Fuse
-     *        Leveraged Token need to decrease the leverage ratio, anyone can
-     *        send 2000 USDC to Fuse Leveraged Token contract then they will
-     *        receive 1 gOHM + 0.006 gOHM in exchange.
-     *
-     * In this case, market price is determined using Rari Fuse Oracle Adapter.
+     * The further away a FLT's leverage ratio drifts below min leverage ratio
+     * or max leverage ratio, the larger the rebalancing incentive becomes.
      *
      * ------------
      * Maximum Swap Amount
@@ -425,12 +411,14 @@ interface IFLT {
      *     ΔL < 0 Repay debt and redeem collateral
      */
 
-     /**
-      * @notice Push the leverage ratio up by sending collateral token to
-      *         contract.
-      * @dev Anyone can execute this if leverage ratio is below minimum.
-      */
-    function pushc() external;
+    /**
+     * @notice Push the leverage ratio up by sending collateral token to
+     *         contract.
+     * @dev Anyone can execute this if leverage ratio is below minimum.
+     */
+    function pushc()
+        external
+        returns (uint256 _amountOut, uint256 _incentiveAmount);
 
      /**
       * @notice Push the leverage ratio down by sending debt token to contract.
