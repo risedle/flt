@@ -654,6 +654,9 @@ contract FLTSinglePair is IFLT, ERC20, Owned {
             maxIncentive,
             maxDrift
         );
+        if (incentive > maxIncentive) {
+            incentive = maxIncentive;
+        }
         _incentiveAmount = incentive.mulWadDown(amountOut);
         _amountOut = amountOut + _incentiveAmount;
 
