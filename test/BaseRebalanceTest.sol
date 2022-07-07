@@ -177,6 +177,20 @@ abstract contract BaseRebalanceTest is BaseTest {
         uint256 p = flt.price();
         uint256 ts = ERC20(address(flt)).totalSupply();
 
+        // Reset fee recipient balance to zero
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+
         // Send some collateral to contract
         (uint256 amountIn, uint256 amountOut) = getLeveragingDownInOut(flt);
         setBalance(

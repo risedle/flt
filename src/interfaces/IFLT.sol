@@ -59,14 +59,14 @@ interface IFLT {
      * @param minLeverageRatio The minimum leverage ratio
      * @param step The rebalancing step
      * @param discount The incentives for the market makers
-     * @param maxMint The maximum amount to mint in one transaction
+     * @param maxSupply The maximum total supply of FLT
      */
     event ParamsUpdated(
         uint256 maxLeverageRatio,
         uint256 minLeverageRatio,
         uint256 step,
         uint256 discount,
-        uint256 maxMint
+        uint256 maxSupply
     );
 
     /**
@@ -133,14 +133,14 @@ interface IFLT {
      * @param _maxLeverageRatio Maximum leverage ratio
      * @param _step Rebalancing step
      * @param _discount Discount for market makers to incentivize the rebalance
-     * @param _maxMint Maximum mint amount
+     * @param _maxSupply Maximum total supply of FLT
      */
     function setParams(
         uint256 _minLeverageRatio,
         uint256 _maxLeverageRatio,
         uint256 _step,
         uint256 _discount,
-        uint256 _maxMint
+        uint256 _maxSupply
     ) external;
 
     /**
@@ -185,7 +185,7 @@ interface IFLT {
     function totalDebt() external view returns (uint256);
     function minLeverageRatio() external view returns (uint256);
     function maxLeverageRatio() external view returns (uint256);
-    function maxMint() external view returns (uint256);
+    function maxSupply() external view returns (uint256);
     function fees() external view returns (uint256);
     function oracleAdapter() external view returns (RariFusePriceOracleAdapter);
     function isInitialized() external view returns (bool);

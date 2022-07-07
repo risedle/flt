@@ -125,13 +125,9 @@ abstract contract BaseSinglePair is BaseTest {
 
         if (_tokenIn == address(_flt.debt())) {
             return getAmountInViaDebt(_flt, _shares);
-        }
-
-        if (_tokenIn == address(_flt.collateral())) {
+        } else if (_tokenIn == address(_flt.collateral())) {
             return getAmountInViaCollateral(_flt, _shares);
-        }
-
-        revert("invalid tokenIn");
+        } else revert("invalid tokenIn");
     }
 
     /// @notice Given amount of FLT, get the debt output
@@ -220,7 +216,7 @@ abstract contract BaseSinglePair is BaseTest {
     }
 
     /// @notice Make sure revert if min max leverage ratio
-    function testSetParamsRevertIfMinMaxLeverageRatioInvaid() public {
+    function testSetParamsRevertIfMinMaxLeverageRatioInvalid() public {
         Data memory data = getData();
         IFLT flt = deploy(data);
 
@@ -307,7 +303,7 @@ abstract contract BaseSinglePair is BaseTest {
         assertEq(flt.maxLeverageRatio(), 2.9 ether, "invalid max lr");
         assertEq(flt.step(), 0.4 ether, "invalid step");
         assertEq(flt.discount(), 0.003 ether, "invalid discount");
-        assertEq(flt.maxMint(), 3 ether, "invalid maxMint");
+        assertEq(flt.maxSupply(), 3 ether, "invalid maxSupply");
     }
 
 
