@@ -424,6 +424,8 @@ interface IFLT {
       * @notice Push the leverage ratio down by sending debt token to contract.
       * @dev Anyone can execute this if leverage ratio is below minimum.
       */
-    function pushd() external;
+    function pushd()
+        external
+        returns (uint256 _amountOut, uint256 _incentiveAmount);
 
 }

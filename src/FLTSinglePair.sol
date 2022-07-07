@@ -102,7 +102,7 @@ contract FLTSinglePair is IFLT, ERC20, Owned {
 
         maxSupply = 1_000_000 ether; // 1M by default
         fees = 0.001 ether; // 0.1%
-        minLeverageRatio = 1.6 ether;
+        minLeverageRatio = 1.75 ether;
         maxLeverageRatio = 2.5 ether;
         maxDrift = 0.4 ether;
         maxIncentive = 0.2 ether; // 20%
@@ -698,33 +698,44 @@ contract FLTSinglePair is IFLT, ERC20, Owned {
     }
 
     /// @inheritdoc IFLT
-    function pushd() external whenInitialized {
+    function pushd()
+        external
+        whenInitialized
+        returns (uint256 _amountOut, uint256 _incentiveAmount)
+    {
         /// ███ Checks
         uint256 lr = leverageRatio();
-        if (lr < maxLeverageRatio) revert Balance();
         uint256 amountIn = debt.balanceOf(address(this));
+
+        if (lr < maxLeverageRatio) revert Balance();
         if (amountIn == 0) revert AmountInTooLow();
 
-        uint256 step = (lr - targetLeverageRatio).mulWadDown(0.5 ether);
-        uint256 amountOutInETH = step.mulWadDown(value(totalSupply));
         uint256 amountOut = oracleAdapter.totalValue(
+            address(debt),
+            address(collateral),
+            amountIn
+        );
+        uint256 incentive = (lr - maxLeverageRatio).mulDivDown(
+            maxIncentive,
+            maxDrift
+        );
+        if (incentive > maxIncentive) {
+            incentive = maxIncentive;
+        }
+        _incentiveAmount = incentive.mulWadDown(amountOut);
+        _amountOut = amountOut + _incentiveAmount;
+
+        // Leverage up to 50% from current leverage to target leverage ratio
+        // e.g. lr = 2.6 target is 2.0 then the step is (2.6-2.0)/2 = 0.3
+        uint256 step = (lr - targetLeverageRatio).mulWadDown(0.5 ether);
+        uint256 maxAmountOutInETH = step.mulWadDown(value(totalSupply));
+        uint256 maxAmountOut = oracleAdapter.totalValue(
             address(0),
             address(collateral),
-            amountOutInETH
+            maxAmountOutInETH
         );
-        uint256 expectedAmountIn = oracleAdapter.totalValue(
-            address(0),
-            address(debt),
-            amountOutInETH
-        );
-        // temp
-        uint256 discount = 0.01 ether;
-        uint256 amountInDiscount = discount.mulWadDown(expectedAmountIn);
-        uint256 minAmountIn = expectedAmountIn - amountInDiscount;
-
-        // Make sure debt token is sent to this contract
-        if (amountIn < minAmountIn) revert AmountInTooLow();
-        uint256 refundAmountIn = amountIn - minAmountIn;
+        if (_amountOut > maxAmountOut) revert AmountOutTooHigh();
+        if (_amountOut == 0) revert AmountOutTooLow();
 
         // Prev states
         uint256 prevLeverageRatio = lr;
@@ -734,11 +745,8 @@ contract FLTSinglePair is IFLT, ERC20, Owned {
 
         /// ███ Effects
         // Repay then redeem
-        repayThenRedeem(minAmountIn, amountOut);
-        collateral.safeTransfer(msg.sender, amountOut);
-        if (refundAmountIn > 0) {
-            debt.safeTransfer(msg.sender, refundAmountIn);
-        }
+        repayThenRedeem(amountIn, _amountOut);
+        collateral.safeTransfer(msg.sender, _amountOut);
 
         // Emit event
         emit Rebalanced(
