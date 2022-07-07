@@ -73,7 +73,7 @@ abstract contract BaseRebalanceTest is BaseTest {
     }
 
     /// @notice Make sure leveraging up revert if amount in less than min
-    function testPushCollateralRevertIfAmountInLessThanMinAmountIn() public {
+    function testPushCollateralRevertIfAmountInGreaterThanMaxSwapAmount() public {
         // Deploy and initialize 1.5 leverage ratio
         Data memory data = getData();
         IFLT flt = deployAndInitialize(data, 1.5 ether);
@@ -83,21 +83,21 @@ abstract contract BaseRebalanceTest is BaseTest {
             address(flt.collateral()),
             data.collateralSlot,
             address(this),
-            0.01 ether
+            1_000 ether
         );
-        ERC20(address(flt.collateral())).transfer(address(flt), 0.01 ether);
+        ERC20(address(flt.collateral())).transfer(address(flt), 1_000 ether);
 
         // Push collateral to leverage up; this should be revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                IFLT.AmountInTooLow.selector
+                IFLT.AmountOutTooHigh.selector
             )
         );
         flt.pushc();
     }
 
     /// @notice Make sure leveraging down revert if amount in less than min
-    function testPushDebtRevertIfAmountInLessThanMinAmountIn() public {
+    function testPushDebtRevertIfAmountInGreaterThanMaxSwapAmount() public {
         // Deploy and initialize 2.6 leverage ratio
         Data memory data = getData();
         IFLT flt = deployAndInitialize(data, 2.6 ether);
@@ -132,38 +132,59 @@ abstract contract BaseRebalanceTest is BaseTest {
         uint256 ts = ERC20(address(flt)).totalSupply();
 
         // Send some collateral to contract
-        (uint256 amountIn, uint256 amountOut) = getLeveragingUpInOut(flt);
+        address rebalancer = vm.addr(2);
+        startHoax(rebalancer);
+        uint256 amountIn = 0.005 ether;
         setBalance(
             address(flt.collateral()),
             data.collateralSlot,
-            address(this),
+            rebalancer,
+            amountIn
+        );
+        uint256 amountOut = flt.oracleAdapter().totalValue(
+            address(flt.collateral()),
+            address(flt.debt()),
             amountIn
         );
 
         // Push collateral to leverage up;
         ERC20(address(flt.collateral())).transfer(address(flt), amountIn);
-        flt.pushc();
+        (uint256 received, uint256 incentive) = flt.pushc();
+
+        // Make sure received is correct
+        assertEq(received, amountOut + incentive, "invalid received");
+
+        // Make sure incentive is correct
+        assertGt(incentive, 0, "incentive too low");
+        // 1.6 min; 0.4 max drift; 0.2 max incentive;
+        // when lr = 1.5, the incentives should be 0.05 or 5%
+        uint256 maxIncentive = uint256(0.05 ether).mulWadDown(amountOut); // 5%
+        assertLt(incentive, maxIncentive + 2, "incentive too high");
+        assertGt(incentive, maxIncentive - 2, "incentive too low");
 
         // Make sure leverage ratio is up
-        uint256 clr = flt.leverageRatio();
-        assertGt(clr, lr + flt.step() - 0.05 ether, "too low");
-        assertLt(clr, lr + flt.step() + 0.05 ether, "too high");
+        assertGt(flt.leverageRatio(), lr, "too low");
 
         // Make sure total collateral and debt is increased
         uint256 ctc = flt.totalCollateral();
         uint256 ctd = flt.totalDebt();
         assertEq(ctc, tc + amountIn, "invalid tc");
-        assertEq(ctd, td + amountOut, "invalid td");
+        assertEq(ctd, td + received, "invalid td");
 
         // Make sure price doesn't change
-        uint256 cp = flt.price();
         uint256 tolerance = uint256(0.01 ether).mulWadDown(p);
-        assertGt(cp, p - tolerance, "p too low");
-        assertLt(cp, p + tolerance, "p too high");
+        assertGt(flt.price(), p - tolerance, "p too low");
+        assertLt(flt.price(), p + tolerance, "p too high");
 
         // Make sure total supply doesn't change
-        uint256 cts = ERC20(address(flt)).totalSupply();
-        assertEq(cts, ts);
+        assertEq(ERC20(address(flt)).totalSupply(), ts);
+
+        // Rebalancer receive the token
+        assertEq(
+            ERC20(address(flt.debt())).balanceOf(rebalancer),
+            received,
+            "invalid rebalancer"
+        );
     }
 
     /// @notice Make sure leveraging down run as expected
@@ -191,87 +212,39 @@ abstract contract BaseRebalanceTest is BaseTest {
             0
         );
 
-        // Send some collateral to contract
-        (uint256 amountIn, uint256 amountOut) = getLeveragingDownInOut(flt);
-        setBalance(
-            address(flt.debt()),
-            data.debtSlot,
-            address(this),
-            amountIn
-        );
-
-        // Push collateral to leverage up;
-        ERC20(address(flt.debt())).transfer(address(flt), amountIn);
-        flt.pushd();
-
-        // Make sure leverage ratio is up
-        uint256 clr = flt.leverageRatio();
-        assertGt(clr, lr - flt.step() - 0.05 ether, "too low");
-        assertLt(clr, lr - flt.step() + 0.05 ether, "too high");
-
-        // Make sure total collateral and debt is increased
-        uint256 ctc = flt.totalCollateral();
-        uint256 ctd = flt.totalDebt();
-        assertGt(ctc, tc - (amountOut+2), "invalid tc");
-        assertLt(ctc, tc - (amountOut-2), "invalid tc");
-        assertEq(ctd, td - amountIn, "invalid td");
-
-        // Make sure price doesn't change
-        uint256 cp = flt.price();
-        uint256 tolerance = uint256(0.01 ether).mulWadDown(p);
-        assertGt(cp, p - tolerance, "p too low");
-        assertLt(cp, p + tolerance, "p too high");
-
-        // Make sure total supply doesn't change
-        uint256 cts = ERC20(address(flt)).totalSupply();
-        assertEq(cts, ts);
-    }
-
-    /// @notice Make sure leveraging up run as expected
-    function testPushCollateralRefund() public {
-        // Deploy and initialize 1.5 leverage ratio
-        Data memory data = getData();
-        IFLT flt = deployAndInitialize(data, 1.5 ether);
-
-        // Send some collateral to contract
-        (uint256 amountIn, ) = getLeveragingUpInOut(flt);
-        setBalance(
-            address(flt.collateral()),
-            data.collateralSlot,
-            address(this),
-            2*amountIn
-        );
-
-        // Push collateral to leverage up;
-        ERC20(address(flt.collateral())).transfer(address(flt), 2*amountIn);
-        flt.pushc();
-
-        // Check balance
-        uint256 balance = ERC20(address(flt.collateral())).balanceOf(address(this));
-        assertEq(balance, amountIn);
-    }
-
-    /// @notice Make sure leveraging down run as expected
-    function testPushDebtRefund() public {
-        // Deploy and initialize 1.5 leverage ratio
-        Data memory data = getData();
-        IFLT flt = deployAndInitialize(data, 2.6 ether);
-
-        // Send some collateral to contract
-        (uint256 amountIn, ) = getLeveragingDownInOut(flt);
-        setBalance(
-            address(flt.debt()),
-            data.debtSlot,
-            address(this),
-            2*amountIn
-        );
-
-        // Push collateral to leverage up;
-        ERC20(address(flt.debt())).transfer(address(flt), 2*amountIn);
-        flt.pushd();
-
-        // Check balance
-        uint256 balance = ERC20(address(flt.debt())).balanceOf(address(this));
-        assertEq(balance, amountIn);
+//        // Send some collateral to contract
+//        (uint256 amountIn, uint256 amountOut) = getLeveragingDownInOut(flt);
+//        setBalance(
+//            address(flt.debt()),
+//            data.debtSlot,
+//            address(this),
+//            amountIn
+//        );
+//
+//        // Push collateral to leverage up;
+//        ERC20(address(flt.debt())).transfer(address(flt), amountIn);
+//        flt.pushd();
+//
+//        // Make sure leverage ratio is up
+//        uint256 clr = flt.leverageRatio();
+//        assertGt(clr, lr - flt.step() - 0.05 ether, "too low");
+//        assertLt(clr, lr - flt.step() + 0.05 ether, "too high");
+//
+//        // Make sure total collateral and debt is increased
+//        uint256 ctc = flt.totalCollateral();
+//        uint256 ctd = flt.totalDebt();
+//        assertGt(ctc, tc - (amountOut+2), "invalid tc");
+//        assertLt(ctc, tc - (amountOut-2), "invalid tc");
+//        assertEq(ctd, td - amountIn, "invalid td");
+//
+//        // Make sure price doesn't change
+//        uint256 cp = flt.price();
+//        uint256 tolerance = uint256(0.01 ether).mulWadDown(p);
+//        assertGt(cp, p - tolerance, "p too low");
+//        assertLt(cp, p + tolerance, "p too high");
+//
+//        // Make sure total supply doesn't change
+//        uint256 cts = ERC20(address(flt)).totalSupply();
+//        assertEq(cts, ts);
     }
 }

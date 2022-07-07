@@ -189,32 +189,6 @@ abstract contract BaseSinglePair is BaseTest {
         flt.setParams(0, 0, 0, 0, 0);
     }
 
-    /// @notice Make sure revert if min leverage ratio is below 1.2x
-    function testSetParamsRevertIfMinLeverageRatioTooLow() public {
-        Data memory data = getData();
-        IFLT flt = deploy(data);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IFLT.InvalidLeverageRatio.selector
-            )
-        );
-        flt.setParams(1.1 ether, 0, 0, 0, 0);
-    }
-
-    /// @notice Make sure revert if max leverage ratio is above 3x
-    function testSetParamsRevertIfMaxLeverageRatioTooHigh() public {
-        Data memory data = getData();
-        IFLT flt = deploy(data);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IFLT.InvalidLeverageRatio.selector
-            )
-        );
-        flt.setParams(1.5 ether, 4 ether, 0, 0, 0);
-    }
-
     /// @notice Make sure revert if min max leverage ratio
     function testSetParamsRevertIfMinMaxLeverageRatioInvalid() public {
         Data memory data = getData();
@@ -228,69 +202,56 @@ abstract contract BaseSinglePair is BaseTest {
         flt.setParams(4 ether, 2 ether, 0, 0, 0);
     }
 
-    /// @notice Make sure revert if step is too low
-    function testSetParamsRevertIfDeltaTooLow() public {
+    /// @notice Make sure revert if max drift is too low
+    function testSetParamsRevertIfMaxDriftTooLow() public {
         Data memory data = getData();
         IFLT flt = deploy(data);
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IFLT.InvalidLeverageRatio.selector
+                IFLT.InvalidMaxDrift.selector
             )
         );
-        flt.setParams(1.6 ether, 1.9 ether, 0.4 ether, 0, 0);
+        flt.setParams(1.6 ether, 1.9 ether, 0.2 ether, 0, 0);
     }
 
-    /// @notice Make sure revert if step is too low
-    function testSetParamsRevertIfStepTooLow() public {
+    /// @notice Make sure revert if max drift is too high
+    function testSetParamsRevertIfMaxDriftTooHigh() public {
         Data memory data = getData();
         IFLT flt = deploy(data);
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IFLT.InvalidRebalancingStep.selector
+                IFLT.InvalidMaxDrift.selector
             )
         );
-        flt.setParams(1.6 ether, 2.5 ether, 0.01 ether, 0, 0);
+        flt.setParams(1.6 ether, 1.9 ether, 1 ether, 0, 0);
     }
 
-    /// @notice Make sure revert if step is too high
-    function testSetParamsRevertIfStepTooHigh() public {
+    /// @notice Make sure revert if incentive is too low
+    function testSetParamsRevertIfMaxIncentiveTooLow() public {
         Data memory data = getData();
         IFLT flt = deploy(data);
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IFLT.InvalidRebalancingStep.selector
-            )
-        );
-        flt.setParams(1.6 ether, 2.5 ether, 0.6 ether, 0, 0);
-    }
-
-    /// @notice Make sure revert if discount is too low
-    function testSetParamsRevertIfDiscountTooLow() public {
-        Data memory data = getData();
-        IFLT flt = deploy(data);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IFLT.InvalidDiscount.selector
+                IFLT.InvalidMaxIncentive.selector
             )
         );
         flt.setParams(1.6 ether, 2.5 ether, 0.4 ether, 0.000001 ether, 0);
     }
 
-    /// @notice Make sure revert if discount is too high
-    function testSetParamsRevertIfDiscountTooHigh() public {
+    /// @notice Make sure revert if incentive is too high
+    function testSetParamsRevertIfMaxIncentiveTooHigh() public {
         Data memory data = getData();
         IFLT flt = deploy(data);
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IFLT.InvalidDiscount.selector
+                IFLT.InvalidMaxIncentive.selector
             )
         );
-        flt.setParams(1.6 ether, 2.5 ether, 0.4 ether, 0.1 ether, 0);
+        flt.setParams(1.6 ether, 2.5 ether, 0.4 ether, 0.3 ether, 0);
     }
 
     /// @notice Make sure owner can set params
@@ -298,58 +259,12 @@ abstract contract BaseSinglePair is BaseTest {
         Data memory data = getData();
         IFLT flt = deploy(data);
 
-        flt.setParams(1.3 ether, 2.9 ether, 0.4 ether, 0.003 ether, 3 ether);
+        flt.setParams(1.3 ether, 2.9 ether, 0.4 ether, 0.2 ether, 3 ether);
         assertEq(flt.minLeverageRatio(), 1.3 ether, "invalid min lr");
         assertEq(flt.maxLeverageRatio(), 2.9 ether, "invalid max lr");
-        assertEq(flt.step(), 0.4 ether, "invalid step");
-        assertEq(flt.discount(), 0.003 ether, "invalid discount");
+        assertEq(flt.maxDrift(), 0.4 ether, "invalid max drift");
+        assertEq(flt.maxIncentive(), 0.2 ether, "invalid max incentive");
         assertEq(flt.maxSupply(), 3 ether, "invalid maxSupply");
-    }
-
-
-    /// @notice Make sure getLeveragingUpInOut return correctly
-    function testGetLeveragingUpInOut() public {
-        // Deploy and initialize 1.5x token
-        Data memory data = getData();
-        IFLT token = deployAndInitialize(data, 1.5 ether);
-
-        // Get in and out
-        (uint256 amountIn, uint256 amountOut) = getLeveragingUpInOut(token);
-
-        // Make sure value amountOut is equal to amountIn value + discount
-        uint256 valueAmountIn = token.oracleAdapter().totalValue(
-            address(token.collateral()),
-            address(token.debt()),
-            amountIn
-        );
-        uint256 discount = token.discount().mulWadDown(valueAmountIn);
-        uint256 expectedAmountOut = valueAmountIn + discount;
-        uint256 tolerance = uint256(0.005 ether).mulWadDown(expectedAmountOut);
-        assertGt(amountOut, expectedAmountOut - tolerance);
-        assertLt(amountOut, expectedAmountOut + tolerance);
-    }
-
-
-    /// @notice Make sure getLeveragingDownInOut return correctly
-    function testGetLeveragingDownInOut() public {
-        // Deploy and initialize 2.6x token
-        Data memory data = getData();
-        IFLT token = deployAndInitialize(data, 2.6 ether);
-
-        // Get in and out
-        (uint256 amountIn, uint256 amountOut) = getLeveragingDownInOut(token);
-
-        // Make sure value amountOut is equal to amountIn value + discount
-        uint256 valueAmountIn = token.oracleAdapter().totalValue(
-            address(token.debt()),
-            address(token.collateral()),
-            amountIn
-        );
-        uint256 discount = token.discount().mulWadDown(valueAmountIn);
-        uint256 expectedAmountOut = valueAmountIn + discount;
-        uint256 tolerance = uint256(0.005 ether).mulWadDown(expectedAmountOut);
-        assertGt(amountOut, expectedAmountOut - tolerance);
-        assertLt(amountOut, expectedAmountOut + tolerance);
     }
 
     /// @notice Make sure anyone can run increase allowance

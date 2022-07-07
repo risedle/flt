@@ -75,8 +75,8 @@ abstract contract BaseMintTest is BaseTest {
         flt.setParams(
             flt.minLeverageRatio(),
             flt.maxLeverageRatio(),
-            flt.step(),
-            flt.discount(),
+            flt.maxDrift(),
+            flt.maxIncentive(),
             ERC20(address(flt)).totalSupply() + 1 ether
         );
 
@@ -99,8 +99,8 @@ abstract contract BaseMintTest is BaseTest {
         flt.setParams(
             flt.minLeverageRatio(),
             flt.maxLeverageRatio(),
-            flt.step(),
-            flt.discount(),
+            flt.maxDrift(),
+            flt.maxIncentive(),
             ERC20(address(flt)).totalSupply() + 1 ether
         );
 
