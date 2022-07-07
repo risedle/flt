@@ -18,8 +18,7 @@ import { RariFusePriceOracleAdapter } from "./adapters/RariFusePriceOracleAdapte
 /**
  * @title Fuse Leveraged Token via Single Pair
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
- * @dev This is optimized version of RiseToken for single pair token such as
- *      WETH/USDC pair
+ * @dev This is optimized version of RiseToken for single pair liquidity
  */
 contract FLTSinglePair is IFLT, ERC20, Owned {
 
@@ -43,7 +42,7 @@ contract FLTSinglePair is IFLT, ERC20, Owned {
 
     uint256 public totalCollateral;
     uint256 public totalDebt;
-    uint256 public maxMint;
+    uint256 public maxSupply;
     uint256 public fees;
     uint256 public minLeverageRatio;
     uint256 public maxLeverageRatio;
@@ -101,7 +100,7 @@ contract FLTSinglePair is IFLT, ERC20, Owned {
         pair = IUniswapV2Pair(p);
         router = IUniswapV2Router02(r);
 
-        maxMint = type(uint256).max;
+        maxSupply = 1_000_000 ether; // 1M by default
         fees = 0.001 ether; // 0.1%
         minLeverageRatio = 1.6 ether;
         maxLeverageRatio = 2.5 ether;
@@ -228,7 +227,7 @@ contract FLTSinglePair is IFLT, ERC20, Owned {
         uint256 _maxLeverageRatio,
         uint256 _step,
         uint256 _discount,
-        uint256 _newMaxMint
+        uint256 _newMaxSupply
     ) external onlyOwner {
         // Checks
         if (
@@ -254,14 +253,14 @@ contract FLTSinglePair is IFLT, ERC20, Owned {
         maxLeverageRatio = _maxLeverageRatio;
         step = _step;
         discount = _discount;
-        maxMint = _newMaxMint;
+        maxSupply = _newMaxSupply;
 
         emit ParamsUpdated(
             minLeverageRatio,
             maxLeverageRatio,
             step,
             discount,
-            maxMint
+            maxSupply
         );
     }
 
@@ -435,7 +434,7 @@ contract FLTSinglePair is IFLT, ERC20, Owned {
     ) external whenInitialized {
         /// ███ Checks
         if (_shares == 0) revert AmountOutTooLow();
-        if (_shares > maxMint) revert AmountOutTooHigh();
+        if (_shares + totalSupply > maxSupply) revert AmountOutTooHigh();
 
         FlashSwapParams memory params;
 
@@ -489,7 +488,7 @@ contract FLTSinglePair is IFLT, ERC20, Owned {
     ) external whenInitialized {
         /// ███ Checks
         if (_shares == 0) revert AmountOutTooLow();
-        if (_shares > maxMint) revert AmountOutTooHigh();
+        if (_shares + totalSupply > maxSupply) revert AmountOutTooHigh();
 
         FlashSwapParams memory params;
 

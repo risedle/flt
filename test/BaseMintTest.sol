@@ -65,19 +65,19 @@ abstract contract BaseMintTest is BaseTest {
         flt.mintc(1 ether, address(this), address(this));
     }
 
-    /// @notice Make sure it revert when mint amount is more than max mint
-    function testMintRevertIfMoreThanMaxMintViaDebt() public {
+    /// @notice Make sure it revert if max supply is reached
+    function testMintRevertIfMoreThanMaxSupplyViaDebt() public {
         // Get data
         Data memory data = getData();
         IFLT flt = deployAndInitialize(data, 2 ether);
 
-        // Set max mint to 1 ether
+        // Set max supply to +1 ether
         flt.setParams(
             flt.minLeverageRatio(),
             flt.maxLeverageRatio(),
             flt.step(),
             flt.discount(),
-            0.5 ether
+            ERC20(address(flt)).totalSupply() + 1 ether
         );
 
         // MintFromDebt; this should revert
@@ -89,8 +89,8 @@ abstract contract BaseMintTest is BaseTest {
         flt.mintd(2 ether, address(this), address(this));
     }
 
-    /// @notice Make sure it revert when mint amount is more than max mint
-    function testMintRevertIfMoreThanMaxMintViaCollateral() public {
+    /// @notice Make sure it revert if max supply is reached
+    function testMintRevertIfMoreThanMaxSupplyViaCollateral() public {
         // Get data
         Data memory data = getData();
         IFLT flt = deployAndInitialize(data, 2 ether);
@@ -101,7 +101,7 @@ abstract contract BaseMintTest is BaseTest {
             flt.maxLeverageRatio(),
             flt.step(),
             flt.discount(),
-            0.5 ether
+            ERC20(address(flt)).totalSupply() + 1 ether
         );
 
         // MintFromDebt; this should revert
@@ -188,6 +188,12 @@ abstract contract BaseMintTest is BaseTest {
             flt.factory().feeRecipient(),
             0
         );
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
 
         // Make sure these values does not change after mint
         uint256 cps = flt.collateralPerShare();
@@ -256,6 +262,12 @@ abstract contract BaseMintTest is BaseTest {
         setBalance(
             address(flt.collateral()),
             data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
             flt.factory().feeRecipient(),
             0
         );
@@ -335,6 +347,12 @@ abstract contract BaseMintTest is BaseTest {
             flt.factory().feeRecipient(),
             0
         );
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
 
         // Make sure these values does not change after mint
         uint256 cps = flt.collateralPerShare();
@@ -400,6 +418,12 @@ abstract contract BaseMintTest is BaseTest {
         IFLT flt = deployAndInitialize(data, 1.6 ether);
 
         // Reset fee recipient balance to zero
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
         setBalance(
             address(flt.collateral()),
             data.collateralSlot,
@@ -482,6 +506,12 @@ abstract contract BaseMintTest is BaseTest {
             flt.factory().feeRecipient(),
             0
         );
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
 
         // Make sure these values does not change after mint
         uint256 cps = flt.collateralPerShare();
@@ -550,6 +580,12 @@ abstract contract BaseMintTest is BaseTest {
         setBalance(
             address(flt.collateral()),
             data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
             flt.factory().feeRecipient(),
             0
         );
@@ -626,6 +662,12 @@ abstract contract BaseMintTest is BaseTest {
         setBalance(
             address(flt.debt()),
             data.debtSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
             flt.factory().feeRecipient(),
             0
         );
@@ -708,6 +750,12 @@ abstract contract BaseMintTest is BaseTest {
         setBalance(
             address(flt.collateral()),
             data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
             flt.factory().feeRecipient(),
             0
         );

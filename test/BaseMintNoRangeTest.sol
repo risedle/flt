@@ -179,6 +179,12 @@ abstract contract BaseMintNoRangeTest is BaseTest {
             flt.factory().feeRecipient(),
             0
         );
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
 
         // Make sure these values does not change after mint
         uint256 cps = flt.collateralPerShare();
@@ -247,6 +253,12 @@ abstract contract BaseMintNoRangeTest is BaseTest {
         setBalance(
             address(flt.collateral()),
             data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
             flt.factory().feeRecipient(),
             0
         );
@@ -326,6 +338,12 @@ abstract contract BaseMintNoRangeTest is BaseTest {
             flt.factory().feeRecipient(),
             0
         );
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
 
         // Make sure these values does not change after mint
         uint256 cps = flt.collateralPerShare();
@@ -391,6 +409,12 @@ abstract contract BaseMintNoRangeTest is BaseTest {
         IFLT flt = deployAndInitialize(data, 1.6 ether);
 
         // Reset fee recipient balance to zero
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
         setBalance(
             address(flt.collateral()),
             data.collateralSlot,
@@ -473,6 +497,12 @@ abstract contract BaseMintNoRangeTest is BaseTest {
             flt.factory().feeRecipient(),
             0
         );
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
 
         // Make sure these values does not change after mint
         uint256 cps = flt.collateralPerShare();
@@ -541,6 +571,12 @@ abstract contract BaseMintNoRangeTest is BaseTest {
         setBalance(
             address(flt.collateral()),
             data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
             flt.factory().feeRecipient(),
             0
         );
@@ -617,6 +653,12 @@ abstract contract BaseMintNoRangeTest is BaseTest {
         setBalance(
             address(flt.debt()),
             data.debtSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
             flt.factory().feeRecipient(),
             0
         );
@@ -699,6 +741,12 @@ abstract contract BaseMintNoRangeTest is BaseTest {
         setBalance(
             address(flt.collateral()),
             data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
             flt.factory().feeRecipient(),
             0
         );

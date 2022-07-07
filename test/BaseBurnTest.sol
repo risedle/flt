@@ -154,6 +154,12 @@ abstract contract BaseBurnTest is BaseTest {
             flt.factory().feeRecipient(),
             0
         );
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
 
         // Mint
         address minter = vm.addr(1);
@@ -231,6 +237,12 @@ abstract contract BaseBurnTest is BaseTest {
         setBalance(
             address(flt.collateral()),
             data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
             flt.factory().feeRecipient(),
             0
         );
@@ -380,11 +392,15 @@ abstract contract BaseBurnTest is BaseTest {
         assertEq(ERC20(address(flt)).balanceOf(minter), 0, "invalid minter b");
 
         // Make sure these values doesn't changes
-        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertGt(flt.collateralPerShare(), cps - 2, "cps too low");
+        assertLt(flt.collateralPerShare(), cps + 2, "cps too high");
+
         assertGt(flt.debtPerShare(), dps-2, "dps too low");
         assertLt(flt.debtPerShare(), dps+2, "dps too low");
+
         assertGt(flt.price(), price-2, "price too low");
         assertLt(flt.price(), price+2, "price too high");
+
         uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");
@@ -448,11 +464,15 @@ abstract contract BaseBurnTest is BaseTest {
         assertEq(ERC20(address(flt)).balanceOf(minter), 0, "invalid minter b");
 
         // Make sure these values doesn't changes
-        assertEq(flt.collateralPerShare(), cps, "invalid cps");
+        assertGt(flt.collateralPerShare(), cps-2, "cps too low");
+        assertLt(flt.collateralPerShare(), cps+2, "cps too high");
+
         assertGt(flt.debtPerShare(), dps-2, "dps too low");
         assertLt(flt.debtPerShare(), dps+2, "dps too low");
+
         assertGt(flt.price(), price-2, "price too low");
         assertLt(flt.price(), price+2, "price too high");
+
         uint256 currentLR = flt.leverageRatio();
         assertGt(currentLR, lr - 0.0001 ether, "lr too low");
         assertLt(currentLR, lr + 0.0001 ether, "lr too high");

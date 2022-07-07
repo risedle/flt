@@ -168,6 +168,20 @@ abstract contract BaseRebalanceNoRangeTest is BaseTest {
         IFLT _flt = deployAndInitialize(data, 1.5 ether);
         FLTSinglePairNoRange flt = FLTSinglePairNoRange(address(_flt));
 
+        // Reset fee recipient balance to zero
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+
         uint256 tc = flt.totalCollateral();
         uint256 td = flt.totalDebt();
         uint256 p = flt.price();
@@ -296,6 +310,20 @@ abstract contract BaseRebalanceNoRangeTest is BaseTest {
         Data memory data = getData();
         IFLT _flt = deployAndInitialize(data, 2.6 ether);
         FLTSinglePairNoRange flt = FLTSinglePairNoRange(address(_flt));
+
+        // Reset fee recipient balance to zero
+        setBalance(
+            address(flt.collateral()),
+            data.collateralSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
+        setBalance(
+            address(flt.debt()),
+            data.debtSlot,
+            flt.factory().feeRecipient(),
+            0
+        );
 
         uint256 tc = flt.totalCollateral();
         uint256 td = flt.totalDebt();
