@@ -12,6 +12,7 @@ import { BaseMintTest } from "./BaseMintTest.sol";
 import { BaseBurnTest } from "./BaseBurnTest.sol";
 import { BaseRebalanceTest } from "./BaseRebalanceTest.sol";
 import { BaseRouterTest } from "./BaseRouterTest.sol";
+import { BaseRebalancerTest } from "./BaseRebalancerTest.sol";
 
 /**
  * @title BNBRISE test
@@ -24,7 +25,9 @@ contract BNBRISE is
     BaseMintTest,
     BaseBurnTest,
     BaseRebalanceTest,
-    BaseRouterTest {
+    BaseRouterTest,
+    BaseRebalancerTest
+{
 
     /// ███ Storages █████████████████████████████████████████████████████████
 
