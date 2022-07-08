@@ -9,9 +9,11 @@ import { FixedPointMathLib } from "solmate/utils/FixedPointMathLib.sol";
  * @title FLTRebalancer
  * @author bayu <bayu@risedle.com> <https://github.com/pyk>
  * @notice This is just example contract on how people can make money in FLT
- *         market by contributing as arbitraguers. Arbitraguers keep leverage
- *         ratio closely to target leverage ratio while the traders enjoy
- *         trading leveraged tokens without risk of liquidation.
+ *         market by contributing as rebalancer.
+ *
+ *         Rebalancer is incentivized to keep leverage ratio closely to
+ *         target leverage ratio while the traders enjoy trading leveraged
+ *         tokens without risk of liquidation.
  */
 contract FLTRebalancer {
     using FixedPointMathLib for uint256;
